@@ -11,6 +11,9 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) return NextResponse.redirect(new URL(next, origin));
+    console.error("Sign-in link failed", { status: error.status, code: error.code, message: error.message });
+  } else {
+    console.error("Sign-in link failed", { reason: searchParams.get("error_description") ?? "no code in link" });
   }
   return NextResponse.redirect(new URL(`/sign-in?error=link&next=${encodeURIComponent(next)}`, origin));
 }
