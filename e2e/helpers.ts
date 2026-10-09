@@ -62,8 +62,8 @@ async function latestMessage(email: string): Promise<string | null> {
 export async function signIn(page: Page, email: string, next = "/account") {
   await page.goto(`/sign-in?next=${encodeURIComponent(next)}`);
   await page.getByLabel("Email address").fill(email);
-  await page.getByRole("button", { name: "Email me a sign-in code" }).click();
-  await expect(page.getByText(`We sent a sign-in code to ${email}`)).toBeVisible();
+  await page.getByRole("button", { name: "Email me a sign-in link" }).click();
+  await expect(page.getByText(`We sent a sign-in email to ${email}`)).toBeVisible();
   await page.getByLabel("Code from your email").fill(await latestCode(email));
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL((url) => url.pathname === next);

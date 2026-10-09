@@ -38,7 +38,7 @@ async function SignInBody({ searchParams }: { searchParams: PageProps<"/sign-in"
   const googleEnabled = publicEnv().NEXT_PUBLIC_AUTH_GOOGLE_ENABLED;
   return (
     <>
-      {params.error ? <FormAlert>That sign-in link didn&apos;t work. It may have expired, so request a new code.</FormAlert> : null}
+      {params.error ? <FormAlert>That sign-in link didn&apos;t work. It may have expired, so request a new one.</FormAlert> : null}
       {googleEnabled ? (
         <>
           <form action={signInWithGoogle}>

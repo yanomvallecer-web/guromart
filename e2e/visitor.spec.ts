@@ -4,7 +4,7 @@ test("homepage shows real categories and honest empty states", async ({ page }) 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Everything you need to teach, all in one place." })).toBeVisible();
   await expect(page.getByRole("link", { name: "Kindergarten" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Araling Panlipunan" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Araling Panlipunan" }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Daily Lesson Logs" }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Start selling" })).toBeVisible();
 });

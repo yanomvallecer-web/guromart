@@ -14,7 +14,7 @@ export function SignInForm({ next }: { next: string }) {
     return (
       <form action={verifyAction} className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
-          We sent a sign-in code to <span className="font-semibold text-foreground">{emailState.email}</span>. It may take a minute to arrive.
+          We sent a sign-in email to <span className="font-semibold text-foreground">{emailState.email}</span>. Open its sign-in link on this device, or type the code if the email shows one. It may take a minute to arrive.
         </p>
         {error ? <FormAlert>{error}</FormAlert> : null}
         <input type="hidden" name="email" value={emailState.email} />
@@ -26,7 +26,6 @@ export function SignInForm({ next }: { next: string }) {
         <Button type="submit" disabled={verifying}>
           {verifying ? "Checking…" : "Sign in"}
         </Button>
-        <p className="text-sm text-muted-foreground">You can also open the link in the email on this device.</p>
       </form>
     );
   }
@@ -40,7 +39,7 @@ export function SignInForm({ next }: { next: string }) {
         <Input id="email" name="email" type="email" autoComplete="email" required defaultValue={emailState.email} aria-invalid={Boolean(emailState.error)} />
       </div>
       <Button type="submit" disabled={sending}>
-        {sending ? "Sending code…" : "Email me a sign-in code"}
+        {sending ? "Sending…" : "Email me a sign-in link"}
       </Button>
     </form>
   );
