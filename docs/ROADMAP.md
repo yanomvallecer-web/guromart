@@ -51,8 +51,8 @@
 | PayMongo Checkout Sessions (test keys only; live keys refused) | Done against a local stand-in; needs a run with real PayMongo test keys | `src/lib/payments/paymongo.test.ts`, `e2e/checkout.spec.ts` |
 | Webhook: signature checked on the raw body, each event applied once, amount and mode must match, then access, seller ledger credit (7-day hold), sales count, cart cleanup and notifications in one transaction; duplicate purchases flagged for refund | Done | `src/lib/payments/paymongo.test.ts`, `supabase/tests/rls.test.ts`, `e2e/checkout.spec.ts` |
 | Order history and receipts; order page waits for confirmation and never unlocks on the redirect alone | Done | `e2e/checkout.spec.ts` |
-| Expiring abandoned orders, failed-payment messages | Not started | |
-| Seller earnings view, balances, commission breakdown | Not started (ledger entries are written) | |
+| Expiring abandoned orders, failed-payment messages: unpaid orders expire 25 hours after checkout (a platform setting, never under PayMongo's 24-hour checkout window), checked when the buyer opens their orders or starts a checkout, plus an hourly sweep where pg_cron is installed; a payment confirmed after expiry still unlocks the resources and credits the seller (audited as a late payment); declined attempts (`payment.failed`) and expired or cancelled orders are explained on the order page with a way back to the cart | Done against a local stand-in; the `payment.failed` payload needs a run with real PayMongo test keys | `src/lib/payments/paymongo.test.ts`, `supabase/tests/rls.test.ts`, `e2e/checkout.spec.ts` |
+| Seller earnings view (`/seller/earnings`): on hold, available and lifetime earnings from the ledger, recent sales with price, GuroMart fee and the seller's share, the days held money becomes available, honest empty state; sellers see only their own | Done | `supabase/tests/rls.test.ts`, `src/lib/format.test.ts`, `e2e/checkout.spec.ts` |
 
 ## Phase 4: Marketplace operations
 
