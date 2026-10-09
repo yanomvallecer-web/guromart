@@ -1,5 +1,5 @@
 import { type Page, devices, expect, test } from "@playwright/test";
-import { createLiveListing, latestCode, serviceRest, uniqueEmail } from "./helpers";
+import { createLiveListing, latestCode, serviceRest, signIn, uniqueEmail, userIdFor } from "./helpers";
 
 // The phone layout at a 390px-wide screen, the size of most budget Android phones.
 test.use({ ...devices["Pixel 7"], viewport: { width: 390, height: 844 } });
@@ -262,4 +262,46 @@ test("the seller dashboard shows the shop's real address with a Copy button", as
   // The link really opens the shop.
   await link.click();
   await expect(page.getByRole("heading", { name: "Buying Test Shop" })).toBeVisible();
+});
+
+test("Buy now charges only that resource, and the rest of the cart waits in a sticky bar", async ({ page }) => {
+  const STAND_IN = process.env.E2E_PAYMONGO_STAND_IN ?? "http://127.0.0.1:4010";
+  const target = await createLiveListing(`Buy Now Target ${Date.now()}`, 8000);
+  const other = await createLiveListing(`Buy Now Cart Item ${Date.now()}`, 6000);
+  const email = uniqueEmail("buy-now");
+  await signIn(page, email, `/resources/${other.slug}`);
+  await page.getByRole("button", { name: "Add to cart" }).click();
+  await expect(page.getByRole("link", { name: "In your cart" })).toBeVisible();
+
+  await page.goto(`/resources/${target.slug}`);
+  const bar = page.getByTestId("buy-bar");
+  await expect(bar.getByRole("button", { name: "Add to cart" })).toBeVisible();
+  await bar.getByRole("button", { name: "Buy now" }).click();
+  await page.waitForURL(`${STAND_IN}/checkout/**`);
+  const orderNumber = (await page.getByText(/^Order GM-\d+/).textContent())!.match(/GM-\d+/)![0];
+
+  // The order holds the one resource at its database price, nothing from the cart.
+  const buyer = await userIdFor(email);
+  const [order] = await serviceRest(`orders?order_number=eq.${orderNumber}&user_id=eq.${buyer}&select=total_centavos,order_items(product_id,unit_price_centavos)`);
+  expect(order.total_centavos).toBe(8000);
+  expect(order.order_items).toEqual([{ product_id: target.productId, unit_price_centavos: 8000 }]);
+
+  await page.getByRole("button", { name: "Pay (test)" }).click();
+  await page.waitForURL(`**/orders/${orderNumber}?from=checkout`);
+  await expect(page.getByTestId("order-status")).toHaveText("Paid");
+  expect((await page.request.get(`/library/download/${target.fileId}`, { maxRedirects: 0 })).status()).toBe(303);
+  expect((await page.request.get(`/library/download/${other.fileId}`, { maxRedirects: 0 })).status()).toBe(403);
+
+  // The other resource is still in the cart, with the total and Pay button in a bar above the tab bar.
+  await page.goto("/cart");
+  await expect(page.getByRole("link", { name: /Buy Now Cart Item/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Buy Now Target/ })).toHaveCount(0);
+  const checkoutBar = page.getByTestId("checkout-bar");
+  await expect(checkoutBar).toContainText("₱60.00");
+  await expect(checkoutBar.getByRole("button", { name: "Pay with PayMongo" })).toBeVisible();
+  const tabs = page.getByRole("navigation", { name: "Main" });
+  const barBox = (await checkoutBar.boundingBox())!;
+  const tabsBox = (await tabs.boundingBox())!;
+  expect(Math.abs(barBox.y + barBox.height - tabsBox.y)).toBeLessThanOrEqual(1);
+  await expect(tabs.getByRole("link", { name: "Cart, 1 resource" })).toHaveAttribute("aria-current", "page");
 });

@@ -923,3 +923,49 @@ describe("seller earnings", () => {
     await expectError(anon, "select * from public.seller_upcoming_releases", [], /permission denied/);
   });
 });
+
+describe("buy now", () => {
+  const service = { role: "service_role" } as const;
+  async function setup() {
+    const s = await createSeller("s@example.test", "shop-buy-now");
+    const a = await insertProduct(admin, s.storefrontId, "buy-a", { status: "published", price_centavos: 7500, title: "Science reviewer" });
+    const b = await insertProduct(admin, s.storefrontId, "buy-b", { status: "published", price_centavos: 15000, title: "Math test" });
+    const free = await insertProduct(admin, s.storefrontId, "buy-free", { status: "published", price_centavos: 0, title: "Free sheet" });
+    const draft = await insertProduct(admin, s.storefrontId, "buy-draft", { price_centavos: 9000, title: "Draft" });
+    const buyer = await createUser("buyer@example.test");
+    const cart = await q(user(buyer), "insert into public.carts (user_id) values ($1) returning id", [buyer]);
+    for (const p of [a, b]) await q(user(buyer), "insert into public.cart_items (cart_id, product_id) values ($1, $2)", [cart.rows[0].id, p.id]);
+    return { s, a, b, free, draft, buyer };
+  }
+
+  it("orders only the one resource, at the database price, and leaves the cart alone", async () => {
+    const { a, b, buyer } = await setup();
+    const order = (await q(user(buyer), "select * from public.create_order_for_product($1)", [a.id])).rows[0];
+    expect(order.total_centavos).toBe(7500);
+    const items = await q(user(buyer), "select product_id, unit_price_centavos, commission_bps, platform_fee_centavos, seller_earnings_centavos from public.order_items");
+    expect(items.rows).toEqual([{ product_id: a.id, unit_price_centavos: 7500, commission_bps: 3000, platform_fee_centavos: 2250, seller_earnings_centavos: 5250 }]);
+    expect((await q(user(buyer), "select status from public.orders")).rows[0].status).toBe("pending_payment");
+    const cart = await q(user(buyer), "select product_id from public.cart_items order by product_id");
+    expect(cart.rows.map((r) => r.product_id).sort()).toEqual([a.id, b.id].sort());
+    expect((await q(user(buyer), "select * from public.entitlements")).rows).toHaveLength(0);
+
+    // Paying unlocks that resource only; the rest of the cart stays for later.
+    await q(service, "insert into public.payments (order_id, provider, provider_checkout_id, amount_centavos) values ($1, 'paymongo', 'cs_buy_now', 7500)", [order.order_id]);
+    const outcome = await q(service, "select public.apply_payment_event('evt_buy_now', 'checkout_session.payment.paid', '{}'::jsonb, false, 'cs_buy_now', 'pay_1', 7500, 500, 'gcash') as outcome");
+    expect(outcome.rows[0].outcome).toBe("paid");
+    expect((await q(user(buyer), "select product_id from public.entitlements")).rows).toEqual([{ product_id: a.id }]);
+    expect((await q(user(buyer), "select product_id from public.cart_items")).rows).toEqual([{ product_id: b.id }]);
+  });
+
+  it("refuses what checkout from the cart refuses", async () => {
+    const { s, a, free, draft, buyer } = await setup();
+    await expectError(user(buyer), "select * from public.create_order_for_product($1)", [free.id], /is free/);
+    await expectError(user(buyer), "select * from public.create_order_for_product($1)", [draft.id], /not available/);
+    await expectError(user(buyer), "select * from public.create_order_for_product($1)", ["00000000-0000-0000-0000-000000000000"], /not available/);
+    await expectError(user(s.userId), "select * from public.create_order_for_product($1)", [a.id], /your own resource/);
+    await q(admin, "insert into public.entitlements (user_id, product_id, source) values ($1, $2, 'grant')", [buyer, a.id]);
+    await expectError(user(buyer), "select * from public.create_order_for_product($1)", [a.id], /already in your library/);
+    await expectError(anon, "select * from public.create_order_for_product($1)", [a.id], /permission denied/);
+    expect((await q(admin, "select count(*)::int as n from public.orders")).rows[0].n).toBe(0);
+  });
+});
