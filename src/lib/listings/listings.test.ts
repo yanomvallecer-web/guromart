@@ -78,6 +78,14 @@ describe("checkUpload for identity documents", () => {
   });
 });
 
+describe("checkUpload for shop images", () => {
+  it("accepts images up to 5 MB only", () => {
+    expect(checkUpload("shop", "logo.webp", 1000).ok).toBe(true);
+    expect(checkUpload("shop", "logo.pdf", 1000)).toEqual({ ok: false, error: "Shop images must be PNG, JPG or WebP." });
+    expect(checkUpload("shop", "banner.png", 5 * 1024 * 1024 + 1).ok).toBe(false);
+  });
+});
+
 describe("matchesSignature", () => {
   const bytes = (s: number[]) => new Uint8Array([...s, ...new Array(16).fill(0)]);
   it("recognizes real files", () => {

@@ -1,6 +1,6 @@
 /** What sellers may upload. Resource files go to a private bucket; previews to a public one. */
 
-export type UploadKind = "file" | "preview" | "verification";
+export type UploadKind = "file" | "preview" | "verification" | "shop";
 
 type FileType = { ext: string[]; mime: string; format: string; magic: (b: Uint8Array) => boolean };
 
@@ -25,27 +25,31 @@ const ALLOWED_FORMATS: Record<UploadKind, Set<string> | null> = {
   file: null,
   preview: new Set(["png", "jpg", "webp"]),
   verification: new Set(["pdf", "png", "jpg", "webp"]),
+  shop: new Set(["png", "jpg", "webp"]),
 };
 
 const TYPE_ERROR: Record<UploadKind, string> = {
   file: "Upload PDF, Word, PowerPoint, Excel, ZIP or image files.",
   preview: "Previews must be PNG, JPG or WebP images.",
   verification: "Upload a PDF or a PNG, JPG or WebP photo.",
+  shop: "Shop images must be PNG, JPG or WebP.",
 };
 
 export const LIMITS = {
   file: 100 * 1024 * 1024,
   preview: 5 * 1024 * 1024,
   verification: 10 * 1024 * 1024,
+  shop: 5 * 1024 * 1024,
 } as const satisfies Record<UploadKind, number>;
 
 export const ACCEPT = {
   file: ".pdf,.docx,.pptx,.xlsx,.zip,.png,.jpg,.jpeg,.webp",
   preview: ".png,.jpg,.jpeg,.webp",
   verification: ".pdf,.png,.jpg,.jpeg,.webp",
+  shop: ".png,.jpg,.jpeg,.webp",
 } as const satisfies Record<UploadKind, string>;
 
-export const BUCKET = { file: "product-files", preview: "product-previews", verification: "verification-documents" } as const satisfies Record<UploadKind, string>;
+export const BUCKET = { file: "product-files", preview: "product-previews", verification: "verification-documents", shop: "storefront-media" } as const satisfies Record<UploadKind, string>;
 
 export type CheckedUpload = { ext: string; mime: string; format: string };
 
