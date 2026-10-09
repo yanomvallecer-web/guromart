@@ -1,36 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GuroMart
 
-## Getting Started
+**Everything You Need to Teach, All in One Place.**
 
-First, run the development server:
+GuroMart is a multi-vendor marketplace where Filipino teachers discover, buy, download and sell teaching resources. This repository is the production application: Next.js on the front end and server, Supabase (PostgreSQL, Auth, Storage) for data, and PayMongo for payments (Phase 3).
+
+- [Architecture and decisions](docs/ARCHITECTURE.md)
+- [Roadmap, feature status and remaining dependencies](docs/ROADMAP.md)
+
+## What works today (Phase 1)
+
+| Area | Status |
+| --- | --- |
+| Database schema for the whole MVP (35 tables), migrations, indexes, constraints | Done, tested |
+| Row-level security on every table, server-only writes for money and access | Done, tested |
+| Email code sign-in and sign-up (Supabase Auth), sessions refreshed in the proxy | Done, tested end to end |
+| Google sign-in | Built, off until the provider is configured |
+| Roles (buyer, seller, publisher, admin) enforced on the server and in the database | Done, tested |
+| Account page with profile editing | Done, tested end to end |
+| Seller onboarding steps 1 to 3 (account, seller type, storefront) | Done, tested end to end |
+| Seller dashboard (shop, status, onboarding checklist, resource counts) | Done |
+| Admin overview with live counts and audit log | Done |
+| Homepage, browse with server-side filters and pagination, resource and shop pages | Done, read real data, show empty states when there is none |
+| Product upload, checkout, payments, downloads, moderation tools | Not yet. See the roadmap. |
+
+Nothing on the site is fabricated. With an empty database the homepage shows empty states, not sample products.
+
+## Run it locally
+
+You need Node.js 22+, Docker (for the local Supabase stack) and the Supabase CLI (`npx supabase` works).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npx supabase start          # starts Postgres, Auth, Storage and Mailpit; applies supabase/migrations
+cp .env.example .env.local  # then fill in the values printed by `npx supabase status`
+npm run dev                 # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+In `.env.local`, set `NEXT_PUBLIC_SUPABASE_URL` to the API URL, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to the publishable (anon) key and `SUPABASE_SECRET_KEY` to the secret (service role) key from `npx supabase status`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Sign-in codes are emailed. Locally they land in Mailpit at http://127.0.0.1:54324.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+To make yourself an admin, sign in once, then run:
 
-## Learn More
+```bash
+node --env-file=.env.local scripts/grant-admin.mjs you@example.com
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Testing
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Command | What it checks | Needs |
+| --- | --- | --- |
+| `npm run test:unit` | Authorization rules, validation, search parameters, price formatting | Nothing |
+| `npm run db:test:reset && npm run test:db` | Migrations apply cleanly; row-level security, triggers and constraints behave (sellers can't publish or edit others' listings, buyers can't create orders or entitlements, ledger is append-only, reviews need a purchase) | A disposable PostgreSQL 16 server in `TEST_DATABASE_URL` (never a Supabase project) |
+| `npm run test:e2e` | Sign-up with an emailed code, profile editing, role-based access, opening a shop, catalog search, on desktop and mobile | The app running against local Supabase, plus `E2E_MAILPIT_URL=http://127.0.0.1:54324` |
+| `npm run lint` and `npm run typecheck` | Code quality | Nothing |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+CI (`.github/workflows/ci.yml`) runs all of these on every pull request.
 
-## Deploy on Vercel
+## Deploy
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. **Create a Supabase project** (region: Singapore is closest to the Philippines). Link it and push the schema:
+   ```bash
+   npx supabase link --project-ref <your-project-ref>
+   npx supabase db push
+   ```
+2. **Configure Supabase Auth.** Set the Site URL to your domain and add `https://<your-domain>/auth/callback` to the redirect URLs. Make sure the email templates include `{{ .Token }}` so teachers can type the code. Set up a production SMTP sender (Supabase's built-in sender is rate-limited and only for testing).
+3. **Optional: Google sign-in.** Enable the Google provider in Supabase Auth with your Google OAuth client, then set `NEXT_PUBLIC_AUTH_GOOGLE_ENABLED=true`.
+4. **Deploy to Vercel.** Import the GitHub repository and set the environment variables from `.env.example` in the Vercel project settings. `SUPABASE_SECRET_KEY` must only ever be set as a server environment variable.
+5. **Create the first admin** with `scripts/grant-admin.mjs` as above.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Secrets never go in the repository. `.env*` files are ignored, except `.env.example`, which holds no values.
+
+## Project layout
+
+```
+src/app/            Routes (App Router). Server Components by default.
+src/components/     UI primitives (shadcn-style) and site components.
+src/lib/auth/       Session and role checks (data access layer).
+src/lib/catalog/    Catalog queries and search parameter parsing.
+src/lib/supabase/   Supabase clients: user session, public, service role.
+src/proxy.ts        Session refresh and sign-in redirects.
+supabase/           Migrations, local config, seed and database tests.
+e2e/                Playwright end-to-end tests.
+```
+
+This app uses Next.js 16. Its APIs differ from older versions (for example `proxy.ts` replaces `middleware.ts`, and Cache Components are on), so check `node_modules/next/dist/docs/` before changing framework code.
