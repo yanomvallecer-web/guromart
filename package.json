@@ -13,7 +13,8 @@
     "db:test:reset": "node scripts/db-test-reset.mjs",
     "test:db": "vitest run --project db",
     "test:e2e": "playwright test",
-    "admin:grant": "node scripts/grant-admin.mjs"
+    "admin:grant": "node scripts/grant-admin.mjs",
+    "seed:demo": "node --env-file=.env.local scripts/seed-demo.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.4.0",

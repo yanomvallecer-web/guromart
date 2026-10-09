@@ -7,7 +7,7 @@ GuroMart is a multi-vendor marketplace where Filipino teachers discover, buy, do
 - [Architecture and decisions](docs/ARCHITECTURE.md)
 - [Roadmap, feature status and remaining dependencies](docs/ROADMAP.md)
 
-## What works today (Phase 1 and part of Phase 2)
+## What works today (Phases 1 and 2)
 
 | Area | Status |
 | --- | --- |
@@ -25,9 +25,11 @@ GuroMart is a multi-vendor marketplace where Filipino teachers discover, buy, do
 | Admin review queue: check files, approve or reject listings with a note | Done, tested end to end |
 | Seller ID verification and payout details (GCash, Maya, bank), reviewed by staff | Done, tested end to end |
 | Shop profile editing with logo and banner, show or hide the shop | Done, tested end to end |
+| Ranked search with Filipino/English synonyms and typo tolerance | Done, tested |
+| Optional demo data for local development (`npm run seed:demo`), clearly labelled | Done, run by hand |
 | Checkout, payments, buyer downloads | Not yet. See the roadmap. |
 
-Nothing on the site is fabricated. With an empty database the homepage shows empty states, not sample products.
+Nothing on the site is fabricated. With an empty database the homepage shows empty states, not sample products. Demo data is only loaded on request, locally, and every demo item is titled "[Demo]".
 
 ## Run it locally
 
@@ -49,6 +51,15 @@ To make yourself an admin, sign in once, then run:
 ```bash
 node --env-file=.env.local scripts/grant-admin.mjs you@example.com
 ```
+
+A fresh stack has an empty catalog. To browse with something in it, load the demo data:
+
+```bash
+npm run seed:demo              # 3 shops and 8 resources, all titled "[Demo] …"
+npm run seed:demo -- --remove  # delete the demo accounts, listings and files
+```
+
+Demo shops say they are not real sellers, their files are one-page placeholders, and no reviews, ratings or sales are invented. The script refuses to run unless the Supabase URL is localhost. The homepage shelves are cached for about a minute, so new data can take a refresh or two to show there.
 
 ## Testing
 

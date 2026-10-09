@@ -22,7 +22,7 @@
 | Admin overview with live counts and audit trail | Done | `e2e/accounts.spec.ts` |
 | CI pipeline | Written | Runs once the repository is on GitHub |
 
-## Phase 2: Marketplace core (in progress)
+## Phase 2: Marketplace core (done)
 
 | Item | Status | Tested by |
 | --- | --- | --- |
@@ -38,7 +38,7 @@
 | Shop profile: name, tagline, about, logo and banner (checked uploads, old images deleted), show or hide the shop; the shop address and owner can't be changed | Done | `supabase/tests/rls.test.ts`, `src/lib/validation/validation.test.ts`, `e2e/shop.spec.ts` |
 | Ranked search: relevance order, Filipino/English synonyms (DLL, agham, matematika, AP and more), typo tolerance on titles, all filters in one database query | Done | `supabase/tests/rls.test.ts`, `e2e/listings.spec.ts` |
 | Payout details (GCash, Maya or bank), validated, shown masked, private to the seller and staff, every change audited | Done | `src/lib/validation/payout.test.ts`, `supabase/tests/rls.test.ts`, `e2e/verification.spec.ts` |
-- Demo seed data, clearly labelled, for local development
+| Demo data for local development: `npm run seed:demo` loads 3 shops and 8 resources titled "[Demo]" with placeholder files through the normal publish checks, refuses non-local databases, and `--remove` deletes it all | Done | Run by hand against the local stack (add, browse, typo and synonym search, shop page, remove with no leftover files) |
 
 ## Phase 3: Transactions
 
