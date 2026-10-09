@@ -1,4 +1,6 @@
 -- Local development seed. Reference data (grades, subjects, resource types,
 -- curricula, periods, commission settings) is created by the migrations.
--- Demonstration shops and products will be added here in Phase 2 and will be
--- clearly marked as demo data; this file must never be run against production.
+-- Demonstration shops and products are NOT loaded here, so a fresh stack (and
+-- the test suites) show honest empty states. Load them on demand with
+-- `npm run seed:demo` (local stacks only; `npm run seed:demo -- --remove`
+-- deletes them). This file must never be run against production.
