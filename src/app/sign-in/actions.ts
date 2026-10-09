@@ -9,13 +9,15 @@ import { emailSchema, otpSchema } from "@/lib/validation/auth";
 
 export type SignInState =
   | { step: "email"; error?: string; email?: string }
-  | { step: "code"; email: string; error?: string };
+  // `resent` and `resendError` answer the "Send a new code" button on the code step.
+  | { step: "code"; email: string; error?: string; resent?: boolean; resendError?: string };
 
 export async function sendCode(_prev: SignInState, formData: FormData): Promise<SignInState> {
   const parsed = emailSchema.safeParse({ email: formData.get("email") });
   if (!parsed.success) return { step: "email", error: parsed.error.issues[0].message, email: String(formData.get("email") ?? "") };
 
   const next = safeNextPath(formData.get("next"));
+  const resend = formData.get("resend") === "1";
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,
@@ -34,9 +36,11 @@ export async function sendCode(_prev: SignInState, formData: FormData): Promise<
         : error.status === 429
           ? "Too many sign-in emails requested. Wait a minute, then try again."
           : "We couldn't send a sign-in email right now. Please try again.";
+    // A failed resend keeps the teacher on the code step: the earlier code may still work.
+    if (resend) return { step: "code", email: parsed.data.email, resendError: message };
     return { step: "email", email: parsed.data.email, error: message };
   }
-  return { step: "code", email: parsed.data.email };
+  return { step: "code", email: parsed.data.email, resent: resend };
 }
 
 export async function verifyCode(_prev: SignInState, formData: FormData): Promise<SignInState> {

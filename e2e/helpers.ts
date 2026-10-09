@@ -62,10 +62,11 @@ async function latestMessage(email: string): Promise<string | null> {
 export async function signIn(page: Page, email: string, next = "/account") {
   await page.goto(`/sign-in?next=${encodeURIComponent(next)}`);
   await page.getByLabel("Email address").fill(email);
-  await page.getByRole("button", { name: "Email me a sign-in link" }).click();
-  await expect(page.getByText(`We sent a sign-in email to ${email}`)).toBeVisible();
-  await page.getByLabel("Code from your email").fill(await latestCode(email));
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("button", { name: "Email me a sign-in code" }).click();
+  await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+  await expect(page.getByText(email, { exact: true })).toBeVisible();
+  // The phone's code autofill puts the whole code in the first box; the form then submits itself.
+  await page.getByRole("textbox", { name: "Digit 1 of 6" }).fill(await latestCode(email));
   await page.waitForURL((url) => url.pathname === next);
 }
 
