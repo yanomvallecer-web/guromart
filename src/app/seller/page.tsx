@@ -77,6 +77,7 @@ async function Dashboard() {
           <div className="flex flex-wrap gap-2">
             <Badge>{STATUS_LABEL[account.status] ?? account.status}</Badge>
             <Badge className="bg-surface-muted capitalize text-foreground">{account.plan} plan</Badge>
+            <Link href="/seller/shop" className="text-sm font-semibold text-primary hover:underline">Edit shop profile</Link>
           </div>
         </Card>
         <Card className="p-6">

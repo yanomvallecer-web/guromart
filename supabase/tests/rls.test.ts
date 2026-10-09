@@ -528,3 +528,33 @@ describe("seller verification and payouts", () => {
     expect(audit.rows).toEqual([{ action: "seller.payout_method_insert", last4: "4567" }]);
   });
 });
+
+describe("shop profile", () => {
+  it("lets a seller edit their own shop but not its address, owner or someone else's images", async () => {
+    const a = await createSeller("a@example.test", "shop-a");
+    const b = await createSeller("b@example.test", "shop-b");
+    await q(user(a.userId), "update public.storefronts set name = 'Ma''am Liza Prints', tagline = 'Grade 4 science', logo_path = $2 where id = $1", [a.storefrontId, `${a.sellerId}/logo.png`]);
+    const { rows } = await q(anon, "select name, tagline, logo_path from public.storefronts where id = $1", [a.storefrontId]);
+    expect(rows[0]).toEqual({ name: "Ma'am Liza Prints", tagline: "Grade 4 science", logo_path: `${a.sellerId}/logo.png` });
+
+    await expectError(user(a.userId), "update public.storefronts set slug = 'new-address' where id = $1", [a.storefrontId], /cannot be changed/);
+    await expectError(user(a.userId), "update public.storefronts set seller_account_id = $2 where id = $1", [a.storefrontId, b.sellerId], /cannot be changed|duplicate/);
+    await expectError(user(a.userId), "update public.storefronts set banner_path = $2 where id = $1", [a.storefrontId, `${b.sellerId}/banner.png`], /own folder/);
+    const other = await q(user(a.userId), "update public.storefronts set name = 'Hijacked' where id = $1 returning id", [b.storefrontId]);
+    expect(other.rows).toHaveLength(0);
+  });
+});
+
+describe("shop visibility after approval", () => {
+  it("keeps a shop hidden when an active seller chose to hide it", async () => {
+    const s = await createSeller("s@example.test", "shop-one", "active");
+    await q(user(s.userId), "update public.storefronts set is_published = false where id = $1", [s.storefrontId]);
+    const p = await insertProduct(user(s.userId), s.storefrontId, "fractions-1", { status: "pending_review" });
+    await addReadyMedia(p.id, s.sellerId);
+    const boss = await createUser("admin@example.test");
+    await q(admin, "insert into public.user_roles (user_id, role) values ($1, 'admin')", [boss]);
+    await q(user(boss), "select public.review_listing($1, true)", [p.id]);
+    const { rows } = await q(admin, "select is_published from public.storefronts where id = $1", [s.storefrontId]);
+    expect(rows[0].is_published).toBe(false);
+  });
+});

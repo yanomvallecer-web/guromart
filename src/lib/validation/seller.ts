@@ -18,3 +18,18 @@ export const startSellingSchema = z.object({
     .regex(/^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])$/, "Use 3 to 50 lowercase letters, numbers and dashes."),
   agree: z.literal("on", { error: "Accept the seller terms to continue." }),
 });
+
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max, `Keep this under ${max.toLocaleString("en-PH")} characters.`)
+    .transform((v) => (v === "" ? null : v));
+
+/** The parts of a shop a seller can edit. The address (slug) is fixed once chosen. */
+export const shopProfileSchema = z.object({
+  name: z.string().trim().min(2, "Enter at least 2 characters.").max(80, "Keep this under 80 characters."),
+  tagline: optionalText(140),
+  description: optionalText(4000),
+  is_published: z.boolean(),
+});
