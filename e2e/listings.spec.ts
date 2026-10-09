@@ -98,3 +98,90 @@ test("a seller drafts a resource, uploads files securely and submits it for revi
   await expect(page.getByTestId("file-list")).toHaveCount(0);
   expect(await storedObjects("product-files", `${account.id}/${productId}`)).toHaveLength(0);
 });
+
+/** Opens a shop and submits a complete listing through the seller UI. Returns the listing id. */
+async function submitListing(page: import("@playwright/test").Page, email: string, title: string) {
+  await signIn(page, email, "/sell");
+  await page.getByText("Teacher", { exact: true }).click();
+  await page.getByLabel("Shop name").fill("Review Test Shop");
+  await page.getByLabel("Shop address").fill(`review-${Date.now()}`);
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Open my shop" }).click();
+  await page.waitForURL("**/seller");
+  await page.goto("/seller/products/new");
+  await page.getByRole("textbox", { name: "Title" }).fill(title);
+  await page.getByRole("combobox", { name: "Resource type" }).selectOption({ label: "Worksheets" });
+  await page.getByRole("button", { name: "Create draft" }).click();
+  await page.waitForURL(/\/seller\/products\/[0-9a-f-]{36}$/);
+  await page.getByRole("textbox", { name: "Description" }).fill("Thirty mixed practice items on adding and subtracting fractions, with an answer key.");
+  await page.getByRole("combobox", { name: "Subject" }).selectOption({ label: "Mathematics" });
+  await page.getByRole("checkbox", { name: "Grade 5", exact: true }).check();
+  await page.getByRole("textbox", { name: "Price in pesos" }).fill("60");
+  await page.getByRole("checkbox", { name: /I made this resource/ }).check();
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Changes saved.")).toBeVisible();
+  await page.locator("#upload-file").setInputFiles({ name: "Fractions.pdf", mimeType: "application/pdf", buffer: PDF });
+  await expect(page.getByTestId("file-list").getByText("Fractions.pdf")).toBeVisible();
+  await page.locator("#upload-preview").setInputFiles({ name: "cover.png", mimeType: "image/png", buffer: PNG });
+  await expect(page.getByTestId("preview-list").getByRole("img")).toBeVisible();
+  await page.getByRole("button", { name: "Submit for review" }).click();
+  await expect(page.getByTestId("listing-status")).toHaveText("In review");
+  return page.url().split("/").pop()!;
+}
+
+test("staff check files, reject with a note, then approve a resubmitted listing", async ({ page, browser }) => {
+  const title = `Fractions practice ${Date.now()}`;
+  const productId = await submitListing(page, uniqueEmail("reviewed"), title);
+
+  const staffContext = await browser.newContext();
+  const staff = await staffContext.newPage();
+  const staffEmail = uniqueEmail("staff");
+  await signIn(staff, staffEmail, "/account");
+  await serviceRest("user_roles", { method: "POST", body: JSON.stringify({ user_id: await userIdFor(staffEmail), role: "admin" }) });
+
+  await staff.goto("/admin/listings");
+  await staff.getByRole("link", { name: new RegExp(title) }).click();
+  await expect(staff.getByRole("button", { name: "Approve and publish" })).toBeDisabled();
+
+  // Staff can download the private file for checking.
+  const fileId = (await staff.getByTestId("review-files").getByRole("link").getAttribute("href"))!.split("/").pop();
+  const download = await staff.request.get(`/admin/files/${fileId}`);
+  expect(download.ok()).toBe(true);
+  expect((await download.body()).subarray(0, 5).toString()).toBe("%PDF-");
+  // Sellers and buyers can't use the staff download route.
+  expect((await page.request.get(`/admin/files/${fileId}`, { maxRedirects: 0 })).status()).toBe(403);
+
+  // Rejecting needs a real note, which the seller then sees.
+  await staff.getByRole("button", { name: "Reject with note" }).click();
+  await expect(staff.getByText("Tell the seller what to fix (at least 10 characters).")).toBeVisible();
+  await staff.getByRole("textbox", { name: "Note to the seller" }).fill("Please add the answer key pages to the PDF.");
+  await staff.getByRole("button", { name: "Reject with note" }).click();
+  await staff.waitForURL("**/admin/listings");
+
+  await page.reload();
+  await expect(page.getByTestId("listing-status")).toHaveText("Needs changes");
+  await expect(page.getByText("Please add the answer key pages to the PDF.")).toBeVisible();
+  await page.getByRole("button", { name: "Submit for review" }).click();
+  await expect(page.getByTestId("listing-status")).toHaveText("In review");
+
+  // Approve after marking the file safe. The listing and the seller's shop go live.
+  await staff.goto(`/admin/listings/${productId}`);
+  await staff.getByRole("button", { name: "Mark Fractions.pdf safe" }).click();
+  await expect(staff.getByText("Checked, safe")).toBeVisible();
+  await staff.getByRole("button", { name: "Approve and publish" }).click();
+  await staff.waitForURL("**/admin/listings");
+  await expect(staff.getByRole("link", { name: new RegExp(title) })).toHaveCount(0);
+  await staffContext.close();
+
+  const [product] = await serviceRest(`products?id=eq.${productId}&select=slug,status`);
+  expect(product.status).toBe("published");
+  const visitorContext = await browser.newContext();
+  const visitor = await visitorContext.newPage();
+  await visitor.goto(`/resources/${product.slug}`);
+  await expect(visitor.getByRole("heading", { name: title })).toBeVisible();
+  await expect(visitor.getByText("₱60.00")).toBeVisible();
+  await visitorContext.close();
+
+  await page.reload();
+  await expect(page.getByTestId("listing-status")).toHaveText("Live");
+});

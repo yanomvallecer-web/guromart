@@ -22,7 +22,8 @@ GuroMart is a multi-vendor marketplace where Filipino teachers discover, buy, do
 | Admin overview with live counts and audit log | Done |
 | Homepage, browse with server-side filters and pagination, resource and shop pages | Done, read real data, show empty states when there is none |
 | Sellers create and edit listings, upload files and preview images securely, and submit for review | Done, tested end to end |
-| Admin review queue, checkout, payments, downloads | Not yet. See the roadmap. |
+| Admin review queue: check files, approve or reject listings with a note | Done, tested end to end |
+| Checkout, payments, buyer downloads | Not yet. See the roadmap. |
 
 Nothing on the site is fabricated. With an empty database the homepage shows empty states, not sample products.
 

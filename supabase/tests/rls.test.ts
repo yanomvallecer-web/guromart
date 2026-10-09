@@ -122,6 +122,14 @@ async function insertProduct(who: Who, storefrontId: string, slug: string, extra
   return rows[0];
 }
 
+/** Gives a listing what it needs to go live: one checked file and one preview. */
+async function addReadyMedia(productId: string, sellerId: string, scan = "clean") {
+  await q(admin,
+    "insert into public.product_files (product_id, storage_path, original_filename, mime_type, file_format, size_bytes, scan_status) values ($1, $2, 'a.pdf', 'application/pdf', 'pdf', 10, $3)",
+    [productId, `${sellerId}/${productId}/file.pdf`, scan]);
+  await q(admin, "insert into public.product_previews (product_id, storage_path) values ($1, $2)", [productId, `${sellerId}/${productId}/cover.png`]);
+}
+
 describe("schema", () => {
   it("enables row-level security on every public table", async () => {
     const { rows } = await q<{ relname: string }>(
@@ -224,6 +232,7 @@ describe("products and moderation", () => {
 
     const boss = await createUser("admin@example.test");
     await q(admin, "insert into public.user_roles (user_id, role) values ($1, 'admin')", [boss]);
+    await addReadyMedia(p.id, s.sellerId);
     await q(user(boss), "update public.products set status = 'published' where id = $1", [p.id]);
     visible = await q(anon, "select id, published_at from public.products");
     expect(visible.rows).toHaveLength(1);
@@ -406,5 +415,60 @@ describe("listing media guards", () => {
     const p = await insertProduct(user(a.userId), a.storefrontId, "fractions-a");
     for (let i = 0; i < 10; i++) await q(user(a.userId), fileSql, [p.id, `${a.sellerId}/${p.id}/${i}.pdf`]);
     await expectError(user(a.userId), fileSql, [p.id, `${a.sellerId}/${p.id}/11.pdf`], /at most 10/);
+  });
+});
+
+describe("listing review", () => {
+  async function setup(sellerStatus = "onboarding") {
+    const s = await createSeller("s@example.test", "shop-one", sellerStatus);
+    await q(admin, "update public.storefronts set is_published = false where id = $1", [s.storefrontId]);
+    const p = await insertProduct(user(s.userId), s.storefrontId, "fractions-1", { status: "pending_review" });
+    const boss = await createUser("admin@example.test");
+    await q(admin, "insert into public.user_roles (user_id, role) values ($1, 'admin')", [boss]);
+    return { s, p, boss };
+  }
+
+  it("won't publish a listing until every file is checked clean", async () => {
+    const { s, p, boss } = await setup();
+    await expectError(user(boss), "select public.review_listing($1, true)", [p.id], /at least one file/);
+    await addReadyMedia(p.id, s.sellerId, "pending");
+    await expectError(user(boss), "select public.review_listing($1, true)", [p.id], /checked and marked clean/);
+    // The rule holds for direct updates too, not just the review function.
+    await expectError(user(boss), "update public.products set status = 'published' where id = $1", [p.id], /checked and marked clean/);
+  });
+
+  it("lets staff mark files, then approve: the listing, seller and shop go live and the seller is told", async () => {
+    const { s, p, boss } = await setup();
+    await addReadyMedia(p.id, s.sellerId, "pending");
+    // Sellers can't mark their own files: RLS gives them no rows to update.
+    const sellerTry = await q(user(s.userId), "update public.product_files set scan_status = 'clean' where product_id = $1 returning id", [p.id]);
+    expect(sellerTry.rows).toHaveLength(0);
+    await expectError(user(boss), "update public.product_files set storage_path = 'elsewhere/x.pdf' where product_id = $1", [p.id], /Only the file check result/);
+    await q(user(boss), "update public.product_files set scan_status = 'clean' where product_id = $1", [p.id]);
+
+    const { rows } = await q(user(boss), "select public.review_listing($1, true) as status", [p.id]);
+    expect(rows[0].status).toBe("published");
+    const live = await q(anon, "select id from public.products where id = $1", [p.id]);
+    expect(live.rows).toHaveLength(1);
+    const note = await q(admin, "select type, link_path from public.notifications where user_id = $1", [s.userId]);
+    expect(note.rows).toEqual([{ type: "listing.approved", link_path: `/seller/products/${p.id}` }]);
+    const audit = await q(admin, "select action from public.audit_logs where actor_id = $1 order by id", [boss]);
+    expect(audit.rows.map((r) => r.action)).toEqual(["product_file.scan_marked", "product.status_changed", "seller.activated"]);
+  });
+
+  it("requires a reason to reject and shows it to the seller", async () => {
+    const { s, p, boss } = await setup("active");
+    await expectError(user(boss), "select public.review_listing($1, false, 'no')", [p.id], /what to fix/);
+    await q(user(boss), "select public.review_listing($1, false, $2)", [p.id, "The preview shows a copyrighted textbook page."]);
+    const { rows } = await q(user(s.userId), "select status, rejection_reason from public.products where id = $1", [p.id]);
+    expect(rows[0]).toEqual({ status: "rejected", rejection_reason: "The preview shows a copyrighted textbook page." });
+    await expectError(user(boss), "select public.review_listing($1, true)", [p.id], /not waiting for review/);
+  });
+
+  it("is staff-only", async () => {
+    const { s, p } = await setup();
+    await addReadyMedia(p.id, s.sellerId);
+    await expectError(user(s.userId), "select public.review_listing($1, true)", [p.id], /Only GuroMart staff/);
+    await expectError(anon, "select public.review_listing($1, true)", [p.id], /permission denied/);
   });
 });
