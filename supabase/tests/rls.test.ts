@@ -580,6 +580,14 @@ describe("ranked search", () => {
     expect(agham.rows.map((r) => r.title).sort()).toEqual(["Daily lesson log for Grade 4 Science", "Science reviewer"]);
   });
 
+  it("treats each listed synonym as an alternative", async () => {
+    const s = await createSeller("s@example.test", "shop-one");
+    await publish(s.storefrontId, "item-m", "Grade 6 Mathematics reviewer");
+    await publish(s.storefrontId, "item-q", "Science quiz for Grade 4");
+    expect((await search("matematika")).rows.map((r) => r.title)).toEqual(["Grade 6 Mathematics reviewer"]);
+    expect((await search("pagsusulit")).rows.map((r) => r.title)).toEqual(["Science quiz for Grade 4"]);
+  });
+
   it("tolerates typos in titles", async () => {
     const s = await createSeller("s@example.test", "shop-one");
     await publish(s.storefrontId, "item-c", "Fractions worksheet");

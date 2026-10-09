@@ -16,6 +16,8 @@ create policy "search_synonyms: admin manages" on public.search_synonyms for all
   using (private.is_admin()) with check (private.is_admin());
 
 -- Each term also searches its expansion, and the expansion searches the term.
+-- An expansion is a comma-separated list of alternatives; each alternative
+-- matches when all of its words appear.
 insert into public.search_synonyms (term, expansion) values
   ('dll', 'daily lesson log'),
   ('daily lesson log', 'dll'),
@@ -29,21 +31,21 @@ insert into public.search_synonyms (term, expansion) values
   ('tos', 'table of specifications'),
   ('table of specifications', 'tos'),
   ('ppt', 'powerpoint presentation'),
-  ('powerpoint', 'ppt presentation'),
-  ('pagsusulit', 'quiz test assessment'),
+  ('powerpoint', 'ppt, presentation'),
+  ('pagsusulit', 'quiz, test, assessment'),
   ('quiz', 'pagsusulit'),
   ('modyul', 'module'),
   ('module', 'modyul'),
   ('ap', 'araling panlipunan'),
   ('araling panlipunan', 'ap'),
-  ('math', 'mathematics matematika'),
-  ('matematika', 'mathematics math'),
+  ('math', 'mathematics, matematika'),
+  ('matematika', 'mathematics, math'),
   ('agham', 'science'),
   ('science', 'agham'),
   ('ingles', 'english'),
-  ('esp', 'edukasyon sa pagpapakatao values'),
+  ('esp', 'edukasyon sa pagpapakatao, values'),
   ('gmrc', 'good manners and right conduct'),
-  ('mapeh', 'music arts physical education health'),
+  ('mapeh', 'music, arts, physical education, health'),
   ('tle', 'technology and livelihood education'),
   ('epp', 'edukasyong pantahanan at pangkabuhayan'),
   ('kinder', 'kindergarten');
@@ -59,8 +61,8 @@ as $$
     (select string_agg(q::text, ' | ')::tsquery from (
       select websearch_to_tsquery('simple', p_q) as q
       union all
-      select plainto_tsquery('simple', s.expansion)
-      from public.search_synonyms s
+      select plainto_tsquery('simple', btrim(alt))
+      from public.search_synonyms s, regexp_split_to_table(s.expansion, ',') alt
       where lower(p_q) ~ ('(^|[^a-z0-9])' || regexp_replace(s.term, '([^a-z0-9 ])', '\\\1', 'g') || '($|[^a-z0-9])')
     ) parts where q::text <> ''),
     websearch_to_tsquery('simple', p_q)
