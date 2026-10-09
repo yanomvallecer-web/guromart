@@ -49,7 +49,8 @@
 
 ## Phase 4: Marketplace operations
 
-- Admin: seller verification, listing moderation queue, categories and curricula, orders and payments, refunds and disputes, payouts, copyright reports and repeat-infringer strikes, platform settings
+- Shop closing, with a scheduled job that deletes the seller's ID documents 90 days after closing (Data Privacy Act retention decision)
+- Admin: listing moderation extras, categories and curricula, orders and payments, refunds and disputes, payouts, copyright reports and repeat-infringer strikes, platform settings
 - Notifications (in-app and email), support tickets, reviews UI, wishlist
 
 ## Phase 5: Testing and deployment
