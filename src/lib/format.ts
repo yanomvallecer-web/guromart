@@ -19,3 +19,8 @@ export function slugify(input: string, maxLength = 50): string {
     .slice(0, maxLength)
     .replace(/-+$/g, "");
 }
+
+/** Human file size, e.g. 2048 -> "2 KB", 3_500_000 -> "3.3 MB". */
+export function formatBytes(bytes: number): string {
+  return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}

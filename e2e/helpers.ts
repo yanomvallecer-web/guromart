@@ -106,3 +106,65 @@ export async function storedObjects(bucket: string, prefix: string): Promise<str
   if (!res.ok) throw new Error(`list ${bucket}/${prefix} failed: ${res.status} ${await res.text()}`);
   return ((await res.json()) as { name: string }[]).map((o) => o.name);
 }
+
+const TEST_PDF = Buffer.from(
+  "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n" +
+    "3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n",
+);
+const TEST_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+async function upload(bucket: string, objectPath: string, body: Buffer, contentType: string) {
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${objectPath}`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": contentType },
+    body: new Uint8Array(body),
+  });
+  if (!res.ok) throw new Error(`upload ${bucket}/${objectPath} failed: ${res.status} ${await res.text()}`);
+}
+
+/**
+ * Creates a seller with one live listing directly through the service APIs,
+ * for tests about buying rather than listing. The file and preview are real
+ * objects in storage and the listing goes live through the database publish check.
+ */
+export async function createLiveListing(title: string, priceCentavos: number) {
+  const stamp = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ email: `listed-${stamp}@example.test`, email_confirm: true }),
+  });
+  if (!res.ok) throw new Error(`create seller user failed: ${res.status} ${await res.text()}`);
+  const userId = ((await res.json()) as { id: string }).id;
+  const [account] = await serviceRest("seller_accounts", { method: "POST", body: JSON.stringify({ user_id: userId, seller_type: "teacher", status: "active" }) });
+  const [store] = await serviceRest("storefronts", {
+    method: "POST",
+    body: JSON.stringify({ seller_account_id: account.id, slug: `buy-${stamp}`, name: "Buying Test Shop", is_published: true }),
+  });
+  const [category] = await serviceRest("product_categories?code=eq.worksheet&select=id");
+  const slug = `buy-test-${stamp}`;
+  const [product] = await serviceRest("products", {
+    method: "POST",
+    body: JSON.stringify({
+      storefront_id: store.id, slug, title, category_id: category.id, price_centavos: priceCentavos,
+      copyright_declared_at: new Date().toISOString(), status: "draft",
+    }),
+  });
+  const filePath = `${account.id}/${product.id}/${stamp}.pdf`;
+  const previewPath = `${account.id}/${product.id}/${stamp}.png`;
+  await upload("product-files", filePath, TEST_PDF, "application/pdf");
+  await upload("product-previews", previewPath, TEST_PNG, "image/png");
+  const [file] = await serviceRest("product_files", {
+    method: "POST",
+    body: JSON.stringify({
+      product_id: product.id, storage_path: filePath, original_filename: "worksheet.pdf",
+      mime_type: "application/pdf", file_format: "pdf", size_bytes: TEST_PDF.length, scan_status: "clean",
+    }),
+  });
+  await serviceRest("product_previews", { method: "POST", body: JSON.stringify({ product_id: product.id, storage_path: previewPath }) });
+  await serviceRest(`products?id=eq.${product.id}`, { method: "PATCH", body: JSON.stringify({ status: "published" }) });
+  return { productId: product.id as string, slug, fileId: file.id as string };
+}

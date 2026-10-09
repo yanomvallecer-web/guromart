@@ -40,12 +40,16 @@
 | Payout details (GCash, Maya or bank), validated, shown masked, private to the seller and staff, every change audited | Done | `src/lib/validation/payout.test.ts`, `supabase/tests/rls.test.ts`, `e2e/verification.spec.ts` |
 | Demo data for local development: `npm run seed:demo` loads 3 shops and 8 resources titled "[Demo]" with placeholder files through the normal publish checks, refuses non-local databases, and `--remove` deletes it all | Done | Run by hand against the local stack (add, browse, typo and synonym search, shop page, remove with no leftover files) |
 
-## Phase 3: Transactions
+## Phase 3: Transactions (in progress)
 
-- Cart, PayMongo Checkout Sessions (sandbox), verified and idempotent webhooks
-- Orders, receipts, failure handling, free "get" flow
-- Entitlements, signed downloads, download history, My Library
-- Seller earnings ledger, balances, commission breakdown
+| Item | Status | Tested by |
+| --- | --- | --- |
+| Cart: paid, live resources only; no buying your own or something you already own; at most 50; totals from current server prices | Done | `supabase/tests/rls.test.ts`, `e2e/library.spec.ts` |
+| Free "get" flow: adds a free resource to the library (granted by the database, never for paid resources) | Done | `supabase/tests/rls.test.ts`, `e2e/library.spec.ts` |
+| My Library and downloads: the database checks ownership and logs each download, then the server signs a one-minute link to the private file; 60 downloads an hour per teacher; archived resources stay downloadable; revoked access is blocked | Done | `supabase/tests/rls.test.ts`, `e2e/library.spec.ts` |
+| PayMongo Checkout Sessions (sandbox), verified and idempotent webhooks | Not started | |
+| Orders, receipts, payment failure handling | Not started | |
+| Seller earnings ledger, balances, commission breakdown | Not started | |
 
 ## Phase 4: Marketplace operations
 

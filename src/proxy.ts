@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 
 // Paths that need a signed-in user. This is a fast redirect only; every
 // protected page and action checks the session and roles again on the server.
-const PROTECTED_PREFIXES = ["/account", "/seller", "/admin", "/sell/start"];
+const PROTECTED_PREFIXES = ["/account", "/seller", "/admin", "/sell/start", "/cart", "/library"];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });

@@ -3,7 +3,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { FileText } from "lucide-react";
-import { Badge, Card } from "@/components/ui/card";
+import { BuyPanel } from "@/components/commerce/buy-panel";
+import { Badge, Card, Skeleton } from "@/components/ui/card";
 import { getPublishedProduct } from "@/lib/catalog/product";
 import { formatPrice } from "@/lib/format";
 import { publicObjectUrl } from "@/lib/storage";
@@ -89,7 +90,9 @@ async function Resource({ params }: { params: PageProps<"/resources/[slug]">["pa
           <p className={product.price_centavos === 0 ? "font-display text-3xl font-bold text-success" : "font-display text-3xl font-bold"}>
             {formatPrice(product.price_centavos)}
           </p>
-          <p className="text-sm text-muted-foreground">Buying and downloading open with GuroMart checkout.</p>
+          <Suspense fallback={<Skeleton className="h-12 w-full" />}>
+            <BuyPanel productId={product.id} slug={product.slug} free={product.price_centavos === 0} />
+          </Suspense>
         </Card>
         <Card className="p-5">
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">

@@ -298,7 +298,7 @@ describe("transactions", () => {
     const cart = await q(user(buyer), "insert into public.carts (user_id) values ($1) returning id", [buyer]);
     const cartId = cart.rows[0].id;
     await q(user(buyer), "insert into public.cart_items (cart_id, product_id) values ($1, $2)", [cartId, live.id]);
-    await expectError(user(buyer), "insert into public.cart_items (cart_id, product_id) values ($1, $2)", [cartId, draft.id], /row-level security/);
+    await expectError(user(buyer), "insert into public.cart_items (cart_id, product_id) values ($1, $2)", [cartId, draft.id], /not available/);
   });
 
   it("requires the split to add up and keeps the ledger append-only", async () => {
@@ -609,5 +609,96 @@ describe("ranked search", () => {
     expect(paid.rows.map((r) => r.title)).toEqual(["Paid science sheet"]);
     const shop = await search(null, "newest", ", p_shop => 'shop-two'");
     expect(shop.rows).toHaveLength(0);
+  });
+});
+
+describe("cart, free resources and library", () => {
+  async function setup() {
+    const s = await createSeller("s@example.test", "shop-one");
+    const paid = await insertProduct(admin, s.storefrontId, "paid-1", { status: "published", price_centavos: 7500 });
+    const free = await insertProduct(admin, s.storefrontId, "free-1", { status: "published", price_centavos: 0 });
+    await addReadyMedia(paid.id, s.sellerId);
+    await addReadyMedia(free.id, s.sellerId);
+    const buyer = await createUser("buyer@example.test");
+    const cart = await q(user(buyer), "insert into public.carts (user_id) values ($1) returning id", [buyer]);
+    const fileOf = async (productId: string) =>
+      (await q<{ id: string }>(admin, "select id from public.product_files where product_id = $1", [productId])).rows[0].id;
+    return { s, paid, free, buyer, cartId: cart.rows[0].id as string, fileOf };
+  }
+  const addToCart = (who: string, cartId: string, productId: string) =>
+    q(user(who), "insert into public.cart_items (cart_id, product_id) values ($1, $2)", [cartId, productId]);
+
+  it("only takes paid resources the buyer neither sells nor owns", async () => {
+    const { s, paid, free, buyer, cartId } = await setup();
+    await addToCart(buyer, cartId, paid.id);
+    await expectError(user(buyer), "insert into public.cart_items (cart_id, product_id) values ($1, $2)", [cartId, free.id], /is free/);
+
+    const sellerCart = await q(user(s.userId), "insert into public.carts (user_id) values ($1) returning id", [s.userId]);
+    await expectError(user(s.userId), "insert into public.cart_items (cart_id, product_id) values ($1, $2)", [sellerCart.rows[0].id, paid.id], /your own/);
+
+    const other = await createUser("other@example.test");
+    await expectError(user(other), "insert into public.cart_items (cart_id, product_id) values ($1, $2)", [cartId, paid.id], /row-level security/);
+  });
+
+  it("refuses resources already in the library", async () => {
+    const { paid, buyer, cartId } = await setup();
+    await q(admin, "insert into public.entitlements (user_id, product_id, source) values ($1, $2, 'grant')", [buyer, paid.id]);
+    await expectError(user(buyer), "insert into public.cart_items (cart_id, product_id) values ($1, $2)", [cartId, paid.id], /already in your library/);
+  });
+
+  it("grants free resources once and never paid ones", async () => {
+    const { paid, free, buyer } = await setup();
+    const first = await q(user(buyer), "select public.claim_free_product($1) as id", [free.id]);
+    const again = await q(user(buyer), "select public.claim_free_product($1) as id", [free.id]);
+    expect(again.rows[0].id).toBe(first.rows[0].id);
+    await expectError(user(buyer), "select public.claim_free_product($1)", [paid.id], /not free/);
+    await expectError(anon, "select public.claim_free_product($1)", [free.id], /permission denied/);
+
+    const draft = await insertProduct(admin, (await q(admin, "select storefront_id from public.products where id = $1", [free.id])).rows[0].storefront_id, "free-draft", { price_centavos: 0 });
+    await expectError(user(buyer), "select public.claim_free_product($1)", [draft.id], /not available/);
+  });
+
+  it("only lets owners download, logs it and counts each teacher once", async () => {
+    const { paid, free, buyer, fileOf } = await setup();
+    const paidFile = await fileOf(paid.id);
+    const freeFile = await fileOf(free.id);
+    await expectError(user(buyer), "select * from public.start_download($1)", [paidFile], /don't have access/);
+
+    await q(user(buyer), "select public.claim_free_product($1)", [free.id]);
+    const dl = await q(user(buyer), "select * from public.start_download($1)", [freeFile]);
+    expect(dl.rows[0].storage_path).toContain(free.id);
+    await q(user(buyer), "select * from public.start_download($1)", [freeFile]);
+
+    const logged = await q(user(buyer), "select count(*)::int as n from public.downloads");
+    expect(logged.rows[0].n).toBe(2);
+    const count = await q(admin, "select download_count from public.products where id = $1", [free.id]);
+    expect(count.rows[0].download_count).toBe(1);
+
+    const other = await createUser("other@example.test");
+    expect((await q(user(other), "select * from public.downloads")).rows).toHaveLength(0);
+    expect((await q(user(other), "select * from public.my_library()")).rows).toHaveLength(0);
+  });
+
+  it("keeps archived resources in the library and blocks revoked access", async () => {
+    const { s, free, buyer, fileOf } = await setup();
+    await q(user(buyer), "select public.claim_free_product($1)", [free.id]);
+    await q(user(s.userId), "update public.products set status = 'archived' where id = $1", [free.id]);
+
+    const lib = await q(user(buyer), "select * from public.my_library()");
+    expect(lib.rows).toHaveLength(1);
+    expect(lib.rows[0].is_live).toBe(false);
+    expect(lib.rows[0].files[0]).toMatchObject({ format: "pdf", available: true });
+    await q(user(buyer), "select * from public.start_download($1)", [await fileOf(free.id)]);
+
+    await q(admin, "update public.entitlements set revoked_at = now(), revoke_reason = 'takedown' where user_id = $1", [buyer]);
+    await expectError(user(buyer), "select * from public.start_download($1)", [await fileOf(free.id)], /don't have access/);
+    expect((await q(user(buyer), "select * from public.my_library()")).rows).toHaveLength(0);
+  });
+
+  it("removes a claimed free resource from the cart", async () => {
+    const { free, buyer, cartId } = await setup();
+    await q(admin, "insert into public.cart_items (cart_id, product_id) values ($1, $2)", [cartId, free.id]);
+    await q(user(buyer), "select public.claim_free_product($1)", [free.id]);
+    expect((await q(user(buyer), "select * from public.cart_items")).rows).toHaveLength(0);
   });
 });

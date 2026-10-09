@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { AccountMenu, AccountMenuFallback } from "./account-menu";
+import { CartLink } from "./cart-link";
 import { Logo } from "./logo";
 import { SearchForm } from "./search-form";
 
@@ -17,6 +18,9 @@ export function SiteHeader() {
           <Link href="/sell" className="rounded-[10px] px-3 py-2.5 hover:bg-surface-muted">
             Sell
           </Link>
+          <Suspense fallback={null}>
+            <CartLink />
+          </Suspense>
           <Suspense fallback={<AccountMenuFallback />}>
             <AccountMenu />
           </Suspense>
