@@ -180,6 +180,9 @@ test("staff check files, reject with a note, then approve a resubmitted listing"
   await visitor.goto(`/resources/${product.slug}`);
   await expect(visitor.getByRole("heading", { name: title })).toBeVisible();
   await expect(visitor.getByText("₱60.00")).toBeVisible();
+  // Search finds it by relevance even with a typo in the query.
+  await visitor.goto(`/browse?q=${encodeURIComponent(title.replace("Fractions", "Fractoins"))}`);
+  await expect(visitor.getByRole("link", { name: new RegExp(title) })).toBeVisible();
   await visitorContext.close();
 
   await page.reload();

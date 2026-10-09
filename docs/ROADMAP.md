@@ -15,7 +15,7 @@
 | Role-based access on the server (buyer, seller, publisher, admin) | Done | `src/lib/auth/roles.test.ts`, `e2e/accounts.spec.ts` |
 | Design system tokens and components | Done | Visual check on desktop and mobile |
 | Homepage from real data with empty states | Done | `e2e/visitor.spec.ts` |
-| Browse with server-side filters, sort and pagination | Done (relevance ranking pending) | `src/lib/catalog/search-params.test.ts`, `e2e` |
+| Browse with server-side filters, sort and pagination | Done | `src/lib/catalog/search-params.test.ts`, `e2e` |
 | Resource detail and shop pages (read-only) | Done | `e2e/accounts.spec.ts` |
 | Account profile editing | Done | `e2e/accounts.spec.ts` |
 | Seller onboarding steps 1 to 3 and seller dashboard | Done | `supabase/tests`, `e2e/accounts.spec.ts` |
@@ -36,8 +36,8 @@
 | Approving a seller's first listing opens their shop; identity verification gates payouts, not listing | Done | `supabase/tests/rls.test.ts`, `e2e/listings.spec.ts` |
 | Seller identity verification: private ID upload (checked like other uploads), one request at a time, staff review with logged document access, reject with a note | Done | `supabase/tests/rls.test.ts`, `e2e/verification.spec.ts` |
 | Shop profile: name, tagline, about, logo and banner (checked uploads, old images deleted), show or hide the shop; the shop address and owner can't be changed | Done | `supabase/tests/rls.test.ts`, `src/lib/validation/validation.test.ts`, `e2e/shop.spec.ts` |
+| Ranked search: relevance order, Filipino/English synonyms (DLL, agham, matematika, AP and more), typo tolerance on titles, all filters in one database query | Done | `supabase/tests/rls.test.ts`, `e2e/listings.spec.ts` |
 | Payout details (GCash, Maya or bank), validated, shown masked, private to the seller and staff, every change audited | Done | `src/lib/validation/payout.test.ts`, `supabase/tests/rls.test.ts`, `e2e/verification.spec.ts` |
-- Ranked search (database function with `ts_rank`), Filipino/English synonyms (DLL and daily lesson log)
 - Demo seed data, clearly labelled, for local development
 
 ## Phase 3: Transactions
