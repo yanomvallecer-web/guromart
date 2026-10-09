@@ -49,13 +49,14 @@ export type ProductCard = {
   rating_avg: number;
   rating_count: number;
   category: string | null;
+  category_code: string | null;
   subject: string | null;
   storefront: { slug: string; name: string } | null;
   preview_path: string | null;
 };
 
 const CARD_SELECT = `id, slug, title, price_centavos, rating_avg, rating_count,
-  product_categories(name), subjects(name), storefronts(slug, name),
+  product_categories(code, name), subjects(name), storefronts(slug, name),
   product_previews(storage_path, sort_order)`;
 
 type CardRow = {
@@ -65,7 +66,7 @@ type CardRow = {
   price_centavos: number;
   rating_avg: number | string;
   rating_count: number;
-  product_categories: { name: string } | null;
+  product_categories: { code: string; name: string } | null;
   subjects: { name: string } | null;
   storefronts: { slug: string; name: string } | null;
   product_previews: { storage_path: string; sort_order: number }[] | null;
@@ -81,6 +82,7 @@ function toCard(row: CardRow): ProductCard {
     rating_avg: Number(row.rating_avg),
     rating_count: row.rating_count,
     category: row.product_categories?.name ?? null,
+    category_code: row.product_categories?.code ?? null,
     subject: row.subjects?.name ?? null,
     storefront: row.storefronts,
     preview_path: preview?.storage_path ?? null,
@@ -133,23 +135,7 @@ export async function browseProducts(params: BrowseParams): Promise<BrowseResult
   cacheTag("products");
   const db = createPublicClient();
   const page = params.page ?? 1;
-  const range = priceRange(params.price);
-  const { data: hits, error } = await db.rpc("browse_product_ids", {
-    p_q: params.q ?? null,
-    p_category: params.category ?? null,
-    p_grade: params.grade ?? null,
-    p_subject: params.subject ?? null,
-    p_curriculum: params.curriculum ?? null,
-    p_period: params.period ?? null,
-    p_shop: params.shop ?? null,
-    p_language: params.language ?? null,
-    p_format: params.format ?? null,
-    p_price_min: range ? range[0] : null,
-    p_price_max: range ? range[1] : null,
-    p_sort: effectiveSort(params),
-    p_limit: PAGE_SIZE,
-    p_offset: (page - 1) * PAGE_SIZE,
-  });
+  const { data: hits, error } = await db.rpc("browse_product_ids", searchArgs(params, PAGE_SIZE, (page - 1) * PAGE_SIZE));
   if (error) throw new Error(`Search failed: ${error.message}`);
   const rows = (hits ?? []) as { id: string; total: number }[];
   const total = rows.length ? Number(rows[0].total) : 0;
@@ -162,4 +148,39 @@ export async function browseProducts(params: BrowseParams): Promise<BrowseResult
     items = rows.map((r) => byId.get(r.id)).filter((c): c is ProductCard => Boolean(c));
   }
   return { items, total, page, pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
+}
+
+/**
+ * How many live resources match the filters, from the same database search
+ * as browseProducts (one row is enough: every row carries the full count).
+ * Used by the phone filter sheet's "Show N resources" button.
+ */
+export async function countProducts(params: BrowseParams): Promise<number> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("products");
+  const { data, error } = await createPublicClient().rpc("browse_product_ids", searchArgs(params, 1, 0));
+  if (error) throw new Error(`Search failed: ${error.message}`);
+  const rows = (data ?? []) as { total: number }[];
+  return rows.length ? Number(rows[0].total) : 0;
+}
+
+function searchArgs(params: BrowseParams, limit: number, offset: number) {
+  const range = priceRange(params.price);
+  return {
+    p_q: params.q ?? null,
+    p_category: params.category ?? null,
+    p_grade: params.grade ?? null,
+    p_subject: params.subject ?? null,
+    p_curriculum: params.curriculum ?? null,
+    p_period: params.period ?? null,
+    p_shop: params.shop ?? null,
+    p_language: params.language ?? null,
+    p_format: params.format ?? null,
+    p_price_min: range ? range[0] : null,
+    p_price_max: range ? range[1] : null,
+    p_sort: effectiveSort(params),
+    p_limit: limit,
+    p_offset: offset,
+  };
 }

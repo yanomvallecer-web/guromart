@@ -1,34 +1,41 @@
 import Link from "next/link";
 import { FileText, Star } from "lucide-react";
 import type { ProductCard as Card } from "@/lib/catalog/queries";
+import { shortTypeLabel } from "@/lib/catalog/labels";
 import { formatPrice } from "@/lib/format";
 import { publicObjectUrl } from "@/lib/storage";
+import { cn } from "@/lib/utils";
 
 export function ProductCard({ product }: { product: Card }) {
+  const type = shortTypeLabel(product.category_code, product.category);
   return (
     <Link href={`/resources/${product.slug}`} className="group flex flex-col gap-2 text-foreground no-underline">
-      <div className="aspect-[4/3] overflow-hidden rounded-[12px] border border-border bg-accent-soft">
+      {/* Portrait, like the page of a lesson plan or worksheet. */}
+      <div className="relative aspect-[3/4] overflow-hidden rounded-[12px] border border-border bg-accent-soft">
         {product.preview_path ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={publicObjectUrl("product-previews", product.preview_path)}
             alt=""
             loading="lazy"
-            className="size-full object-cover transition-transform group-hover:scale-[1.02]"
+            className="size-full object-cover object-top transition-transform motion-safe:group-hover:scale-[1.02]"
           />
         ) : (
           <div className="flex size-full items-center justify-center text-primary/50">
             <FileText className="size-10" aria-hidden />
           </div>
         )}
+        {type ? (
+          <span className="absolute left-2 top-2 max-w-[calc(100%-1rem)] truncate rounded-full bg-surface/95 px-2.5 py-0.5 text-xs font-bold text-foreground shadow-sm">
+            {type}
+            <span className="sr-only">: </span>
+          </span>
+        ) : null}
       </div>
       <div className="flex flex-col gap-0.5">
-        <p className="text-xs font-semibold text-muted-foreground">
-          {[product.category, product.subject].filter(Boolean).join(" · ")}
-        </p>
         <h3 className="line-clamp-2 text-[15px] font-bold leading-snug group-hover:text-primary">{product.title}</h3>
         {product.storefront ? <p className="truncate text-sm text-muted-foreground">{product.storefront.name}</p> : null}
-        <div className="mt-1 flex items-center justify-between">
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2">
           <span className={product.price_centavos === 0 ? "font-bold text-success" : "font-bold"}>
             {formatPrice(product.price_centavos)}
           </span>
@@ -44,9 +51,12 @@ export function ProductCard({ product }: { product: Card }) {
   );
 }
 
-export function ProductGrid({ products }: { products: Card[] }) {
+/** Two cards per row from 360px (most phones), more on wider screens. */
+const GRID = "grid grid-cols-1 gap-x-3 gap-y-6 min-[360px]:grid-cols-2 sm:gap-x-5 sm:gap-y-8 md:grid-cols-3 lg:grid-cols-4";
+
+export function ProductGrid({ products, className }: { products: Card[]; className?: string }) {
   return (
-    <ul className="grid grid-cols-1 gap-x-5 gap-y-8 min-[480px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+    <ul className={cn(GRID, className)}>
       {products.map((p) => (
         <li key={p.id}>
           <ProductCard product={p} />
@@ -56,12 +66,12 @@ export function ProductGrid({ products }: { products: Card[] }) {
   );
 }
 
-export function ProductGridSkeleton({ count = 4 }: { count?: number }) {
+export function ProductGridSkeleton({ count = 4, className }: { count?: number; className?: string }) {
   return (
-    <div className="grid grid-cols-1 gap-5 min-[480px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4" aria-hidden>
+    <div className={cn(GRID, className)} aria-hidden>
       {Array.from({ length: count }, (_, i) => (
         <div key={i} className="flex flex-col gap-2">
-          <div className="aspect-[4/3] animate-pulse rounded-[12px] bg-border/70" />
+          <div className="aspect-[3/4] animate-pulse rounded-[12px] bg-border/70" />
           <div className="h-4 w-3/4 animate-pulse rounded bg-border/70" />
           <div className="h-4 w-1/2 animate-pulse rounded bg-border/70" />
         </div>

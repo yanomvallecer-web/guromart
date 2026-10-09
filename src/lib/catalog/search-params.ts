@@ -70,3 +70,12 @@ export function browseHref(current: BrowseParams, changes: Partial<Record<keyof 
   const qs = next.toString();
   return qs ? `/browse?${qs}` : "/browse";
 }
+
+/** URL keys that narrow the results (search words, sort and page are not filters). */
+export const FILTER_KEYS = ["category", "grade", "subject", "price", "curriculum", "period", "language", "format", "shop"] as const;
+export type FilterKey = (typeof FILTER_KEYS)[number];
+
+/** The filters in use, in display order. */
+export function activeFilters(params: BrowseParams): { key: FilterKey; value: string }[] {
+  return FILTER_KEYS.flatMap((key) => (params[key] ? [{ key, value: String(params[key]) }] : []));
+}
