@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { safeNextPath } from "@/lib/auth/roles";
+import { parseSocialProvider } from "@/lib/auth/social";
 import { publicEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { emailSchema, otpSchema } from "@/lib/validation/auth";
@@ -49,14 +50,18 @@ export async function verifyCode(_prev: SignInState, formData: FormData): Promis
   redirect(safeNextPath(formData.get("next")));
 }
 
-export async function signInWithGoogle(formData: FormData) {
-  if (!publicEnv().NEXT_PUBLIC_AUTH_GOOGLE_ENABLED) redirect("/sign-in");
+export async function signInWithSocial(formData: FormData) {
   const next = safeNextPath(formData.get("next"));
+  const provider = parseSocialProvider(formData.get("provider"), publicEnv());
+  if (!provider) redirect(`/sign-in?next=${encodeURIComponent(next)}`);
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
+    provider: provider.id,
     options: { redirectTo: `${publicEnv().NEXT_PUBLIC_SITE_URL}/auth/callback?next=${encodeURIComponent(next)}` },
   });
-  if (error || !data.url) redirect(`/sign-in?error=oauth&next=${encodeURIComponent(next)}`);
+  if (error || !data.url) {
+    console.error("Social sign-in failed to start", { provider: provider.id, message: error?.message });
+    redirect(`/sign-in?error=oauth&next=${encodeURIComponent(next)}`);
+  }
   redirect(data.url);
 }

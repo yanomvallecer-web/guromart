@@ -18,7 +18,7 @@ The prototype at https://guromart.grok.me was built and is hosted on Grok's app 
 | Web app | Next.js 16 (App Router, Cache Components), React 19, TypeScript | Server Components keep data access and authorization on the server; one deployable for UI and API |
 | UI | Tailwind CSS 4, shadcn-style components (Radix Slot, CVA), Lucide icons | Accessible primitives we own and can restyle |
 | Data | Supabase PostgreSQL with migrations in `supabase/migrations` | Relational integrity for orders, ledger and entitlements; row-level security |
-| Auth | Supabase Auth: email one-time code, optional Google | Teachers mostly have Gmail or DepEd Google accounts; no passwords to manage |
+| Auth | Supabase Auth: email link or code, optional Facebook and Google | Teachers mostly have Facebook, Gmail or DepEd Google accounts; no passwords to manage |
 | Files | Supabase Storage: private buckets for resources and IDs, public buckets for previews | Signed, expiring download URLs issued only after an entitlement check |
 | Validation | Zod at every server boundary | Forms, URL parameters and webhook payloads |
 | Payments | PayMongo Checkout (Phase 3) | See section 6 |

@@ -7,7 +7,8 @@ import { FormAlert } from "@/components/ui/form";
 import { getViewer } from "@/lib/auth/dal";
 import { safeNextPath } from "@/lib/auth/roles";
 import { publicEnv } from "@/lib/env";
-import { signInWithGoogle } from "./actions";
+import { enabledSocialProviders } from "@/lib/auth/social";
+import { signInWithSocial } from "./actions";
 import { SignInForm } from "./sign-in-form";
 
 export const metadata: Metadata = { title: "Sign in" };
@@ -35,20 +36,29 @@ async function SignInBody({ searchParams }: { searchParams: PageProps<"/sign-in"
   const params = await searchParams;
   const next = safeNextPath(params.next);
   if (await getViewer()) redirect(next);
-  const googleEnabled = publicEnv().NEXT_PUBLIC_AUTH_GOOGLE_ENABLED;
+  const providers = enabledSocialProviders(publicEnv());
   return (
     <>
-      {params.error ? <FormAlert>That sign-in link didn&apos;t work. It may have expired, so request a new one.</FormAlert> : null}
-      {googleEnabled ? (
+      {params.error === "oauth" ? (
+        <FormAlert>We couldn&apos;t start that sign-in. Please try again, or use your email instead.</FormAlert>
+      ) : params.error ? (
+        <FormAlert>That sign-in didn&apos;t work. It may have expired or been cancelled, so please try again.</FormAlert>
+      ) : null}
+      {providers.length > 0 ? (
         <>
-          <form action={signInWithGoogle}>
-            <input type="hidden" name="next" value={next} />
-            <Button type="submit" variant="outline" className="w-full">
-              Continue with Google
-            </Button>
-          </form>
+          <div className="flex flex-col gap-3">
+            {providers.map((p) => (
+              <form key={p.id} action={signInWithSocial}>
+                <input type="hidden" name="next" value={next} />
+                <input type="hidden" name="provider" value={p.id} />
+                <Button type="submit" variant="outline" className="w-full">
+                  {p.label}
+                </Button>
+              </form>
+            ))}
+          </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
+            <span className="h-px flex-1 bg-border" /> or use your email <span className="h-px flex-1 bg-border" />
           </div>
         </>
       ) : null}

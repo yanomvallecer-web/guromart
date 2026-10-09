@@ -11,7 +11,7 @@
 | Database schema and migrations for the full MVP | Done | `supabase/tests/rls.test.ts` |
 | Row-level security, guard triggers, audit log | Done | `supabase/tests/rls.test.ts` |
 | Email code sign-in and sign-up, session refresh, sign-out | Done | `e2e/accounts.spec.ts` |
-| Google sign-in | Built, needs provider credentials | Not tested (needs Google OAuth client) |
+| Facebook and Google sign-in | Built, needs provider credentials | Buttons and redirect tested locally; provider round trip not tested (needs a Meta app and Google OAuth client) |
 | Role-based access on the server (buyer, seller, publisher, admin) | Done | `src/lib/auth/roles.test.ts`, `e2e/accounts.spec.ts` |
 | Design system tokens and components | Done | Visual check on desktop and mobile |
 | Homepage from real data with empty states | Done | `e2e/visitor.spec.ts` |
@@ -73,6 +73,7 @@
 | Supabase project (Singapore region) | Any hosted environment | Free tier is fine for staging |
 | Production email sender (SMTP, e.g. Resend or Amazon SES) | Sign-in codes at scale | Supabase's built-in sender is for testing only |
 | Google OAuth client | Google sign-in | Optional |
+| Meta (Facebook) app | Facebook sign-in | Optional |
 | PayMongo account and business verification | Live payments | Test keys are enough for Phase 3 development |
 | Confirmation of PayMongo payout capabilities | Automating seller payouts | Until then payouts are recorded and sent manually |
 | Malware scanning service | Approving uploaded files | Until chosen, files stay quarantined for manual review |
