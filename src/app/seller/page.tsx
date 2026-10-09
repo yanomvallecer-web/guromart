@@ -78,6 +78,7 @@ async function Dashboard() {
             <Badge>{STATUS_LABEL[account.status] ?? account.status}</Badge>
             <Badge className="bg-surface-muted capitalize text-foreground">{account.plan} plan</Badge>
             <Link href="/seller/shop" className="text-sm font-semibold text-primary hover:underline">Edit shop profile</Link>
+            <Link href="/seller/earnings" className="text-sm font-semibold text-primary hover:underline">Earnings</Link>
           </div>
         </Card>
         <Card className="p-6">
