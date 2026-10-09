@@ -694,3 +694,100 @@ describe("cart, free resources and library", () => {
     expect((await q(user(buyer), "select * from public.cart_items")).rows).toHaveLength(0);
   });
 });
+
+describe("checkout and payment events", () => {
+  const service = { role: "service_role" } as const;
+  async function setup(plan = "starter") {
+    const s = await createSeller("s@example.test", "shop-one");
+    await q(admin, "update public.seller_accounts set plan = $2 where id = $1", [s.sellerId, plan]);
+    const a = await insertProduct(admin, s.storefrontId, "paid-a", { status: "published", price_centavos: 7500, title: "Science reviewer" });
+    const b = await insertProduct(admin, s.storefrontId, "paid-b", { status: "published", price_centavos: 15000, title: "Math test" });
+    const buyer = await createUser("buyer@example.test");
+    const cart = await q(user(buyer), "insert into public.carts (user_id) values ($1) returning id", [buyer]);
+    for (const p of [a, b]) await q(user(buyer), "insert into public.cart_items (cart_id, product_id) values ($1, $2)", [cart.rows[0].id, p.id]);
+    return { s, a, b, buyer };
+  }
+  async function checkout(buyer: string, checkoutId = "cs_test_1") {
+    const order = (await q(user(buyer), "select * from public.create_order_from_cart()")).rows[0];
+    await q(service, "insert into public.payments (order_id, provider, provider_checkout_id, amount_centavos) values ($1, 'paymongo', $2, $3)",
+      [order.order_id, checkoutId, order.total_centavos]);
+    return order;
+  }
+  const paid = (eventId: string, checkoutId: string, amount: number, livemode = false) =>
+    q(service, "select public.apply_payment_event($1, 'checkout_session.payment.paid', '{}'::jsonb, $2, $3, $5, $4, 500, 'gcash') as outcome",
+      [eventId, livemode, checkoutId, amount, `pay_${eventId}`]);
+
+  it("snapshots prices and commission when the order is created", async () => {
+    const { buyer } = await setup();
+    const order = await checkout(buyer);
+    expect(order.total_centavos).toBe(22500);
+    const items = await q(user(buyer), "select unit_price_centavos, commission_bps, platform_fee_centavos, seller_earnings_centavos from public.order_items order by unit_price_centavos");
+    expect(items.rows).toEqual([
+      { unit_price_centavos: 7500, commission_bps: 3000, platform_fee_centavos: 2250, seller_earnings_centavos: 5250 },
+      { unit_price_centavos: 15000, commission_bps: 3000, platform_fee_centavos: 4500, seller_earnings_centavos: 10500 },
+    ]);
+    expect((await q(user(buyer), "select status from public.orders")).rows[0].status).toBe("pending_payment");
+    expect((await q(user(buyer), "select * from public.entitlements")).rows).toHaveLength(0);
+  });
+
+  it("uses the Pro rate and a negotiated override", async () => {
+    const { s, buyer } = await setup("pro");
+    await checkout(buyer);
+    expect((await q(user(buyer), "select distinct commission_bps from public.order_items")).rows).toEqual([{ commission_bps: 1500 }]);
+    await q(admin, "update public.seller_accounts set commission_bps_override = 1000 where id = $1", [s.sellerId]);
+    const again = (await q(user(buyer), "select * from public.create_order_from_cart()")).rows[0];
+    const items = await q(admin, "select distinct commission_bps from public.order_items where order_id = $1", [again.order_id]);
+    expect(items.rows).toEqual([{ commission_bps: 1000 }]);
+  });
+
+  it("refuses an empty cart and keeps payment events away from buyers", async () => {
+    const buyer = await createUser("buyer@example.test");
+    await expectError(user(buyer), "select * from public.create_order_from_cart()", [], /nothing to pay for/);
+    await expectError(user(buyer), "select public.apply_payment_event('evt', 'checkout_session.payment.paid', '{}', false, 'cs', 'pay', 1, 0, 'gcash')", [], /permission denied/);
+  });
+
+  it("grants access, credits sellers after the hold and clears the cart on a verified payment", async () => {
+    const { s, a, buyer } = await setup();
+    await checkout(buyer);
+    expect((await paid("evt_1", "cs_test_1", 22500)).rows[0].outcome).toBe("paid");
+
+    expect((await q(user(buyer), "select status from public.orders")).rows[0].status).toBe("paid");
+    expect((await q(user(buyer), "select source from public.entitlements")).rows).toEqual([{ source: "purchase" }, { source: "purchase" }]);
+    expect((await q(user(buyer), "select * from public.cart_items")).rows).toHaveLength(0);
+    const balance = await q(user(s.userId), "select balance_centavos, available_centavos from public.seller_balances");
+    expect(Number(balance.rows[0].balance_centavos)).toBe(15750);
+    expect(Number(balance.rows[0].available_centavos)).toBe(0);
+    expect((await q(admin, "select sales_count from public.products where id = $1", [a.id])).rows[0].sales_count).toBe(1);
+    const notes = await q(admin, "select user_id, type from public.notifications where type in ('order.paid', 'sale.made') order by type");
+    expect(notes.rows).toEqual([{ user_id: buyer, type: "order.paid" }, { user_id: s.userId, type: "sale.made" }]);
+  });
+
+  it("ignores repeated, unknown, mismatched and other events", async () => {
+    const { buyer } = await setup();
+    await checkout(buyer);
+    expect((await paid("evt_bad", "cs_test_1", 100)).rows[0].outcome).toBe("mismatch");
+    expect((await paid("evt_live", "cs_test_1", 22500, true)).rows[0].outcome).toBe("mismatch");
+    expect((await paid("evt_x", "cs_unknown", 22500)).rows[0].outcome).toBe("unknown_checkout");
+    expect((await q(user(buyer), "select * from public.entitlements")).rows).toHaveLength(0);
+
+    expect((await paid("evt_1", "cs_test_1", 22500)).rows[0].outcome).toBe("paid");
+    expect((await paid("evt_1", "cs_test_1", 22500)).rows[0].outcome).toBe("duplicate");
+    expect((await paid("evt_2", "cs_test_1", 22500)).rows[0].outcome).toBe("already_paid");
+    const other = await q(service, "select public.apply_payment_event('evt_3', 'payment.failed', '{}', false, null, null, null, null, null) as outcome");
+    expect(other.rows[0].outcome).toBe("ignored");
+    expect((await q(admin, "select count(*)::int as n from public.seller_ledger_entries")).rows[0].n).toBe(2);
+  });
+
+  it("flags a second paid order for something already owned", async () => {
+    const { buyer } = await setup();
+    const first = (await q(user(buyer), "select * from public.create_order_from_cart()")).rows[0];
+    const second = (await q(user(buyer), "select * from public.create_order_from_cart()")).rows[0];
+    for (const [o, cs] of [[first, "cs_a"], [second, "cs_b"]] as const) {
+      await q(service, "insert into public.payments (order_id, provider, provider_checkout_id, amount_centavos) values ($1, 'paymongo', $2, $3)", [o.order_id, cs, o.total_centavos]);
+    }
+    expect((await paid("evt_a", "cs_a", 22500)).rows[0].outcome).toBe("paid");
+    expect((await paid("evt_b", "cs_b", 22500)).rows[0].outcome).toBe("paid_with_duplicates");
+    const flagged = await q(admin, "select count(*)::int as n from public.audit_logs where action = 'order.duplicate_purchase'");
+    expect(flagged.rows[0].n).toBe(2);
+  });
+});

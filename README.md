@@ -28,7 +28,8 @@ GuroMart is a multi-vendor marketplace where Filipino teachers discover, buy, do
 | Ranked search with Filipino/English synonyms and typo tolerance | Done, tested |
 | Optional demo data for local development (`npm run seed:demo`), clearly labelled | Done, run by hand |
 | Cart, free resources added to My Library, secure logged downloads | Done, tested end to end |
-| Checkout and payments | Not yet. See the roadmap. |
+| Checkout through PayMongo in test mode; resources unlock only on a verified payment event; order history and receipts | Done, tested end to end against a local PayMongo stand-in; not yet tried against PayMongo's own test servers |
+| Seller earnings view and payouts | Not yet. See the roadmap. |
 
 Nothing on the site is fabricated. With an empty database the homepage shows empty states, not sample products. Demo data is only loaded on request, locally, and every demo item is titled "[Demo]".
 
@@ -68,7 +69,7 @@ Demo shops say they are not real sellers, their files are one-page placeholders,
 | --- | --- | --- |
 | `npm run test:unit` | Authorization rules, validation, upload type and size checks, search parameters, price formatting | Nothing |
 | `npm run db:test:reset && npm run test:db` | Migrations apply cleanly; row-level security, triggers and constraints behave (sellers can't publish or edit others' listings, buyers can't create orders or entitlements, ledger is append-only, reviews need a purchase) | A disposable PostgreSQL 16 server in `TEST_DATABASE_URL` (never a Supabase project) |
-| `npm run test:e2e` | Sign-up with an emailed code, profile editing, role-based access, opening a shop, creating a listing and uploading files (fake files rejected and deleted), catalog search, on desktop and mobile | The app running against local Supabase, plus `E2E_MAILPIT_URL=http://127.0.0.1:54324` |
+| `npm run test:e2e` | Sign-up with an emailed code, profile editing, role-based access, opening a shop, creating a listing and uploading files (fake files rejected and deleted), catalog search, free resources and downloads, cart, paying through checkout (access unlocks only on a signed payment event; forged events refused), on desktop and mobile | The app running against local Supabase, plus `E2E_MAILPIT_URL=http://127.0.0.1:54324`, and the local PayMongo stand-in: run `node e2e/paymongo-stand-in.mjs` and start the app with `PAYMONGO_SECRET_KEY=sk_test_e2e PAYMONGO_WEBHOOK_SECRET=whsk_test_e2e PAYMONGO_API_BASE=http://127.0.0.1:4010` |
 | `npm run lint` and `npm run typecheck` | Code quality | Nothing |
 
 CI (`.github/workflows/ci.yml`) runs all of these on every pull request.
@@ -82,7 +83,8 @@ CI (`.github/workflows/ci.yml`) runs all of these on every pull request.
    ```
 2. **Configure Supabase Auth.** Set the Site URL to your domain and add `https://<your-domain>/auth/callback` to the redirect URLs. Make sure the email templates include `{{ .Token }}` so teachers can type the code. Set up a production SMTP sender (Supabase's built-in sender is rate-limited and only for testing).
 3. **Optional: Google sign-in.** Enable the Google provider in Supabase Auth with your Google OAuth client, then set `NEXT_PUBLIC_AUTH_GOOGLE_ENABLED=true`.
-4. **Deploy to Vercel.** Import the GitHub repository and set the environment variables from `.env.example` in the Vercel project settings. `SUPABASE_SECRET_KEY` must only ever be set as a server environment variable.
+4. **Payments (test mode).** In the PayMongo dashboard (test mode), copy the secret key into `PAYMONGO_SECRET_KEY`, create a webhook for `https://<your-domain>/api/webhooks/paymongo` with the event `checkout_session.payment.paid`, and put its signing secret in `PAYMONGO_WEBHOOK_SECRET`. Only test keys are accepted for now.
+5. **Deploy to Vercel.** Import the GitHub repository and set the environment variables from `.env.example` in the Vercel project settings. `SUPABASE_SECRET_KEY` must only ever be set as a server environment variable.
 5. **Create the first admin** with `scripts/grant-admin.mjs` as above.
 
 Secrets never go in the repository. `.env*` files are ignored, except `.env.example`, which holds no values.

@@ -72,10 +72,15 @@ jobs:
           echo "SUPABASE_SECRET_KEY=$(jq -r '.SECRET_KEY // .SERVICE_ROLE_KEY' /tmp/sb.json)" >> "$GITHUB_ENV"
           echo "NEXT_PUBLIC_SITE_URL=http://localhost:3000" >> "$GITHUB_ENV"
           echo "E2E_MAILPIT_URL=http://127.0.0.1:54324" >> "$GITHUB_ENV"
+          # Test-only values for the local PayMongo stand-in (e2e/paymongo-stand-in.mjs). Not real keys.
+          echo "PAYMONGO_SECRET_KEY=sk_test_e2e" >> "$GITHUB_ENV"
+          echo "PAYMONGO_WEBHOOK_SECRET=whsk_test_e2e" >> "$GITHUB_ENV"
+          echo "PAYMONGO_API_BASE=http://127.0.0.1:4010" >> "$GITHUB_ENV"
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - name: Run end-to-end tests
         run: |
+          node e2e/paymongo-stand-in.mjs &
           npm run start &
           npx --yes wait-on@8.0.3 http://localhost:3000
           npm run test:e2e

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, ChevronDown, LogOut, ShieldCheck, Store, User, FileText } from "lucide-react";
+import { BookOpen, ChevronDown, LogOut, Receipt, ShieldCheck, Store, User, FileText } from "lucide-react";
 import { signOut } from "@/app/auth/actions";
 import { buttonVariants } from "@/components/ui/button";
 import { getViewer } from "@/lib/auth/dal";
@@ -32,6 +32,9 @@ export async function AccountMenu() {
         </Link>
         <Link href="/library" className={item}>
           <BookOpen /> My library
+        </Link>
+        <Link href="/orders" className={item}>
+          <Receipt /> Orders
         </Link>
         {isSeller ? (
           <Link href="/seller" className={item}>

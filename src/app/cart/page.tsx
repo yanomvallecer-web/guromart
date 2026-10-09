@@ -8,7 +8,9 @@ import { Card, EmptyState } from "@/components/ui/card";
 import { requireViewer } from "@/lib/auth/dal";
 import { getCart } from "@/lib/commerce/cart";
 import { formatPrice } from "@/lib/format";
+import { paymongoConfig } from "@/lib/payments/paymongo";
 import { publicObjectUrl } from "@/lib/storage";
+import { CheckoutButton } from "./checkout-button";
 import { RemoveFromCart } from "./remove-button";
 
 export const metadata: Metadata = { title: "Your cart" };
@@ -78,9 +80,20 @@ async function CartContents() {
           <span>{cart.buyableCount} {cart.buyableCount === 1 ? "resource" : "resources"}</span>
           <span className="font-semibold">{formatPrice(cart.totalCentavos)}</span>
         </div>
-        <p className="rounded-[10px] bg-surface-muted p-3 text-sm text-muted-foreground">
-          Online payment is not open yet. Your cart is saved, and you&apos;ll be able to pay with GCash, Maya or a card once checkout opens.
-        </p>
+        {paymongoConfig() ? (
+          cart.buyableCount ? (
+            <>
+              <CheckoutButton />
+              <p className="text-xs text-muted-foreground">
+                You&apos;ll pay on PayMongo&apos;s secure page with GCash, Maya or a card. Test mode: no real money moves.
+              </p>
+            </>
+          ) : null
+        ) : (
+          <p className="rounded-[10px] bg-surface-muted p-3 text-sm text-muted-foreground">
+            Online payment is not open yet. Your cart is saved, and you&apos;ll be able to pay with GCash, Maya or a card once checkout opens.
+          </p>
+        )}
       </Card>
     </div>
   );

@@ -46,7 +46,6 @@ test("a paid resource goes in the cart and can't be downloaded before it is paid
   await page.goto("/cart");
   await expect(page.getByRole("link", { name: "Paid Cart Test Reviewer" })).toBeVisible();
   await expect(page.getByText("₱75.00").first()).toBeVisible();
-  await expect(page.getByText("Online payment is not open yet.")).toBeVisible();
 
   await page.getByRole("button", { name: "Remove from cart" }).click();
   await expect(page.getByRole("heading", { name: "Your cart is empty" })).toBeVisible();

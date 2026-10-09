@@ -47,9 +47,12 @@
 | Cart: paid, live resources only; no buying your own or something you already own; at most 50; totals from current server prices | Done | `supabase/tests/rls.test.ts`, `e2e/library.spec.ts` |
 | Free "get" flow: adds a free resource to the library (granted by the database, never for paid resources) | Done | `supabase/tests/rls.test.ts`, `e2e/library.spec.ts` |
 | My Library and downloads: the database checks ownership and logs each download, then the server signs a one-minute link to the private file; 60 downloads an hour per teacher; archived resources stay downloadable; revoked access is blocked | Done | `supabase/tests/rls.test.ts`, `e2e/library.spec.ts` |
-| PayMongo Checkout Sessions (sandbox), verified and idempotent webhooks | Not started | |
-| Orders, receipts, payment failure handling | Not started | |
-| Seller earnings ledger, balances, commission breakdown | Not started | |
+| Orders from the cart with price and commission snapshots (Starter 30%, Pro 15%, or a negotiated rate) | Done | `supabase/tests/rls.test.ts` |
+| PayMongo Checkout Sessions (test keys only; live keys refused) | Done against a local stand-in; needs a run with real PayMongo test keys | `src/lib/payments/paymongo.test.ts`, `e2e/checkout.spec.ts` |
+| Webhook: signature checked on the raw body, each event applied once, amount and mode must match, then access, seller ledger credit (7-day hold), sales count, cart cleanup and notifications in one transaction; duplicate purchases flagged for refund | Done | `src/lib/payments/paymongo.test.ts`, `supabase/tests/rls.test.ts`, `e2e/checkout.spec.ts` |
+| Order history and receipts; order page waits for confirmation and never unlocks on the redirect alone | Done | `e2e/checkout.spec.ts` |
+| Expiring abandoned orders, failed-payment messages | Not started | |
+| Seller earnings view, balances, commission breakdown | Not started (ledger entries are written) | |
 
 ## Phase 4: Marketplace operations
 
