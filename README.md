@@ -7,7 +7,7 @@ GuroMart is a multi-vendor marketplace where Filipino teachers discover, buy, do
 - [Architecture and decisions](docs/ARCHITECTURE.md)
 - [Roadmap, feature status and remaining dependencies](docs/ROADMAP.md)
 
-## What works today (Phase 1)
+## What works today (Phase 1 and part of Phase 2)
 
 | Area | Status |
 | --- | --- |
@@ -21,7 +21,8 @@ GuroMart is a multi-vendor marketplace where Filipino teachers discover, buy, do
 | Seller dashboard (shop, status, onboarding checklist, resource counts) | Done |
 | Admin overview with live counts and audit log | Done |
 | Homepage, browse with server-side filters and pagination, resource and shop pages | Done, read real data, show empty states when there is none |
-| Product upload, checkout, payments, downloads, moderation tools | Not yet. See the roadmap. |
+| Sellers create and edit listings, upload files and preview images securely, and submit for review | Done, tested end to end |
+| Admin review queue, checkout, payments, downloads | Not yet. See the roadmap. |
 
 Nothing on the site is fabricated. With an empty database the homepage shows empty states, not sample products.
 
@@ -50,9 +51,9 @@ node --env-file=.env.local scripts/grant-admin.mjs you@example.com
 
 | Command | What it checks | Needs |
 | --- | --- | --- |
-| `npm run test:unit` | Authorization rules, validation, search parameters, price formatting | Nothing |
+| `npm run test:unit` | Authorization rules, validation, upload type and size checks, search parameters, price formatting | Nothing |
 | `npm run db:test:reset && npm run test:db` | Migrations apply cleanly; row-level security, triggers and constraints behave (sellers can't publish or edit others' listings, buyers can't create orders or entitlements, ledger is append-only, reviews need a purchase) | A disposable PostgreSQL 16 server in `TEST_DATABASE_URL` (never a Supabase project) |
-| `npm run test:e2e` | Sign-up with an emailed code, profile editing, role-based access, opening a shop, catalog search, on desktop and mobile | The app running against local Supabase, plus `E2E_MAILPIT_URL=http://127.0.0.1:54324` |
+| `npm run test:e2e` | Sign-up with an emailed code, profile editing, role-based access, opening a shop, creating a listing and uploading files (fake files rejected and deleted), catalog search, on desktop and mobile | The app running against local Supabase, plus `E2E_MAILPIT_URL=http://127.0.0.1:54324` |
 | `npm run lint` and `npm run typecheck` | Code quality | Nothing |
 
 CI (`.github/workflows/ci.yml`) runs all of these on every pull request.

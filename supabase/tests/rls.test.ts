@@ -375,9 +375,36 @@ describe("file format summary", () => {
   it("follows the product's files and cannot be set by sellers", async () => {
     const s = await createSeller("s@example.test", "shop-one");
     const p = await insertProduct(user(s.userId), s.storefrontId, "fractions-1");
-    await q(user(s.userId), "insert into public.product_files (product_id, storage_path, original_filename, mime_type, file_format, size_bytes) values ($1, 'a/b/c.pdf', 'c.pdf', 'application/pdf', 'pdf', 10), ($1, 'a/b/d.docx', 'd.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'docx', 10)", [p.id]);
+    await q(user(s.userId), "insert into public.product_files (product_id, storage_path, original_filename, mime_type, file_format, size_bytes) values ($1, $2, 'c.pdf', 'application/pdf', 'pdf', 10), ($1, $3, 'd.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'docx', 10)", [p.id, `${s.sellerId}/${p.id}/c.pdf`, `${s.sellerId}/${p.id}/d.docx`]);
     const { rows } = await q(user(s.userId), "select file_formats from public.products where id = $1", [p.id]);
     expect(rows[0].file_formats).toEqual(["docx", "pdf"]);
     await expectError(user(s.userId), "update public.products set file_formats = '{zip}' where id = $1", [p.id], /staff/);
+  });
+});
+
+describe("listing media guards", () => {
+  const fileSql = "insert into public.product_files (product_id, storage_path, original_filename, mime_type, file_format, size_bytes) values ($1, $2, 'a.pdf', 'application/pdf', 'pdf', 10)";
+
+  it("only accepts files from the seller's own folder for that listing", async () => {
+    const a = await createSeller("a@example.test", "shop-a");
+    const b = await createSeller("b@example.test", "shop-b");
+    const pa = await insertProduct(user(a.userId), a.storefrontId, "fractions-a");
+    const pb = await insertProduct(user(b.userId), b.storefrontId, "fractions-b");
+    await q(user(a.userId), fileSql, [pa.id, `${a.sellerId}/${pa.id}/x.pdf`]);
+    await expectError(user(a.userId), fileSql, [pa.id, `${b.sellerId}/${pb.id}/x.pdf`], /does not belong/);
+    await expectError(user(a.userId), fileSql, [pa.id, `${a.sellerId}/${pb.id}/x.pdf`], /does not belong/);
+  });
+
+  it("freezes files on a live listing", async () => {
+    const a = await createSeller("a@example.test", "shop-a");
+    const p = await insertProduct(admin, a.storefrontId, "fractions-a", { status: "published" });
+    await expectError(user(a.userId), fileSql, [p.id, `${a.sellerId}/${p.id}/x.pdf`], /Withdraw/);
+  });
+
+  it("caps files per listing", async () => {
+    const a = await createSeller("a@example.test", "shop-a");
+    const p = await insertProduct(user(a.userId), a.storefrontId, "fractions-a");
+    for (let i = 0; i < 10; i++) await q(user(a.userId), fileSql, [p.id, `${a.sellerId}/${p.id}/${i}.pdf`]);
+    await expectError(user(a.userId), fileSql, [p.id, `${a.sellerId}/${p.id}/11.pdf`], /at most 10/);
   });
 });

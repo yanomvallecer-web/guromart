@@ -95,3 +95,14 @@ export async function userIdFor(email: string): Promise<string> {
   if (!user) throw new Error(`No auth user for ${email}`);
   return user.id;
 }
+
+/** Names of the objects stored under a folder of a bucket, read with the service key. */
+export async function storedObjects(bucket: string, prefix: string): Promise<string[]> {
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/list/${bucket}`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ prefix, limit: 100 }),
+  });
+  if (!res.ok) throw new Error(`list ${bucket}/${prefix} failed: ${res.status} ${await res.text()}`);
+  return ((await res.json()) as { name: string }[]).map((o) => o.name);
+}
