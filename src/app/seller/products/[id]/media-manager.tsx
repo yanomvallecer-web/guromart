@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { FileText, ImageIcon, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { FormAlert } from "@/components/ui/form";
 import { ACCEPT, type UploadKind } from "@/lib/listings/uploads";
 import { createClient } from "@/lib/supabase/browser";
@@ -27,7 +26,7 @@ function size(bytes: number) {
 export function MediaManager({ listingId, editable, files, previews }: { listingId: string; editable: boolean; files: FileRow[]; previews: PreviewRow[] }) {
   return (
     <>
-      <Card className="flex flex-col gap-4 p-6">
+      <section className="flex flex-col gap-4">
         <div>
           <h2 className="font-display text-xl font-bold">Files buyers download</h2>
           <p className="text-sm text-muted-foreground">
@@ -54,9 +53,9 @@ export function MediaManager({ listingId, editable, files, previews }: { listing
           </ul>
         ) : null}
         {editable ? <Uploader listingId={listingId} kind="file" label="Upload files" /> : <LockedNote />}
-      </Card>
+      </section>
 
-      <Card className="flex flex-col gap-4 p-6">
+      <section className="flex flex-col gap-4">
         <div>
           <h2 className="font-display text-xl font-bold">Preview images</h2>
           <p className="text-sm text-muted-foreground">
@@ -79,7 +78,7 @@ export function MediaManager({ listingId, editable, files, previews }: { listing
           </ul>
         ) : null}
         {editable ? <Uploader listingId={listingId} kind="preview" label="Add preview images" /> : <LockedNote />}
-      </Card>
+      </section>
     </>
   );
 }

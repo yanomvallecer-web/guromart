@@ -243,3 +243,23 @@ test("My Library filters by grade and quarter and shows thumbnails", async ({ pa
   await filters.getByRole("link", { name: "All" }).click();
   await expect(page.getByText("2 resources")).toBeVisible();
 });
+
+test("the seller dashboard shows the shop's real address with a Copy button", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const listing = await createLiveListing("Dashboard Link Test", 0);
+  await page.goto(`/sign-in?next=%2Fseller`);
+  await page.getByLabel("Email address").fill(listing.sellerEmail);
+  await page.getByRole("button", { name: "Email me a sign-in code" }).click();
+  await page.getByRole("textbox", { name: "Digit 1 of 6" }).fill(await latestCode(listing.sellerEmail));
+  await page.waitForURL("**/seller");
+  const site = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const link = page.getByTestId("shop-url");
+  await expect(link).toHaveAttribute("href", new RegExp(`^${site.replace(/[.:/]/g, "\\$&")}/shop/buy-`));
+  await expect(page.getByText("guromart.ph/shop")).toHaveCount(0);
+  await page.getByRole("button", { name: "Copy link" }).click();
+  await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(await link.getAttribute("href"));
+  // The link really opens the shop.
+  await link.click();
+  await expect(page.getByRole("heading", { name: "Buying Test Shop" })).toBeVisible();
+});

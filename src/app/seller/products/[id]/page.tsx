@@ -93,14 +93,19 @@ async function EditListing({ params }: { params: Promise<{ id: string }> }) {
               copyright_declared: Boolean(listing.copyright_declared_at),
             }}
             liveWarning={listing.status === "published"}
+            saveLabel={["draft", "rejected"].includes(listing.status) ? "Save draft" : "Save changes"}
+            // A new draft starts with its file; after that, with the details.
+            initialStep={listing.files.length ? "details" : "file"}
+            fileStep={
+              <MediaManager
+                listingId={listing.id}
+                editable={MEDIA_EDITABLE.has(listing.status)}
+                files={listing.files}
+                previews={listing.previews.map((p) => ({ id: p.id, url: publicObjectUrl("product-previews", p.storage_path), alt: p.alt_text }))}
+              />
+            }
           />
         </Card>
-        <MediaManager
-          listingId={listing.id}
-          editable={MEDIA_EDITABLE.has(listing.status)}
-          files={listing.files}
-          previews={listing.previews.map((p) => ({ id: p.id, url: publicObjectUrl("product-previews", p.storage_path), alt: p.alt_text }))}
-        />
       </div>
       <div className="flex flex-col gap-6">
         <Card className="flex flex-col gap-4 p-6 lg:sticky lg:top-6">

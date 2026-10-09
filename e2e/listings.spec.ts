@@ -1,6 +1,18 @@
 import { expect, test } from "@playwright/test";
 import { serviceRest, signIn, storedObjects, uniqueEmail, userIdFor } from "./helpers";
 
+/** The listing form is in steps (file, details, price); this opens one. */
+async function openStep(page: import("@playwright/test").Page, step: "File" | "Details" | "Price") {
+  await page.getByRole("navigation", { name: "Listing steps" }).getByRole("button", { name: new RegExp(step) }).click();
+  await expect(page.getByRole("navigation", { name: "Listing steps" }).getByRole("button", { name: new RegExp(step) })).toHaveAttribute("aria-current", "step");
+}
+
+/** Chips are labels around visually hidden inputs: tap the chip, as a teacher would. */
+async function tapChip(page: import("@playwright/test").Page, role: "checkbox" | "radio", name: string) {
+  await page.locator("label").filter({ has: page.getByRole(role, { name, exact: true }) }).click();
+  await expect(page.getByRole(role, { name, exact: true })).toBeChecked();
+}
+
 // Locators use roles, not labels: the router keeps earlier pages mounted but hidden, and label lookups would find them.
 // A minimal valid PDF and a 1x1 PNG, generated in the test so no binary fixtures live in the repo.
 const PDF = Buffer.from(
@@ -32,19 +44,28 @@ test("a seller drafts a resource, uploads files securely and submits it for revi
   const productId = page.url().split("/").pop()!;
   await expect(page.getByTestId("listing-status")).toHaveText("Draft");
   await expect(page.getByRole("button", { name: "Submit for review" })).toBeDisabled();
+  // A new draft starts on the file step.
+  await expect(page.getByText("Step 1 of 3: File")).toBeVisible();
 
-  // Validation: a paid price under the ₱30 minimum is refused.
+  // Validation: a paid price under the ₱30 minimum is refused, even when saved
+  // from another step, and the form opens the step with the problem.
+  await openStep(page, "Price");
   await page.getByRole("textbox", { name: "Price in pesos" }).fill("20");
-  await page.getByRole("button", { name: "Save changes" }).click();
+  await openStep(page, "Details");
+  await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page.getByText("Paid resources must cost at least ₱30. Use 0 for free.")).toBeVisible();
+  await expect(page.getByText("Step 3 of 3: Price")).toBeVisible();
 
+  await openStep(page, "Details");
   await page.getByRole("textbox", { name: "Description" }).fill("Twenty-four worksheets on living things and their environment, with answer keys for every page.");
-  await page.getByRole("combobox", { name: "Subject" }).selectOption({ label: "Science" });
-  await page.getByRole("checkbox", { name: "Grade 4", exact: true }).check();
+  await tapChip(page, "radio", "Science");
+  await tapChip(page, "checkbox", "Grade 4");
+  await page.getByRole("button", { name: "Next: Price" }).click();
   await page.getByRole("textbox", { name: "Price in pesos" }).fill("75");
   await page.getByRole("checkbox", { name: /I made this resource/ }).check();
-  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page.getByText("Changes saved.")).toBeVisible();
+  await openStep(page, "File");
 
   // A text file renamed to .pdf is rejected after upload and deleted from storage.
   await page.locator("#upload-file").setInputFiles({ name: "fake.pdf", mimeType: "application/pdf", buffer: Buffer.from("not really a pdf, just text pretending") });
@@ -94,6 +115,9 @@ test("a seller drafts a resource, uploads files securely and submits it for revi
 
   // Removing a file deletes it from the listing.
   await page.getByRole("link", { name: /Grade 4 Science Quarter 1 Worksheets/ }).click();
+  // With its file uploaded, the listing now opens on the details step.
+  await expect(page.getByText("Step 2 of 3: Details")).toBeVisible();
+  await openStep(page, "File");
   await page.getByRole("button", { name: "Remove Science Q1 Worksheets.pdf" }).click();
   await expect(page.getByTestId("file-list")).toHaveCount(0);
   expect(await storedObjects("product-files", `${account.id}/${productId}`)).toHaveLength(0);
@@ -113,13 +137,16 @@ async function submitListing(page: import("@playwright/test").Page, email: strin
   await page.getByRole("combobox", { name: "Resource type" }).selectOption({ label: "Worksheets" });
   await page.getByRole("button", { name: "Create draft" }).click();
   await page.waitForURL(/\/seller\/products\/[0-9a-f-]{36}$/);
+  await openStep(page, "Details");
   await page.getByRole("textbox", { name: "Description" }).fill("Thirty mixed practice items on adding and subtracting fractions, with an answer key.");
-  await page.getByRole("combobox", { name: "Subject" }).selectOption({ label: "Mathematics" });
-  await page.getByRole("checkbox", { name: "Grade 5", exact: true }).check();
+  await tapChip(page, "radio", "Mathematics");
+  await tapChip(page, "checkbox", "Grade 5");
+  await openStep(page, "Price");
   await page.getByRole("textbox", { name: "Price in pesos" }).fill("60");
   await page.getByRole("checkbox", { name: /I made this resource/ }).check();
-  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page.getByText("Changes saved.")).toBeVisible();
+  await openStep(page, "File");
   await page.locator("#upload-file").setInputFiles({ name: "Fractions.pdf", mimeType: "application/pdf", buffer: PDF });
   await expect(page.getByTestId("file-list").getByText("Fractions.pdf")).toBeVisible();
   await page.locator("#upload-preview").setInputFiles({ name: "cover.png", mimeType: "image/png", buffer: PNG });
