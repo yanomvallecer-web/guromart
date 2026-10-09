@@ -115,3 +115,49 @@ export async function getLibrary(): Promise<LibraryItem[]> {
   if (error) throw new Error(`Could not load your library: ${error.message}`);
   return data as LibraryItem[];
 }
+
+export type LibraryDetails = {
+  grades: { code: string; name: string; sort: number }[];
+  period: { code: string; name: string; sort: number } | null;
+  previewPath: string | null;
+};
+
+type DetailRow = {
+  id: string;
+  academic_periods: { code: string; name: string; sort_order: number } | null;
+  product_grade_levels: { grade_levels: { code: string; name: string; sort_order: number } | null }[];
+  product_previews: { storage_path: string; sort_order: number }[];
+};
+
+/**
+ * Grade, quarter and first preview for library items, for filtering and
+ * thumbnails. Read under row-level security, so only live listings have
+ * details; resources no longer sold are listed without them.
+ */
+export async function getLibraryDetails(productIds: string[]): Promise<Map<string, LibraryDetails>> {
+  if (productIds.length === 0) return new Map();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select(
+      `id, academic_periods(code, name, sort_order),
+       product_grade_levels(grade_levels(code, name, sort_order)),
+       product_previews(storage_path, sort_order)`,
+    )
+    .in("id", productIds);
+  if (error) throw new Error(`Could not load your library: ${error.message}`);
+  return new Map(
+    (data as unknown as DetailRow[]).map((r) => [
+      r.id,
+      {
+        grades: r.product_grade_levels
+          .map((g) => g.grade_levels)
+          .filter((g): g is NonNullable<typeof g> => Boolean(g))
+          .map((g) => ({ code: g.code, name: g.name, sort: g.sort_order }))
+          .sort((a, b) => a.sort - b.sort),
+        period: r.academic_periods ? { code: r.academic_periods.code, name: r.academic_periods.name, sort: r.academic_periods.sort_order } : null,
+        previewPath: [...r.product_previews].sort((a, b) => a.sort_order - b.sort_order)[0]?.storage_path ?? null,
+      },
+    ]),
+  );
+}

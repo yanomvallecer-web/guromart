@@ -202,3 +202,44 @@ test("the resource page puts the price and buy button in a bar at the bottom", a
   await bar.getByRole("link", { name: "Sign in to buy" }).click();
   await expect(page).toHaveURL(new RegExp(`/sign-in\\?next=%2Fresources%2F${listing.slug}`));
 });
+
+test("My Library filters by grade and quarter and shows thumbnails", async ({ page }) => {
+  const stamp = Date.now();
+  const science = await createLiveListing(`Library Filter Science ${stamp}`, 0);
+  const math = await createLiveListing(`Library Filter Math ${stamp}`, 0);
+  const [grade] = await serviceRest("grade_levels?code=eq.grade-6&select=id");
+  const [quarter] = await serviceRest("academic_periods?code=eq.quarter-2&select=id");
+  await serviceRest("product_grade_levels", { method: "POST", body: JSON.stringify({ product_id: science.productId, grade_level_id: grade.id }) });
+  await serviceRest(`products?id=eq.${math.productId}`, { method: "PATCH", body: JSON.stringify({ academic_period_id: quarter.id }) });
+
+  const email = uniqueEmail("library-filter");
+  await page.goto(`/sign-in?next=${encodeURIComponent(`/resources/${science.slug}`)}`);
+  await page.getByLabel("Email address").fill(email);
+  await page.getByRole("button", { name: "Email me a sign-in code" }).click();
+  await page.getByRole("textbox", { name: "Digit 1 of 6" }).fill(await latestCode(email));
+  await page.waitForURL(`**/resources/${science.slug}`);
+  await page.getByRole("button", { name: "Get it free" }).click();
+  await expect(page.getByRole("link", { name: "Open in library" })).toBeVisible();
+  await page.goto(`/resources/${math.slug}`);
+  await page.getByRole("button", { name: "Get it free" }).click();
+  await page.getByRole("link", { name: "Open in library" }).click();
+
+  await expect(page).toHaveURL(/\/library$/);
+  await expect(page.getByText("2 resources")).toBeVisible();
+  await expect(page.locator("main img:visible")).toHaveCount(2);
+  const filters = page.getByRole("navigation", { name: "Filter your library" });
+  await filters.getByRole("link", { name: "Grade 6" }).click();
+  await expect(page).toHaveURL(/\/library\?grade=grade-6$/);
+  await expect(page.getByText("1 resource of 2")).toBeVisible();
+  await expect(page.getByRole("link", { name: `Library Filter Science ${stamp}` })).toBeVisible();
+  await expect(page.getByRole("link", { name: `Library Filter Math ${stamp}` })).toHaveCount(0);
+  // Tapping the active chip again turns it off.
+  await filters.getByRole("link", { name: "Grade 6" }).click();
+  await expect(page).toHaveURL(/\/library$/);
+  await filters.getByRole("link", { name: "Quarter 2" }).click();
+  await expect(page).toHaveURL(/\/library\?period=quarter-2$/);
+  await expect(page.getByRole("link", { name: `Library Filter Math ${stamp}` })).toBeVisible();
+  await expect(page.getByRole("link", { name: `Library Filter Science ${stamp}` })).toHaveCount(0);
+  await filters.getByRole("link", { name: "All" }).click();
+  await expect(page.getByText("2 resources")).toBeVisible();
+});
