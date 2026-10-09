@@ -18,22 +18,39 @@ export function uniqueEmail(prefix: string) {
  * files from a dev SMTP sink (E2E_MAIL_DIR).
  */
 export async function latestCode(email: string): Promise<string> {
+  let last: string | null = null;
   for (let attempt = 0; attempt < 30; attempt++) {
-    const body = await latestMessage(email);
-    const code = body?.replace(/=\r?\n/g, "").match(/enter the code:?\s*(?:<[^>]+>\s*)*(\d{6,8})/i)?.[1];
+    last = await latestMessage(email);
+    const code = last?.replace(/=\r?\n/g, "").match(/(?:enter the code|your code):?\s*(?:<[^>]+>\s*)*(\d{6,8})/i)?.[1];
     if (code) return code;
     await new Promise((r) => setTimeout(r, 500));
   }
-  throw new Error(`No sign-in code arrived for ${email}`);
+  throw new Error(`No sign-in code arrived for ${email}. Last inbox result: ${last?.slice(0, 500) ?? lastInboxNote}`);
 }
+
+let lastInboxNote = "nothing";
+
+type MailpitSummary = { ID: string; To?: { Address: string }[] };
 
 async function latestMessage(email: string): Promise<string | null> {
   if (process.env.E2E_MAILPIT_URL) {
-    const base = process.env.E2E_MAILPIT_URL;
-    const list = await fetch(`${base}/api/v1/search?query=${encodeURIComponent(`to:"${email}"`)}`).then((r) => r.json());
-    const id = list.messages?.[0]?.ID;
-    if (!id) return null;
-    const msg = await fetch(`${base}/api/v1/message/${id}`).then((r) => r.json());
+    const base = process.env.E2E_MAILPIT_URL.replace(/\/$/, "");
+    // Newest first. Filter ourselves instead of relying on Mailpit's search syntax.
+    const res = await fetch(`${base}/api/v1/messages?limit=100`);
+    const raw = await res.text();
+    let list: { messages?: MailpitSummary[] };
+    try {
+      list = JSON.parse(raw);
+    } catch {
+      lastInboxNote = `HTTP ${res.status}: ${raw.slice(0, 200)}`;
+      return null;
+    }
+    const match = list.messages?.find((m) => m.To?.some((t) => t.Address.toLowerCase() === email.toLowerCase()));
+    if (!match) {
+      lastInboxNote = `${list.messages?.length ?? 0} messages, none to ${email}`;
+      return null;
+    }
+    const msg = await fetch(`${base}/api/v1/message/${match.ID}`).then((r) => r.json());
     return `${msg.Text ?? ""}\n${msg.HTML ?? ""}`;
   }
   const dir = process.env.E2E_MAIL_DIR;
