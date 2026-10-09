@@ -781,7 +781,7 @@ describe("checkout and payment events", () => {
     expect((await paid("evt_1", "cs_test_1", 22500)).rows[0].outcome).toBe("paid");
     expect((await paid("evt_1", "cs_test_1", 22500)).rows[0].outcome).toBe("duplicate");
     expect((await paid("evt_2", "cs_test_1", 22500)).rows[0].outcome).toBe("already_paid");
-    const other = await q(service, "select public.apply_payment_event('evt_3', 'payment.failed', '{}', false, null, null, null, null, null) as outcome");
+    const other = await q(service, "select public.apply_payment_event('evt_3', 'source.chargeable', '{}', false, null, null, null, null, null) as outcome");
     expect(other.rows[0].outcome).toBe("ignored");
     expect((await q(admin, "select count(*)::int as n from public.seller_ledger_entries")).rows[0].n).toBe(2);
   });
@@ -797,5 +797,129 @@ describe("checkout and payment events", () => {
     expect((await paid("evt_b", "cs_b", 22500)).rows[0].outcome).toBe("paid_with_duplicates");
     const flagged = await q(admin, "select count(*)::int as n from public.audit_logs where action = 'order.duplicate_purchase'");
     expect(flagged.rows[0].n).toBe(2);
+  });
+
+  it("expires only the caller's unpaid orders past the cutoff, once", async () => {
+    const { buyer } = await setup();
+    const stale = await checkout(buyer, "cs_stale");
+    const fresh = await checkout(buyer, "cs_fresh");
+    const other = await createUser("other@example.test");
+    const otherOrder = await q(admin, "insert into public.orders (user_id, subtotal_centavos, total_centavos) values ($1, 5000, 5000) returning id", [other]);
+    await q(admin, "update public.orders set created_at = now() - interval '26 hours' where id = any($1)", [[stale.order_id, otherOrder.rows[0].id]]);
+
+    expect((await q(user(buyer), "select public.expire_my_stale_orders() as n")).rows[0].n).toBe(1);
+    expect((await q(user(buyer), "select public.expire_my_stale_orders() as n")).rows[0].n).toBe(0);
+    const orders = await q(admin, "select o.id, o.status, p.status as payment from public.orders o left join public.payments p on p.order_id = o.id");
+    const byId = Object.fromEntries(orders.rows.map((r) => [r.id, [r.status, r.payment]]));
+    expect(byId[stale.order_id]).toEqual(["expired", "expired"]);
+    expect(byId[fresh.order_id]).toEqual(["pending_payment", "pending"]);
+    expect(byId[otherOrder.rows[0].id]).toEqual(["pending_payment", null]);
+    await expectError(user(buyer), "select private.expire_stale_orders(null)", [], /permission denied/);
+  });
+
+  it("never expires an order sooner than PayMongo's 24-hour checkout window", async () => {
+    const { buyer } = await setup();
+    const order = await checkout(buyer);
+    await q(admin, "update public.platform_settings set value = '1' where key = 'orders.pending_expiry_hours'");
+    await q(admin, "update public.orders set created_at = now() - interval '23 hours' where id = $1", [order.order_id]);
+    expect((await q(user(buyer), "select public.expire_my_stale_orders() as n")).rows[0].n).toBe(0);
+    await q(admin, "update public.orders set created_at = now() - interval '25 hours' where id = $1", [order.order_id]);
+    expect((await q(user(buyer), "select public.expire_my_stale_orders() as n")).rows[0].n).toBe(1);
+  });
+
+  it("still grants access and credits the seller when PayMongo confirms after the order expired", async () => {
+    const { s, buyer } = await setup();
+    const order = await checkout(buyer);
+    await q(admin, "update public.orders set created_at = now() - interval '30 hours' where id = $1", [order.order_id]);
+    await q(user(buyer), "select public.expire_my_stale_orders()");
+    expect((await q(user(buyer), "select status from public.orders")).rows[0].status).toBe("expired");
+
+    expect((await paid("evt_late", "cs_test_1", 22500)).rows[0].outcome).toBe("paid");
+    const after = await q(admin, "select o.status, o.paid_at is not null as has_paid_at, p.status as payment from public.orders o join public.payments p on p.order_id = o.id");
+    expect(after.rows).toEqual([{ status: "paid", has_paid_at: true, payment: "paid" }]);
+    expect((await q(user(buyer), "select source from public.entitlements")).rows).toHaveLength(2);
+    const balance = await q(user(s.userId), "select balance_centavos from public.seller_balances");
+    expect(Number(balance.rows[0].balance_centavos)).toBe(15750);
+    const flagged = await q(admin, "select metadata->>'order_status' as was from public.audit_logs where action = 'order.paid_late'");
+    expect(flagged.rows).toEqual([{ was: "expired" }]);
+    // A paid order is never expired afterwards.
+    expect((await q(user(buyer), "select public.expire_my_stale_orders() as n")).rows[0].n).toBe(0);
+    expect((await paid("evt_late_again", "cs_test_1", 22500)).rows[0].outcome).toBe("already_paid");
+  });
+
+  it("flags a late payment for an expired order whose resources were bought again", async () => {
+    const { buyer, a, b, s } = await setup();
+    const first = await checkout(buyer, "cs_old");
+    await q(admin, "update public.orders set created_at = now() - interval '30 hours' where id = $1", [first.order_id]);
+    await q(user(buyer), "select public.expire_my_stale_orders()");
+    const cart = await q(admin, "select id from public.carts where user_id = $1", [buyer]);
+    await q(admin, "insert into public.cart_items (cart_id, product_id) values ($1, $2), ($1, $3) on conflict do nothing", [cart.rows[0].id, a.id, b.id]);
+    await checkout(buyer, "cs_new");
+    expect((await paid("evt_new", "cs_new", 22500)).rows[0].outcome).toBe("paid");
+    expect((await paid("evt_old", "cs_old", 22500)).rows[0].outcome).toBe("paid_with_duplicates");
+    expect((await q(admin, "select count(*)::int as n from public.audit_logs where action = 'order.duplicate_purchase'")).rows[0].n).toBe(2);
+    // Both payments are recorded and credited; staff refund the duplicate.
+    const ledger = await q(admin, "select count(*)::int as n from public.seller_ledger_entries where seller_account_id = $1", [s.sellerId]);
+    expect(ledger.rows[0].n).toBe(4);
+  });
+
+  it("records a failed attempt without closing the order, and a retry can still pay", async () => {
+    const { buyer } = await setup();
+    const order = await checkout(buyer);
+    await q(service, "update public.payments set provider_payment_intent_id = 'pi_1' where order_id = $1", [order.order_id]);
+    const failed = (id: string, intent: string | null, reason: string | null) =>
+      q(service, "select public.apply_payment_event($1, 'payment.failed', '{}'::jsonb, false, null, 'pay_f', 22500, null, 'card', $2, $3) as outcome", [id, intent, reason]);
+
+    expect((await failed("evt_f1", "pi_1", "Your card was declined.")).rows[0].outcome).toBe("failed");
+    expect((await failed("evt_f1", "pi_1", "Your card was declined.")).rows[0].outcome).toBe("duplicate");
+    expect((await failed("evt_f2", "pi_unknown", null)).rows[0].outcome).toBe("unknown_payment");
+    const seen = await q(user(buyer), "select o.status, p.status as payment, p.failure_reason from public.orders o join public.payments p on p.order_id = o.id");
+    expect(seen.rows).toEqual([{ status: "pending_payment", payment: "failed", failure_reason: "Your card was declined." }]);
+    expect((await q(user(buyer), "select * from public.entitlements")).rows).toHaveLength(0);
+
+    expect((await paid("evt_retry", "cs_test_1", 22500)).rows[0].outcome).toBe("paid");
+    const after = await q(user(buyer), "select p.status, p.failure_reason from public.payments p");
+    expect(after.rows).toEqual([{ status: "paid", failure_reason: null }]);
+    expect((await failed("evt_f3", "pi_1", "late failure")).rows[0].outcome).toBe("already_paid");
+    expect((await q(user(buyer), "select status from public.orders")).rows[0].status).toBe("paid");
+  });
+});
+
+describe("seller earnings", () => {
+  it("shows each seller only their own balances, sales and release dates", async () => {
+    const one = await createSeller("one@example.test", "shop-one");
+    const two = await createSeller("two@example.test", "shop-two");
+    const p1 = await insertProduct(admin, one.storefrontId, "one-a", { status: "published", price_centavos: 10000 });
+    const p2 = await insertProduct(admin, two.storefrontId, "two-a", { status: "published", price_centavos: 20000 });
+    const buyer = await createUser("buyer@example.test");
+    const order = await q(admin, "insert into public.orders (user_id, subtotal_centavos, total_centavos, status) values ($1, 30000, 30000, 'paid') returning id", [buyer]);
+    const item = async (productId: string, sellerId: string, price: number, fee: number) =>
+      (await q(admin,
+        "insert into public.order_items (order_id, product_id, seller_account_id, title_snapshot, license_type_snapshot, unit_price_centavos, commission_bps, platform_fee_centavos, seller_earnings_centavos) values ($1, $2, $3, 't', 'single_teacher', $4, 3000, $5, $6) returning id",
+        [order.rows[0].id, productId, sellerId, price, fee, price - fee])).rows[0].id;
+    const i1 = await item(p1.id, one.sellerId, 10000, 3000);
+    const i2 = await item(p2.id, two.sellerId, 20000, 6000);
+    // Seller one: an older sale already released, and a new one still on hold.
+    const old = await insertProduct(admin, one.storefrontId, "one-b", { status: "published", price_centavos: 5000 });
+    const i3 = await item(old.id, one.sellerId, 5000, 1500);
+    await q(admin, "insert into public.seller_ledger_entries (seller_account_id, entry_type, amount_centavos, order_item_id, available_at) values ($1, 'sale', 7000, $2, now() + interval '7 days'), ($1, 'sale', 3500, $3, now() - interval '1 day'), ($4, 'sale', 14000, $5, now() + interval '7 days')",
+      [one.sellerId, i1, i3, two.sellerId, i2]);
+
+    const balances = await q(user(one.userId), "select seller_account_id, balance_centavos::int, available_centavos::int, lifetime_earnings_centavos::int from public.seller_balances");
+    expect(balances.rows).toEqual([{ seller_account_id: one.sellerId, balance_centavos: 10500, available_centavos: 3500, lifetime_earnings_centavos: 10500 }]);
+    const releases = await q(user(one.userId), "select seller_account_id, amount_centavos::int, sales from public.seller_upcoming_releases");
+    expect(releases.rows).toEqual([{ seller_account_id: one.sellerId, amount_centavos: 7000, sales: 1 }]);
+    const sales = await q(user(one.userId), "select l.amount_centavos, i.unit_price_centavos, i.platform_fee_centavos from public.seller_ledger_entries l join public.order_items i on i.id = l.order_item_id order by l.amount_centavos");
+    expect(sales.rows).toEqual([
+      { amount_centavos: 3500, unit_price_centavos: 5000, platform_fee_centavos: 1500 },
+      { amount_centavos: 7000, unit_price_centavos: 10000, platform_fee_centavos: 3000 },
+    ]);
+
+    const twoSees = await q(user(two.userId), "select seller_account_id from public.seller_upcoming_releases union all select seller_account_id from public.seller_balances union all select seller_account_id from public.seller_ledger_entries");
+    expect(new Set(twoSees.rows.map((r) => r.seller_account_id))).toEqual(new Set([two.sellerId]));
+    for (const sql of ["select * from public.seller_upcoming_releases", "select * from public.seller_balances", "select * from public.seller_ledger_entries"]) {
+      expect((await q(user(buyer), sql)).rows).toHaveLength(0);
+    }
+    await expectError(anon, "select * from public.seller_upcoming_releases", [], /permission denied/);
   });
 });
