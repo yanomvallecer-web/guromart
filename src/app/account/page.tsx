@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { ChevronRight, LogOut } from "lucide-react";
+import { signOut } from "@/app/auth/actions";
 import { Suspense } from "react";
+import { accountLinks } from "@/components/site/account-links";
 import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
 import { Badge, Card } from "@/components/ui/card";
 import { requireArea } from "@/lib/auth/dal";
@@ -27,8 +31,27 @@ async function AccountBody() {
     .eq("id", viewer.id)
     .single();
   if (error) throw new Error("Could not load your profile.");
+  const row = "flex min-h-12 w-full items-center gap-3 px-4 text-[15px] font-semibold hover:bg-surface-muted [&>svg]:size-5";
   return (
     <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+      {/* Phones: the header menu is replaced by the tab bar, so its links live here. */}
+      <nav aria-label="Your GuroMart" className="md:hidden">
+        <Card className="divide-y divide-border overflow-hidden">
+          {accountLinks(viewer)
+            .filter((l) => l.href !== "/account")
+            .map(({ href, label, icon: Icon }) => (
+              <Link key={href} href={href} className={row}>
+                <Icon className="text-primary" aria-hidden /> <span className="flex-1">{label}</span>
+                <ChevronRight className="text-muted-foreground" aria-hidden />
+              </Link>
+            ))}
+          <form action={signOut}>
+            <button type="submit" className={row}>
+              <LogOut className="text-muted-foreground" aria-hidden /> Sign out
+            </button>
+          </form>
+        </Card>
+      </nav>
       <Card className="p-6">
         <h2 className="mb-4 font-display text-xl font-bold">Profile</h2>
         <ProfileForm profile={profile} />

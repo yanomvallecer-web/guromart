@@ -18,7 +18,8 @@ export default function HomePage() {
               Everything you need to teach, all in one place.
             </h1>
           </div>
-          <SearchForm size="lg" className="max-w-2xl border-white/0" />
+          {/* Phones already have the search field in the header. */}
+          <SearchForm size="lg" className="hidden max-w-2xl border-white/0 md:flex" />
           <Suspense fallback={<div className="h-9" />}>
             <QuickCategories />
           </Suspense>

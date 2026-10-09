@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import type { Viewer } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 
@@ -67,15 +68,15 @@ export async function getCart(viewer: Viewer): Promise<Cart> {
   };
 }
 
-/** Number of resources in the viewer's cart, for the header. */
-export async function getCartCount(viewer: Viewer): Promise<number> {
+/** Number of resources in the viewer's cart, for the header and tab bar (one query per request). */
+export const getCartCount = cache(async (viewer: Viewer): Promise<number> => {
   const supabase = await createClient();
   const { count } = await supabase
     .from("cart_items")
     .select("product_id, carts!inner(user_id)", { count: "exact", head: true })
     .eq("carts.user_id", viewer.id);
   return count ?? 0;
-}
+});
 
 export type ProductAccess = "owner" | "owned" | "in_cart" | "none";
 

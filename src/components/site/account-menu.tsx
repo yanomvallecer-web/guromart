@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { BookOpen, ChevronDown, LogOut, Receipt, ShieldCheck, Store, User, FileText, Wallet } from "lucide-react";
+import { ChevronDown, LogOut } from "lucide-react";
 import { signOut } from "@/app/auth/actions";
 import { buttonVariants } from "@/components/ui/button";
 import { getViewer } from "@/lib/auth/dal";
+import { accountLinks } from "./account-links";
 
 export async function AccountMenu() {
   const viewer = await getViewer();
@@ -13,8 +14,6 @@ export async function AccountMenu() {
       </Link>
     );
   }
-  const isSeller = viewer.roles.includes("seller");
-  const isAdmin = viewer.roles.includes("admin");
   const item = "flex items-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium text-foreground hover:bg-surface-muted [&_svg]:size-4";
   return (
     <details className="group relative">
@@ -27,39 +26,11 @@ export async function AccountMenu() {
       </summary>
       <div className="absolute right-0 z-20 mt-2 w-60 rounded-[12px] border border-border bg-surface p-1.5 shadow-lg">
         <p className="truncate px-3 py-2 text-xs text-muted-foreground">{viewer.email}</p>
-        <Link href="/account" className={item}>
-          <User /> My account
-        </Link>
-        <Link href="/library" className={item}>
-          <BookOpen /> My library
-        </Link>
-        <Link href="/orders" className={item}>
-          <Receipt /> Orders
-        </Link>
-        {isSeller ? (
-          <Link href="/seller" className={item}>
-            <Store /> Seller dashboard
+        {accountLinks(viewer).map(({ href, label, icon: Icon }) => (
+          <Link key={href} href={href} className={item}>
+            <Icon /> {label}
           </Link>
-        ) : null}
-        {isSeller ? (
-          <Link href="/seller/earnings" className={item}>
-            <Wallet /> Earnings
-          </Link>
-        ) : null}
-        {isSeller ? (
-          <Link href="/seller/products" className={item}>
-            <FileText /> My resources
-          </Link>
-        ) : (
-          <Link href="/sell" className={item}>
-            <Store /> Start selling
-          </Link>
-        )}
-        {isAdmin ? (
-          <Link href="/admin" className={item}>
-            <ShieldCheck /> Admin
-          </Link>
-        ) : null}
+        ))}
         <form action={signOut}>
           <button type="submit" className={`${item} w-full`}>
             <LogOut /> Sign out
@@ -73,4 +44,3 @@ export async function AccountMenu() {
 export function AccountMenuFallback() {
   return <div className="h-11 w-24 animate-pulse rounded-[10px] bg-border/60" aria-hidden />;
 }
-
