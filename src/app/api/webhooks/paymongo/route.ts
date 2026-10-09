@@ -30,6 +30,9 @@ export async function POST(request: Request) {
     p_amount: event.amountCentavos,
     p_fee: event.feeCentavos,
     p_method: event.method,
+    // Only sent for failed attempts, so paid events keep working against a
+    // database that predates failed-payment support.
+    ...(event.type === "payment.failed" ? { p_payment_intent_id: event.paymentIntentId, p_failure: event.failureMessage } : {}),
   });
   // A 5xx makes PayMongo retry later; the event id keeps a retry from applying twice.
   if (error) {

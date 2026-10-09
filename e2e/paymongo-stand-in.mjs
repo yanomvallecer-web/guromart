@@ -1,7 +1,7 @@
 // A local stand-in for PayMongo's Checkout API, for end-to-end tests only.
 // It accepts checkout sessions the way api.paymongo.com does, shows a
-// clearly labelled test payment page, and on "Pay" sends the app a webhook
-// signed exactly like PayMongo's (HMAC-SHA256 of "<t>.<body>", header
+// clearly labelled test payment page, and on "Pay" (or "Fail") sends the app a
+// checkout_session.payment.paid (or payment.failed) webhook signed exactly like PayMongo's (HMAC-SHA256 of "<t>.<body>", header
 // "Paymongo-Signature: t=..,te=..,li="). It is never used outside tests: the
 // app only accepts a non-PayMongo API base on localhost.
 //
@@ -36,25 +36,33 @@ function send(res, status, body, type = "application/json") {
   res.end(typeof body === "string" ? body : JSON.stringify(body));
 }
 
-async function deliver(session) {
-  const body = JSON.stringify({
-    data: {
-      id: id("evt"),
-      type: "event",
-      attributes: {
-        type: "checkout_session.payment.paid",
-        livemode: false,
-        data: {
-          id: session.id,
-          type: "checkout_session",
-          attributes: {
-            reference_number: session.reference_number,
-            payments: [{ id: id("pay"), type: "payment", attributes: { amount: session.total, fee: Math.round(session.total * 0.025), status: "paid", source: { type: "gcash" }, livemode: false } }],
-          },
-        },
-      },
+const paidEvent = (session) => ({
+  type: "checkout_session.payment.paid",
+  data: {
+    id: session.id,
+    type: "checkout_session",
+    attributes: {
+      reference_number: session.reference_number,
+      payments: [{ id: id("pay"), type: "payment", attributes: { amount: session.total, fee: Math.round(session.total * 0.025), status: "paid", source: { type: "gcash" }, livemode: false } }],
     },
-  });
+  },
+});
+
+// PayMongo reports a declined attempt on the payment, linked to the session by its payment intent.
+const failedEvent = (session) => ({
+  type: "payment.failed",
+  data: {
+    id: id("pay"),
+    type: "payment",
+    attributes: {
+      amount: session.total, status: "failed", payment_intent_id: session.payment_intent_id, livemode: false,
+      source: { type: "card" }, failed_code: "card_declined", failed_message: "The card was declined by the issuing bank.",
+    },
+  },
+});
+
+async function deliver(event) {
+  const body = JSON.stringify({ data: { id: id("evt"), type: "event", attributes: { type: event.type, livemode: false, data: event.data } } });
   const header = signature(body);
   const res = await fetch(WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "application/json", "Paymongo-Signature": header }, body });
   lastDelivery = { body, header, status: res.status, response: await res.text() };
@@ -76,23 +84,32 @@ createServer(async (req, res) => {
         total: attrs.line_items.reduce((s, l) => s + l.amount * l.quantity, 0),
         success_url: attrs.success_url,
         cancel_url: attrs.cancel_url,
+        payment_intent_id: id("pi"),
+        failed: false,
       };
       sessions.set(session.id, session);
-      return send(res, 200, { data: { id: session.id, type: "checkout_session", attributes: { checkout_url: `${BASE}/checkout/${session.id}`, livemode: false, status: "active", ...attrs } } });
+      return send(res, 200, { data: { id: session.id, type: "checkout_session", attributes: { checkout_url: `${BASE}/checkout/${session.id}`, livemode: false, status: "active", payment_intent: { id: session.payment_intent_id, type: "payment_intent" }, ...attrs } } });
     }
-    const page = url.pathname.match(/^\/checkout\/(cs_[0-9a-f]+)(\/pay)?$/);
+    const page = url.pathname.match(/^\/checkout\/(cs_[0-9a-f]+)(\/pay|\/fail)?$/);
     const session = page && sessions.get(page[1]);
     if (page && !session) return send(res, 404, "Unknown checkout", "text/plain");
     if (page && req.method === "GET" && !page[2]) {
       const items = session.line_items.map((l) => `<li>${escape(l.name)}: ₱${(l.amount / 100).toFixed(2)}</li>`).join("");
       return send(res, 200, `<!doctype html><meta charset="utf-8"><title>PayMongo test stand-in</title>
         <h1>PayMongo test stand-in</h1><p>Order ${escape(session.reference_number)}. Not a real payment page.</p><ul>${items}</ul>
-        <p>Total ₱${(session.total / 100).toFixed(2)}</p>
+        <p>Total ₱${(session.total / 100).toFixed(2)}</p>${session.failed ? "<p>Payment failed (test). Try again.</p>" : ""}
         <form method="post" action="/checkout/${session.id}/pay"><button>Pay (test)</button></form>
+        <form method="post" action="/checkout/${session.id}/fail"><button>Fail (test)</button></form>
         <p><a href="${escape(session.cancel_url)}">Cancel</a></p>`, "text/html");
     }
+    if (page && req.method === "POST" && page[2] === "/fail") {
+      await deliver(failedEvent(session));
+      session.failed = true;
+      res.writeHead(303, { Location: `/checkout/${session.id}` });
+      return res.end();
+    }
     if (page && req.method === "POST" && page[2]) {
-      await deliver(session);
+      await deliver(paidEvent(session));
       res.writeHead(303, { Location: session.success_url });
       return res.end();
     }

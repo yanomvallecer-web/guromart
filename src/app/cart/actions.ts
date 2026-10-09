@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireViewer } from "@/lib/auth/dal";
+import { expireStaleOrders } from "@/lib/commerce/orders";
 import { publicEnv } from "@/lib/env";
 import { createCheckoutSession, paymongoConfig } from "@/lib/payments/paymongo";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -79,6 +80,7 @@ export async function startCheckout(): Promise<CartActionState> {
   if (!config) return { error: "Online payment isn't set up yet. Your cart is saved." };
 
   const supabase = await createClient();
+  await expireStaleOrders(supabase);
   const { data: order, error } = await supabase.rpc("create_order_from_cart").single<{ order_id: string; order_number: string; total_centavos: number }>();
   if (error || !order) return { error: friendly(error?.message, "We couldn't start checkout. Please try again.") };
 
@@ -109,6 +111,7 @@ export async function startCheckout(): Promise<CartActionState> {
     order_id: order.order_id,
     provider: "paymongo",
     provider_checkout_id: session.id,
+    provider_payment_intent_id: session.paymentIntentId,
     amount_centavos: order.total_centavos,
     livemode: session.livemode,
   });

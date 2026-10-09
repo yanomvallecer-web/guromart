@@ -56,12 +56,43 @@ describe("parseWebhookEvent", () => {
       amountCentavos: 22500,
       feeCentavos: 563,
       method: "gcash",
+      paymentIntentId: null,
+      failureMessage: null,
     });
   });
 
-  it("passes other event types through without payment details", () => {
-    const body = JSON.stringify({ data: { id: "evt_9", attributes: { type: "payment.failed", livemode: false, data: {} } } });
-    expect(parseWebhookEvent(body)).toMatchObject({ eventId: "evt_9", type: "payment.failed", checkoutId: null });
+  it("reads the payment intent and reason of a failed attempt", () => {
+    const body = JSON.stringify({
+      data: {
+        id: "evt_f",
+        attributes: {
+          type: "payment.failed",
+          livemode: false,
+          data: { id: "pay_f", type: "payment", attributes: { amount: 22500, status: "failed", payment_intent_id: "pi_1", failed_code: "card_declined", failed_message: "Your card was declined.", source: { type: "card" } } },
+        },
+      },
+    });
+    expect(parseWebhookEvent(body)).toEqual({
+      eventId: "evt_f",
+      type: "payment.failed",
+      livemode: false,
+      checkoutId: null,
+      paymentId: "pay_f",
+      amountCentavos: 22500,
+      feeCentavos: null,
+      method: "card",
+      paymentIntentId: "pi_1",
+      failureMessage: "Your card was declined.",
+    });
+    const codeOnly = body.replace(',"failed_message":"Your card was declined."', "");
+    expect(parseWebhookEvent(codeOnly)?.failureMessage).toBe("card_declined");
+  });
+
+  it("passes other event types, and failed payments it can't match, through without payment details", () => {
+    const failed = JSON.stringify({ data: { id: "evt_9", attributes: { type: "payment.failed", livemode: false, data: {} } } });
+    expect(parseWebhookEvent(failed)).toMatchObject({ eventId: "evt_9", type: "payment.failed", checkoutId: null, paymentIntentId: null });
+    const other = JSON.stringify({ data: { id: "evt_8", attributes: { type: "source.chargeable", livemode: false, data: {} } } });
+    expect(parseWebhookEvent(other)).toMatchObject({ eventId: "evt_8", type: "source.chargeable", checkoutId: null });
   });
 
   it("rejects malformed bodies and paid events without a paid payment", () => {

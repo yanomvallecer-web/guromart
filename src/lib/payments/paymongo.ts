@@ -41,7 +41,7 @@ export type CheckoutLine = { name: string; amountCentavos: number };
 export async function createCheckoutSession(
   config: PaymongoConfig,
   input: { orderNumber: string; lines: CheckoutLine[]; successUrl: string; cancelUrl: string; email?: string | null },
-): Promise<{ id: string; checkoutUrl: string; livemode: boolean }> {
+): Promise<{ id: string; checkoutUrl: string; livemode: boolean; paymentIntentId: string | null }> {
   const res = await fetch(`${config.apiBase}/v1/checkout_sessions`, {
     method: "POST",
     headers: {
@@ -70,13 +70,28 @@ export async function createCheckoutSession(
   });
   const body = await res.json().catch(() => null);
   const parsed = z
-    .object({ data: z.object({ id: z.string().startsWith("cs_"), attributes: z.object({ checkout_url: z.url(), livemode: z.boolean().default(false) }) }) })
+    .object({
+      data: z.object({
+        id: z.string().startsWith("cs_"),
+        attributes: z.object({
+          checkout_url: z.url(),
+          livemode: z.boolean().default(false),
+          payment_intent: z.object({ id: z.string().min(1) }).nullish(),
+        }),
+      }),
+    })
     .safeParse(body);
   if (!res.ok || !parsed.success) {
     const detail = (body as { errors?: { detail?: string }[] } | null)?.errors?.[0]?.detail;
     throw new Error(`PayMongo did not open a checkout (${res.status}${detail ? `: ${detail}` : ""}).`);
   }
-  return { id: parsed.data.data.id, checkoutUrl: parsed.data.data.attributes.checkout_url, livemode: parsed.data.data.attributes.livemode };
+  const { attributes } = parsed.data.data;
+  return {
+    id: parsed.data.data.id,
+    checkoutUrl: attributes.checkout_url,
+    livemode: attributes.livemode,
+    paymentIntentId: attributes.payment_intent?.id ?? null,
+  };
 }
 
 /**
@@ -113,6 +128,9 @@ export type WebhookEvent = {
   amountCentavos: number | null;
   feeCentavos: number | null;
   method: string | null;
+  /** payment.failed only: the payment intent behind the checkout session, and PayMongo's reason. */
+  paymentIntentId: string | null;
+  failureMessage: string | null;
 };
 
 const eventSchema = z.object({
@@ -146,6 +164,19 @@ const paidSessionSchema = z.object({
   }),
 });
 
+// A failed attempt (e.g. a declined card or a cancelled e-wallet approval).
+// The buyer can still pay on the same checkout page afterwards.
+const failedPaymentSchema = z.object({
+  id: z.string(),
+  attributes: z.object({
+    amount: z.number().int().nullish(),
+    payment_intent_id: z.string().min(1),
+    failed_message: z.string().nullish(),
+    failed_code: z.string().nullish(),
+    source: z.object({ type: z.string() }).nullish(),
+  }),
+});
+
 /** Reads the fields GuroMart needs from a webhook body. Returns null for malformed events. */
 export function parseWebhookEvent(rawBody: string): WebhookEvent | null {
   let json: unknown;
@@ -166,7 +197,23 @@ export function parseWebhookEvent(rawBody: string): WebhookEvent | null {
     amountCentavos: null,
     feeCentavos: null,
     method: null,
+    paymentIntentId: null,
+    failureMessage: null,
   };
+  if (attributes.type === "payment.failed") {
+    // Not every failed payment belongs to a GuroMart checkout; unmatched ones are recorded and ignored.
+    const payment = failedPaymentSchema.safeParse(attributes.data);
+    if (!payment.success) return base;
+    const a = payment.data.attributes;
+    return {
+      ...base,
+      paymentId: payment.data.id,
+      amountCentavos: a.amount ?? null,
+      method: a.source?.type ?? null,
+      paymentIntentId: a.payment_intent_id,
+      failureMessage: a.failed_message?.trim().slice(0, 500) || a.failed_code || null,
+    };
+  }
   if (attributes.type !== "checkout_session.payment.paid") return base;
 
   const session = paidSessionSchema.safeParse(attributes.data);
