@@ -25,12 +25,15 @@ export async function sendCode(_prev: SignInState, formData: FormData): Promise<
   });
   if (error) {
     console.error("Sign-in email failed", { status: error.status, code: error.code, message: error.message });
-    const tooMany = error.status === 429;
-    return {
-      step: "email",
-      email: parsed.data.email,
-      error: tooMany ? "Too many codes requested. Wait a minute, then try again." : "We couldn't send a code right now. Please try again.",
-    };
+    // Supabase limits both per-address requests (about a minute apart) and
+    // emails sent by the whole project per hour.
+    const message =
+      error.code === "over_email_send_rate_limit"
+        ? "GuroMart has sent too many sign-in emails for now. Please try again within the hour."
+        : error.status === 429
+          ? "Too many sign-in emails requested. Wait a minute, then try again."
+          : "We couldn't send a sign-in email right now. Please try again.";
+    return { step: "email", email: parsed.data.email, error: message };
   }
   return { step: "code", email: parsed.data.email };
 }
