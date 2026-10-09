@@ -13,7 +13,10 @@ export async function GET(request: NextRequest) {
     if (!error) return NextResponse.redirect(new URL(next, origin));
     console.error("Sign-in link failed", { status: error.status, code: error.code, message: error.message });
   } else {
-    console.error("Sign-in link failed", { reason: searchParams.get("error_description") ?? "no code in link" });
+    console.error("Sign-in link failed", {
+      code: searchParams.get("error_code") ?? searchParams.get("error"),
+      reason: searchParams.get("error_description") ?? "no code in link",
+    });
   }
   return NextResponse.redirect(new URL(`/sign-in?error=link&next=${encodeURIComponent(next)}`, origin));
 }

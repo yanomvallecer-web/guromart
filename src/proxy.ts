@@ -29,14 +29,19 @@ export async function proxy(request: NextRequest) {
   const signedIn = Boolean(data?.claims?.sub);
 
   const { pathname, search } = request.nextUrl;
-  // Supabase sends a sign-in link back to the Site URL instead of
-  // /auth/callback when the callback address isn't on its redirect list.
-  // Finish the sign-in there too rather than leaving the code unused.
-  const code = request.nextUrl.searchParams.get("code");
-  if (pathname === "/" && code) {
+  // Supabase sends a sign-in link or a failed Facebook/Google sign-in back to
+  // the Site URL instead of /auth/callback when the callback address isn't on
+  // its redirect list. Hand it to the callback so it finishes or is reported.
+  const params = request.nextUrl.searchParams;
+  if (pathname === "/" && (params.has("code") || params.has("error_description"))) {
     const callback = request.nextUrl.clone();
     callback.pathname = "/auth/callback";
-    callback.search = `?code=${encodeURIComponent(code)}&next=/`;
+    callback.search = "";
+    for (const key of ["code", "error", "error_code", "error_description"]) {
+      const value = params.get(key);
+      if (value) callback.searchParams.set(key, value);
+    }
+    callback.searchParams.set("next", "/");
     return NextResponse.redirect(callback);
   }
   if (!signedIn && PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
