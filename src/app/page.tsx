@@ -1,69 +1,160 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Suspense } from "react";
+import { BookOpen, Store } from "lucide-react";
+import { ProductGrid, ProductGridSkeleton } from "@/components/catalog/product-card";
+import { SearchForm } from "@/components/site/search-form";
+import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/card";
+import { type HomeShelf, getFeaturedStorefronts, getShelf, getTaxonomy } from "@/lib/catalog/queries";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <>
+      <section className="bg-primary text-white">
+        <div className="mx-auto flex max-w-[1200px] flex-col gap-6 px-4 py-12 sm:px-6 sm:py-16">
+          <div className="max-w-2xl">
+            <p className="mb-3 text-sm font-bold uppercase tracking-[0.08em] text-[#cfe0f7]">Para sa mga guro, gawa ng mga guro</p>
+            <h1 className="font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl">
+              Everything you need to teach, all in one place.
+            </h1>
+          </div>
+          <SearchForm size="lg" className="max-w-2xl border-white/0" />
+          <Suspense fallback={<div className="h-9" />}>
+            <QuickCategories />
+          </Suspense>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </section>
+
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-14 px-4 py-12 sm:px-6">
+        <Suspense fallback={<div className="h-40 animate-pulse rounded-[12px] bg-border/50" />}>
+          <BrowseBy />
+        </Suspense>
+
+        <Shelf shelf="featured" title="Featured resources" href="/browse?sort=popular" />
+        <Shelf shelf="free" title="Free resources" href="/browse?price=free" />
+        <Shelf shelf="popular" title="Popular downloads" href="/browse?sort=popular" />
+        <Shelf shelf="new" title="Newly added" href="/browse?sort=newest" />
+
+        <section aria-labelledby="shops-h" className="flex flex-col gap-4">
+          <h2 id="shops-h" className="font-display text-2xl font-bold">Teacher shops</h2>
+          <Suspense fallback={<div className="h-24 animate-pulse rounded-[12px] bg-border/50" />}>
+            <Storefronts />
+          </Suspense>
+        </section>
+
+        <section className="flex flex-col items-start gap-4 rounded-[16px] bg-accent-soft p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+          <div>
+            <h2 className="font-display text-2xl font-bold">Sell what you already make for your class</h2>
+            <p className="mt-1 text-muted-foreground">Open a shop, upload your lesson plans and worksheets, and get paid to GCash, Maya or your bank.</p>
+          </div>
+          <Link href="/sell" className={buttonVariants({ variant: "dark", size: "lg" })}>
+            Start selling
+          </Link>
+        </section>
+      </div>
+    </>
+  );
+}
+
+async function QuickCategories() {
+  const { categories } = await getTaxonomy();
+  const picks = ["daily-lesson-log", "lesson-plan", "worksheet", "assessment", "presentation"];
+  return (
+    <ul className="flex flex-wrap gap-2">
+      {categories
+        .filter((c) => picks.includes(c.code))
+        .map((c) => (
+          <li key={c.code}>
+            <Link href={`/browse?category=${c.code}`} className="block rounded-full border border-white/40 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10">
+              {c.name}
+            </Link>
+          </li>
+        ))}
+      <li>
+        <Link href="/browse?price=free" className="block rounded-full bg-white px-4 py-2 text-sm font-semibold text-foreground hover:bg-white/90">
+          Free downloads
+        </Link>
+      </li>
+    </ul>
+  );
+}
+
+async function BrowseBy() {
+  const { grades, subjects, categories } = await getTaxonomy();
+  const group = (title: string, param: string, items: { code: string; name: string }[]) => (
+    <div className="flex flex-col gap-3">
+      <h3 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">{title}</h3>
+      <ul className="flex flex-wrap gap-2">
+        {items.map((i) => (
+          <li key={i.code}>
+            <Link href={`/browse?${param}=${i.code}`} className="block rounded-[10px] border border-border bg-surface px-3 py-2 text-sm font-semibold hover:border-primary hover:text-primary">
+              {i.name}
+            </Link>
+          </li>
+        ))}
+      </ul>
     </div>
+  );
+  return (
+    <section aria-labelledby="browse-h" className="flex flex-col gap-6">
+      <h2 id="browse-h" className="font-display text-2xl font-bold">Browse by</h2>
+      {group("Grade level", "grade", grades)}
+      {group("Subject", "subject", subjects)}
+      {group("Resource type", "category", categories)}
+    </section>
+  );
+}
+
+function Shelf({ shelf, title, href }: { shelf: HomeShelf; title: string; href: string }) {
+  return (
+    <section aria-labelledby={`${shelf}-h`} className="flex flex-col gap-4">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 id={`${shelf}-h`} className="font-display text-2xl font-bold">{title}</h2>
+        <Link href={href} className="text-sm font-semibold text-primary hover:underline">
+          See all
+        </Link>
+      </div>
+      <Suspense fallback={<ProductGridSkeleton />}>
+        <ShelfItems shelf={shelf} />
+      </Suspense>
+    </section>
+  );
+}
+
+async function ShelfItems({ shelf }: { shelf: HomeShelf }) {
+  const products = await getShelf(shelf);
+  if (products.length === 0) {
+    return (
+      <EmptyState icon={<BookOpen />} title="Nothing here yet">
+        {shelf === "free"
+          ? "Free resources from teacher shops will show up here once they are approved."
+          : "Resources appear here as teacher shops publish them. Have something to share?"}{" "}
+        <Link href="/sell" className="font-semibold text-primary hover:underline">Open a shop</Link>.
+      </EmptyState>
+    );
+  }
+  return <ProductGrid products={products} />;
+}
+
+async function Storefronts() {
+  const stores = await getFeaturedStorefronts();
+  if (stores.length === 0) {
+    return (
+      <EmptyState icon={<Store />} title="The first shops are opening soon">
+        Teachers who open a shop now will be listed here first.
+      </EmptyState>
+    );
+  }
+  return (
+    <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {stores.map((s) => (
+        <li key={s.slug}>
+          <Link href={`/shop/${s.slug}`} className="flex h-full flex-col gap-1 rounded-[12px] border border-border bg-surface p-4 hover:border-primary">
+            <span className="font-bold">{s.name}</span>
+            {s.tagline ? <span className="text-sm text-muted-foreground">{s.tagline}</span> : null}
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }
