@@ -69,6 +69,15 @@ describe("checkUpload", () => {
   });
 });
 
+describe("checkUpload for identity documents", () => {
+  it("accepts PDFs and photos up to 10 MB only", () => {
+    expect(checkUpload("verification", "id.pdf", 1000).ok).toBe(true);
+    expect(checkUpload("verification", "id.JPG", 1000).ok).toBe(true);
+    expect(checkUpload("verification", "id.docx", 1000)).toEqual({ ok: false, error: "Upload a PDF or a PNG, JPG or WebP photo." });
+    expect(checkUpload("verification", "id.pdf", 10 * 1024 * 1024 + 1).ok).toBe(false);
+  });
+});
+
 describe("matchesSignature", () => {
   const bytes = (s: number[]) => new Uint8Array([...s, ...new Array(16).fill(0)]);
   it("recognizes real files", () => {

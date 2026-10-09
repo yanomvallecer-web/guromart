@@ -472,3 +472,59 @@ describe("listing review", () => {
     await expectError(anon, "select public.review_listing($1, true)", [p.id], /permission denied/);
   });
 });
+
+describe("seller verification and payouts", () => {
+  const submit = "insert into public.seller_verifications (seller_account_id, kind, document_path) values ($1, 'government_id', $2) returning id";
+
+  async function staff() {
+    const boss = await createUser("admin@example.test");
+    await q(admin, "insert into public.user_roles (user_id, role) values ($1, 'admin')", [boss]);
+    return boss;
+  }
+
+  it("takes one request at a time from the seller's own folder and marks the account pending", async () => {
+    const a = await createSeller("a@example.test", "shop-a");
+    const b = await createSeller("b@example.test", "shop-b");
+    await expectError(user(a.userId), submit, [a.sellerId, `${b.sellerId}/id.pdf`], /does not belong/);
+    await expectError(user(a.userId), submit, [b.sellerId, `${b.sellerId}/id.pdf`]);
+    await q(user(a.userId), submit, [a.sellerId, `${a.sellerId}/id.pdf`]);
+    await expectError(user(a.userId), submit, [a.sellerId, `${a.sellerId}/id2.pdf`], /duplicate key/);
+    const { rows } = await q(user(a.userId), "select verification_status from public.seller_accounts where id = $1", [a.sellerId]);
+    expect(rows[0].verification_status).toBe("pending");
+    // Sellers can't approve themselves, directly or through the function.
+    const self = await q(user(a.userId), "update public.seller_verifications set status = 'verified' where seller_account_id = $1 returning id", [a.sellerId]);
+    expect(self.rows).toHaveLength(0);
+    await expectError(user(a.userId), "select public.review_verification(id, true) from public.seller_verifications where seller_account_id = $1", [a.sellerId], /Only GuroMart staff/);
+  });
+
+  it("lets staff reject with a note, then verify a new request", async () => {
+    const a = await createSeller("a@example.test", "shop-a");
+    const boss = await staff();
+    const first = await q(user(a.userId), submit, [a.sellerId, `${a.sellerId}/blurry.jpg`]);
+    await expectError(user(boss), "select public.review_verification($1, false, 'no')", [first.rows[0].id], /what to fix/);
+    await q(user(boss), "select public.review_verification($1, false, $2)", [first.rows[0].id, "The photo is blurry; please retake it in good light."]);
+    let account = await q(user(a.userId), "select verification_status from public.seller_accounts where id = $1", [a.sellerId]);
+    expect(account.rows[0].verification_status).toBe("rejected");
+
+    const second = await q(user(a.userId), submit, [a.sellerId, `${a.sellerId}/clear.jpg`]);
+    await q(user(boss), "select public.review_verification($1, true)", [second.rows[0].id]);
+    account = await q(user(a.userId), "select verification_status from public.seller_accounts where id = $1", [a.sellerId]);
+    expect(account.rows[0].verification_status).toBe("verified");
+    await expectError(user(boss), "select public.review_verification($1, true)", [second.rows[0].id], /already been reviewed/);
+    const notes = await q(admin, "select type from public.notifications where user_id = $1 order by created_at", [a.userId]);
+    expect(notes.rows.map((r) => r.type).sort()).toEqual(["verification.approved", "verification.rejected"]);
+  });
+
+  it("keeps payout details private to the seller and staff, checks wallet numbers and audits changes", async () => {
+    const a = await createSeller("a@example.test", "shop-a");
+    const b = await createSeller("b@example.test", "shop-b");
+    const add = "insert into public.seller_payout_methods (seller_account_id, method, account_name, account_number, bank_name) values ($1, $2, 'Liza Cruz', $3, $4)";
+    await expectError(user(a.userId), add, [a.sellerId, "gcash", "12345678", null], /wallet_number/);
+    await expectError(user(b.userId), add, [a.sellerId, "gcash", "09171234567", null]);
+    await q(user(a.userId), add, [a.sellerId, "gcash", "0917 123 4567", null]);
+    const seen = await q(user(b.userId), "select id from public.seller_payout_methods");
+    expect(seen.rows).toHaveLength(0);
+    const audit = await q(admin, "select action, metadata->>'account_last4' as last4 from public.audit_logs where entity_id = $1 and action like 'seller.payout%'", [a.sellerId]);
+    expect(audit.rows).toEqual([{ action: "seller.payout_method_insert", last4: "4567" }]);
+  });
+});

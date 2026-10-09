@@ -59,9 +59,9 @@ async function Dashboard() {
     { label: "Create your account", done: true },
     { label: "Choose your seller type", done: true },
     { label: "Create your shop", done: Boolean(store) },
-    { label: "Verify your identity", done: account.verification_status === "verified", pending: account.verification_status === "pending" },
-    { label: "Add payout details", done: (payout.count ?? 0) > 0 },
-    { label: "Upload your first resource", done: total > 0 },
+    { label: "Verify your identity", done: account.verification_status === "verified", pending: account.verification_status === "pending", href: "/seller/verify" },
+    { label: "Add payout details", done: (payout.count ?? 0) > 0, href: "/seller/verify" },
+    { label: "Upload your first resource", done: total > 0, href: "/seller/products/new" },
     { label: "Submit it for review", done: (counts.pending_review ?? 0) + (counts.published ?? 0) > 0 },
   ];
 
@@ -108,7 +108,12 @@ async function Dashboard() {
             <li key={s.label} className="flex items-center gap-3 text-sm">
               {s.done ? <CheckCircle2 className="size-5 text-success" aria-hidden /> : <Circle className="size-5 text-input" aria-hidden />}
               <span className={s.done ? "text-muted-foreground line-through" : "font-medium"}>
-                {i + 1}. {s.label}
+                {i + 1}.{" "}
+                {"href" in s && s.href && !s.done ? (
+                  <Link href={s.href} className="text-primary hover:underline">{s.label}</Link>
+                ) : (
+                  s.label
+                )}
                 {"pending" in s && s.pending ? " (in review)" : ""}
               </span>
               <span className="sr-only">{s.done ? "done" : "not done"}</span>

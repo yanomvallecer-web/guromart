@@ -34,7 +34,8 @@
 | Admin review queue: staff download files privately (logged), mark each file safe or blocked, approve or reject with a note the seller sees | Done | `supabase/tests/rls.test.ts`, `e2e/listings.spec.ts` |
 | A listing can only go live with the rights confirmation, a preview, and every file marked safe (enforced in the database) | Done | `supabase/tests/rls.test.ts` |
 | Approving a seller's first listing opens their shop; identity verification gates payouts, not listing | Done | `supabase/tests/rls.test.ts`, `e2e/listings.spec.ts` |
-| Seller onboarding steps 4 and 5: identity verification upload, payout details | Not started | |
+| Seller identity verification: private ID upload (checked like other uploads), one request at a time, staff review with logged document access, reject with a note | Done | `supabase/tests/rls.test.ts`, `e2e/verification.spec.ts` |
+| Payout details (GCash, Maya or bank), validated, shown masked, private to the seller and staff, every change audited | Done | `src/lib/validation/payout.test.ts`, `supabase/tests/rls.test.ts`, `e2e/verification.spec.ts` |
 - Ranked search (database function with `ts_rank`), Filipino/English synonyms (DLL and daily lesson log)
 - Shop profile editing and publishing
 - Demo seed data, clearly labelled, for local development
@@ -48,7 +49,8 @@
 
 ## Phase 4: Marketplace operations
 
-- Admin: seller verification, listing moderation queue, categories and curricula, orders and payments, refunds and disputes, payouts, copyright reports and repeat-infringer strikes, platform settings
+- Shop closing, with a scheduled job that deletes the seller's ID documents 90 days after closing (Data Privacy Act retention decision)
+- Admin: listing moderation extras, categories and curricula, orders and payments, refunds and disputes, payouts, copyright reports and repeat-infringer strikes, platform settings
 - Notifications (in-app and email), support tickets, reviews UI, wishlist
 
 ## Phase 5: Testing and deployment

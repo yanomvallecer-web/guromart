@@ -8,7 +8,8 @@ import { getTaxonomy } from "@/lib/catalog/queries";
 import { slugify } from "@/lib/format";
 import { listingFromForm, reviewProblems } from "@/lib/listings/schema";
 import { getSellerContext } from "@/lib/listings/seller";
-import { BUCKET, LIMITS, type UploadKind, checkUpload, cleanFileName, matchesSignature, objectPath } from "@/lib/listings/uploads";
+import { BUCKET, type UploadKind, checkUpload, cleanFileName, objectPath } from "@/lib/listings/uploads";
+import { discardObject, verifyStoredObject } from "@/lib/listings/verify-object";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -184,35 +185,12 @@ export async function createUploadTicket(id: string, input: { kind: UploadKind; 
 export async function confirmUpload(id: string, input: { kind: UploadKind; path: string; name: string }): Promise<ActionState> {
   const { ctx, supabase } = await ownListing(id);
   const kind = input.kind === "preview" ? "preview" : "file";
-  const bucket = BUCKET[kind];
   const prefix = `${ctx.sellerAccountId}/${id}/`;
   if (typeof input.path !== "string" || !input.path.startsWith(prefix) || input.path.includes("..")) {
     return { error: "That upload doesn't belong to this listing." };
   }
-  const storage = createAdminClient().storage.from(bucket);
-  const reject = async (error: string) => {
-    await storage.remove([input.path]);
-    return { error };
-  };
-
-  const info = await storage.info(input.path);
-  if (info.error || !info.data) return { error: "We couldn't find the uploaded file. Please try again." };
-  const size = info.data.size ?? 0;
-  const ext = input.path.slice(input.path.lastIndexOf(".") + 1);
-  const check = checkUpload(kind, `${input.name.replace(/\.[^.]*$/, "")}.${ext}`, size);
-  if (!check.ok) return reject(check.error);
-  if (size > LIMITS[kind]) return reject("That file is too large.");
-  const meta = info.data as { content_type?: string; contentType?: string };
-  const storedType = meta.content_type ?? meta.contentType;
-  if (storedType && storedType !== check.value.mime) return reject("That file's type doesn't match its name.");
-
-  // Read only the first bytes to confirm the file really is what its name says.
-  const signed = await storage.createSignedUrl(input.path, 60);
-  if (signed.error || !signed.data) return reject("We couldn't check the file. Please try again.");
-  const head = new Uint8Array(await (await fetch(signed.data.signedUrl, { headers: { Range: "bytes=0-31" } })).arrayBuffer()).slice(0, 32);
-  if (!matchesSignature(check.value.format, head)) {
-    return reject("This file's contents don't match its type. Save it again as a real PDF, Word, PowerPoint, Excel, ZIP or image file.");
-  }
+  const checked = await verifyStoredObject(kind, input.path, input.name);
+  if (!checked.ok) return { error: checked.error };
 
   const row =
     kind === "file"
@@ -220,12 +198,15 @@ export async function confirmUpload(id: string, input: { kind: UploadKind; path:
           product_id: id,
           storage_path: input.path,
           original_filename: cleanFileName(input.name),
-          mime_type: check.value.mime,
-          file_format: check.value.format,
-          size_bytes: size,
+          mime_type: checked.type.mime,
+          file_format: checked.type.format,
+          size_bytes: checked.size,
         })
       : await supabase.from("product_previews").insert({ product_id: id, storage_path: input.path, alt_text: null });
-  if (row.error) return reject(row.error.message.includes("at most") ? row.error.message : "We couldn't attach the file. Please try again.");
+  if (row.error) {
+    await discardObject(kind, input.path);
+    return { error: row.error.message.includes("at most") ? row.error.message : "We couldn't attach the file. Please try again." };
+  }
   revalidatePath(`/seller/products/${id}`);
   return { ok: true };
 }
