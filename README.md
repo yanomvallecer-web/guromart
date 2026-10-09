@@ -7,7 +7,7 @@ GuroMart is a multi-vendor marketplace where Filipino teachers discover, buy, do
 - [Architecture and decisions](docs/ARCHITECTURE.md)
 - [Roadmap, feature status and remaining dependencies](docs/ROADMAP.md)
 
-## What works today (Phases 1 and 2)
+## What works today (Phases 1 and 2, part of Phase 3)
 
 | Area | Status |
 | --- | --- |
@@ -27,7 +27,8 @@ GuroMart is a multi-vendor marketplace where Filipino teachers discover, buy, do
 | Shop profile editing with logo and banner, show or hide the shop | Done, tested end to end |
 | Ranked search with Filipino/English synonyms and typo tolerance | Done, tested |
 | Optional demo data for local development (`npm run seed:demo`), clearly labelled | Done, run by hand |
-| Checkout, payments, buyer downloads | Not yet. See the roadmap. |
+| Cart, free resources added to My Library, secure logged downloads | Done, tested end to end |
+| Checkout and payments | Not yet. See the roadmap. |
 
 Nothing on the site is fabricated. With an empty database the homepage shows empty states, not sample products. Demo data is only loaded on request, locally, and every demo item is titled "[Demo]".
 

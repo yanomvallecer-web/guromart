@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPrice, slugify } from "./format";
+import { formatBytes, formatPrice, slugify } from "./format";
 
 describe("formatPrice", () => {
   it("formats centavos as pesos", () => {
@@ -24,5 +24,13 @@ describe("slugify", () => {
   });
   it("trims to the length limit without a trailing dash", () => {
     expect(slugify("a".repeat(49) + " b c", 50)).toBe("a".repeat(49));
+  });
+});
+
+describe("formatBytes", () => {
+  it("uses KB below a megabyte and never shows 0 KB", () => {
+    expect(formatBytes(10)).toBe("1 KB");
+    expect(formatBytes(2048)).toBe("2 KB");
+    expect(formatBytes(3_500_000)).toBe("3.3 MB");
   });
 });

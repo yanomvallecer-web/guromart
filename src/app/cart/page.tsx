@@ -1,0 +1,87 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Suspense } from "react";
+import { FileText, ShoppingCart } from "lucide-react";
+import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, EmptyState } from "@/components/ui/card";
+import { requireViewer } from "@/lib/auth/dal";
+import { getCart } from "@/lib/commerce/cart";
+import { formatPrice } from "@/lib/format";
+import { publicObjectUrl } from "@/lib/storage";
+import { RemoveFromCart } from "./remove-button";
+
+export const metadata: Metadata = { title: "Your cart" };
+
+export default function CartPage() {
+  return (
+    <PageShell title="Your cart" description="Prices are checked again when you pay.">
+      <Suspense fallback={<PanelSkeleton />}>
+        <CartContents />
+      </Suspense>
+    </PageShell>
+  );
+}
+
+async function CartContents() {
+  const viewer = await requireViewer("/cart");
+  const cart = await getCart(viewer);
+
+  if (cart.lines.length === 0) {
+    return (
+      <EmptyState
+        icon={<ShoppingCart />}
+        title="Your cart is empty"
+        action={<Link href="/browse" className={buttonVariants({ variant: "outline" })}>Browse resources</Link>}
+      >
+        Paid resources you add will wait here. Free ones go straight to your library.
+      </EmptyState>
+    );
+  }
+
+  return (
+    <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
+      <ul className="flex flex-col gap-3">
+        {cart.lines.map((line) => (
+          <li key={line.productId}>
+            <Card className="flex items-center gap-4 p-3">
+              <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-[8px] border border-border bg-accent-soft text-primary/50">
+                {line.product?.previewPath ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={publicObjectUrl("product-previews", line.product.previewPath)} alt="" className="size-full object-cover" />
+                ) : (
+                  <FileText aria-hidden />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                {line.product ? (
+                  <>
+                    <Link href={`/resources/${line.product.slug}`} className="line-clamp-2 font-semibold hover:text-primary">
+                      {line.product.title}
+                    </Link>
+                    {line.product.shop ? <p className="text-sm text-muted-foreground">{line.product.shop.name}</p> : null}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">This resource is no longer available and won&apos;t be charged.</p>
+                )}
+              </div>
+              <p className="shrink-0 font-semibold">{line.product ? formatPrice(line.product.priceCentavos) : null}</p>
+              <RemoveFromCart productId={line.productId} />
+            </Card>
+          </li>
+        ))}
+      </ul>
+
+      <Card className="flex h-fit flex-col gap-3 p-5">
+        <h2 className="font-display text-lg font-bold">Summary</h2>
+        <div className="flex justify-between text-sm">
+          <span>{cart.buyableCount} {cart.buyableCount === 1 ? "resource" : "resources"}</span>
+          <span className="font-semibold">{formatPrice(cart.totalCentavos)}</span>
+        </div>
+        <p className="rounded-[10px] bg-surface-muted p-3 text-sm text-muted-foreground">
+          Online payment is not open yet. Your cart is saved, and you&apos;ll be able to pay with GCash, Maya or a card once checkout opens.
+        </p>
+      </Card>
+    </div>
+  );
+}
