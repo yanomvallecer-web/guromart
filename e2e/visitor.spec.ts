@@ -1,12 +1,20 @@
 import { expect, test } from "@playwright/test";
 
-test("homepage shows real categories and honest empty states", async ({ page }) => {
+test("homepage shows real categories and no empty shelves", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Everything you need to teach, all in one place." })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Kindergarten" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Araling Panlipunan" }).first()).toBeVisible();
+  // One row of grades, with the full set of filters a tap away.
+  const grades = page.getByRole("region", { name: "Browse by grade" });
+  await expect(grades.getByRole("link", { name: "Kindergarten" })).toBeVisible();
+  await expect(grades.getByRole("link", { name: "See all" })).toHaveAttribute("href", "/browse");
   await expect(page.getByRole("link", { name: "Daily Lesson Logs" }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Start selling" })).toBeVisible();
+  // A shelf is either filled with real listings or not shown at all.
+  await expect(page.getByText("Nothing here yet")).toHaveCount(0);
+  for (const shelf of await page.locator("section[aria-labelledby$='-h']").filter({ has: page.getByRole("link", { name: "See all" }) }).all()) {
+    if ((await shelf.getAttribute("aria-labelledby")) === "grades-h") continue;
+    expect(await shelf.getByRole("listitem").count()).toBeGreaterThan(0);
+  }
 });
 
 test("search goes to server-filtered results", async ({ page }) => {
