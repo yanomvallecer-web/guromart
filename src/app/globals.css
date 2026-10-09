@@ -21,6 +21,8 @@
   --danger-soft: #fdecea;
   --ring: #1a56a8;
   --radius: 12px;
+  /* Height of the phone tab bar and the resource page's buy bar (same slot). */
+  --bottom-bar: 4rem;
 }
 
 @theme inline {

@@ -3,6 +3,7 @@ import { BookOpenCheck, ShoppingCart } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { getViewer } from "@/lib/auth/dal";
 import { getProductAccess } from "@/lib/commerce/cart";
+import { cn } from "@/lib/utils";
 import { BuyButton } from "./buy-button";
 
 /** What the viewer can do with a resource: sign in, get it free, add to cart, or open it in their library. */
@@ -11,7 +12,7 @@ export async function BuyPanel({ productId, slug, free }: { productId: string; s
   const viewer = await getViewer();
   if (!viewer) {
     return (
-      <Link href={`/sign-in?next=${encodeURIComponent(path)}`} className={buttonVariants({ size: "lg" })}>
+      <Link href={`/sign-in?next=${encodeURIComponent(path)}`} className={cn(buttonVariants({ size: "lg" }), "w-full")}>
         {free ? "Sign in to get it free" : "Sign in to buy"}
       </Link>
     );
@@ -23,14 +24,14 @@ export async function BuyPanel({ productId, slug, free }: { productId: string; s
   }
   if (access === "owned") {
     return (
-      <Link href="/library" className={buttonVariants({ variant: "outline", size: "lg" })}>
-        <BookOpenCheck aria-hidden /> In your library
+      <Link href="/library" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full")}>
+        <BookOpenCheck aria-hidden /> Open in library
       </Link>
     );
   }
   if (access === "in_cart") {
     return (
-      <Link href="/cart" className={buttonVariants({ variant: "outline", size: "lg" })}>
+      <Link href="/cart" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full")}>
         <ShoppingCart aria-hidden /> In your cart
       </Link>
     );

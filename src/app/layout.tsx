@@ -19,7 +19,7 @@ export const viewport: Viewport = { themeColor: "#1a56a8" };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en-PH" className={`${body.variable} ${display.variable}`}>
-      <body className="flex min-h-dvh flex-col">
+      <body className="flex min-h-dvh flex-col pb-[calc(var(--bottom-bar)+env(safe-area-inset-bottom))] md:pb-0">
         <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface focus:px-4 focus:py-2">
           Skip to content
         </a>

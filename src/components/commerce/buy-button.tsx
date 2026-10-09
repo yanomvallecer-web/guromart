@@ -13,7 +13,7 @@ export function BuyButton({ productId, path, free }: { productId: string; path: 
   return (
     <div className="flex flex-col gap-3">
       {result.error ? <FormAlert>{result.error}</FormAlert> : null}
-      <Button size="lg" disabled={pending} onClick={run}>
+      <Button size="lg" className="w-full" disabled={pending} onClick={run}>
         {pending ? "Working…" : free ? "Get it free" : "Add to cart"}
       </Button>
     </div>
