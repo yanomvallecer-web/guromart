@@ -80,9 +80,15 @@ async function Dashboard() {
           </div>
         </Card>
         <Card className="p-6">
-          <h2 className="mb-4 font-display text-xl font-bold">Your resources</h2>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-display text-xl font-bold">Your resources</h2>
+            <div className="flex gap-3 text-sm font-semibold">
+              <Link href="/seller/products" className="text-primary hover:underline">Manage resources</Link>
+              <Link href="/seller/products/new" className="text-primary hover:underline">Add a resource</Link>
+            </div>
+          </div>
           {total === 0 ? (
-            <p className="text-sm text-muted-foreground">You haven&apos;t added any resources yet. Uploading opens in the next release of the seller tools.</p>
+            <p className="text-sm text-muted-foreground">You haven&apos;t added any resources yet. Start a draft, upload your files, then submit it for review.</p>
           ) : (
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               {(["draft", "pending_review", "published", "rejected"] as const).map((s) => (

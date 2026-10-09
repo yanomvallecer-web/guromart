@@ -1,6 +1,6 @@
 # GuroMart architecture
 
-Last updated 9 October 2026, end of Phase 1.
+Last updated 9 October 2026, Phase 2 in progress.
 
 ## 1. The existing prototype
 
@@ -59,9 +59,9 @@ Other measures in place: security headers (`nosniff`, frame denial, referrer pol
 
 Business rules from the business model draft are encoded as settings or constraints: Starter commission 30%, Pro 15%, ₱30 minimum price for paid items (free allowed), ₱500 minimum payout, 7-day hold, 100 MB upload limit.
 
-## 5. Digital delivery (Phase 3 design)
+## 5. Digital delivery
 
-1. A seller uploads to `product-files/{seller_account_id}/{product_id}/…` (private). A `product_files` row starts with `scan_status = pending`.
+1. **Upload (built in Phase 2).** The browser asks the server for an upload ticket. The server checks the seller owns the listing, the listing isn't live, and the file's extension and size are allowed, then issues a one-time signed upload URL for `product-files/{seller_account_id}/{product_id}/{random}.{ext}` (private). The browser uploads straight to storage, so large files never pass through the web server. The server then reads the stored object's size, content type and first bytes and checks they match the claimed type (PDF, Office, ZIP, PNG, JPG, WebP). Anything that fails is deleted. Only then is a `product_files` row created, with `scan_status = pending`. Database triggers also refuse rows outside the seller's folder, changes to files while a listing is live, and more than 10 files or 6 previews.
 2. A scan job marks files `clean` or `infected`. Until a malware scanning service is chosen, files stay in quarantine and an admin reviews them before a listing can be approved.
 3. On download, the server checks for an active entitlement, records a `downloads` row and returns a signed URL valid for a few minutes. Public URLs are never issued for resource files.
 

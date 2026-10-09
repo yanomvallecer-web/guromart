@@ -9,7 +9,7 @@
 | Inspect existing prototype, choose stack | Done | `docs/ARCHITECTURE.md` |
 | Project architecture (Next.js 16, Supabase, Tailwind, shadcn-style UI) | Done | Build, lint, typecheck in CI |
 | Database schema and migrations for the full MVP | Done | `supabase/tests/rls.test.ts` |
-| Row-level security, guard triggers, audit log | Done | `supabase/tests/rls.test.ts` (26 tests) |
+| Row-level security, guard triggers, audit log | Done | `supabase/tests/rls.test.ts` |
 | Email code sign-in and sign-up, session refresh, sign-out | Done | `e2e/accounts.spec.ts` |
 | Google sign-in | Built, needs provider credentials | Not tested (needs Google OAuth client) |
 | Role-based access on the server (buyer, seller, publisher, admin) | Done | `src/lib/auth/roles.test.ts`, `e2e/accounts.spec.ts` |
@@ -22,12 +22,16 @@
 | Admin overview with live counts and audit trail | Done | `e2e/accounts.spec.ts` |
 | CI pipeline | Written | Runs once the repository is on GitHub |
 
-## Phase 2: Marketplace core (next)
+## Phase 2: Marketplace core (in progress)
 
-- Seller onboarding steps 4 to 7: identity verification upload, payout details, first upload, submit for review
-- Product create and edit form with copyright declaration and license choice
-- Secure uploads to private storage with type and size checks, quarantine until scanned, preview image upload
-- Seller product management (drafts, review status, archive)
+| Item | Status | Tested by |
+| --- | --- | --- |
+| Product create and edit form with copyright declaration, license choice and price rules (free or ₱30 to ₱10,000) | Done | `src/lib/listings/listings.test.ts`, `e2e/listings.spec.ts` |
+| Secure uploads: one-time signed upload URLs to owner-scoped paths, extension and size checks, file signature check after upload, rejected files deleted, private resource bucket | Done | `src/lib/listings/listings.test.ts`, `e2e/listings.spec.ts` |
+| Database guards on listing files: owner folder only, no file changes while live, at most 10 files and 6 previews | Done | `supabase/tests/rls.test.ts` (29 tests) |
+| Uploaded files start quarantined ("waiting for safety check") | Done | `e2e/listings.spec.ts` |
+| Seller product management: list, submit for review with a readiness checklist, withdraw, archive | Done | `e2e/listings.spec.ts` |
+| Seller onboarding steps 4 and 5: identity verification upload, payout details | Not started | |
 - Ranked search (database function with `ts_rank`), Filipino/English synonyms (DLL and daily lesson log)
 - Shop profile editing and publishing
 - Demo seed data, clearly labelled, for local development
