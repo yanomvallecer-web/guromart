@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireViewer } from "@/lib/auth/dal";
+import { isMissingFunction } from "@/lib/commerce/buy-now";
 import { expireStaleOrders } from "@/lib/commerce/orders";
+import { safeNextPath } from "@/lib/auth/roles";
 import { publicEnv } from "@/lib/env";
 import { createCheckoutSession, paymongoConfig } from "@/lib/payments/paymongo";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -84,22 +86,59 @@ export async function startCheckout(): Promise<CartActionState> {
   const { data: order, error } = await supabase.rpc("create_order_from_cart").single<{ order_id: string; order_number: string; total_centavos: number }>();
   if (error || !order) return { error: friendly(error?.message, "We couldn't start checkout. Please try again.") };
 
+  return openCheckout(order, config, viewer.email, `${siteUrl()}/cart`);
+}
+
+const siteUrl = () => publicEnv().NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
+
+/**
+ * Buy now: an order for this one resource, then PayMongo. Other items in the
+ * cart are not charged and stay there. Nothing is unlocked here: access waits
+ * for the verified webhook, exactly as with checkout from the cart.
+ */
+export async function buyNow(productId: string, from: string): Promise<CartActionState> {
+  // Only a resource page can be the "back" address PayMongo returns to.
+  const path = /^\/resources\/[a-z0-9-]{1,120}$/.test(safeNextPath(from)) ? from : "/cart";
+  const viewer = await requireViewer(path);
+  if (!idSchema.safeParse(productId).success) return { error: "This resource is not available." };
+  const config = paymongoConfig();
+  if (!config) return { error: "Online payment isn't set up yet. Add it to your cart instead." };
+
+  const supabase = await createClient();
+  await expireStaleOrders(supabase);
+  const { data: order, error } = await supabase
+    .rpc("create_order_for_product", { p_product_id: productId })
+    .single<{ order_id: string; order_number: string; total_centavos: number }>();
+  if (error && isMissingFunction(error)) {
+    console.error("Buy now failed: create_order_for_product() is missing. Run guromart-setup/ux-buy-now.sql.");
+    return { error: "Buy now isn't available yet. Add it to your cart and check out from there." };
+  }
+  if (error || !order) return { error: friendly(error?.message, "We couldn't start checkout. Please try again.") };
+  return openCheckout(order, config, viewer.email, `${siteUrl()}${path}`);
+}
+
+/** Opens a PayMongo checkout for an order the database just created, and sends the buyer there. */
+async function openCheckout(
+  order: { order_id: string; order_number: string; total_centavos: number },
+  config: NonNullable<ReturnType<typeof paymongoConfig>>,
+  email: string | null,
+  cancelUrl: string,
+): Promise<CartActionState> {
   const admin = createAdminClient();
   const { data: items } = await admin
     .from("order_items")
     .select("title_snapshot, unit_price_centavos")
     .eq("order_id", order.order_id)
     .order("created_at");
-  const site = publicEnv().NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
 
   let session: Awaited<ReturnType<typeof createCheckoutSession>>;
   try {
     session = await createCheckoutSession(config, {
       orderNumber: order.order_number,
       lines: (items ?? []).map((i) => ({ name: i.title_snapshot, amountCentavos: i.unit_price_centavos })),
-      successUrl: `${site}/orders/${order.order_number}?from=checkout`,
-      cancelUrl: `${site}/cart`,
-      email: viewer.email,
+      successUrl: `${siteUrl()}/orders/${order.order_number}?from=checkout`,
+      cancelUrl,
+      email,
     });
   } catch (e) {
     console.error("Checkout session failed", { order: order.order_number, error: (e as Error).message });
