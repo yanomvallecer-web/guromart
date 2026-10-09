@@ -28,9 +28,12 @@
 | --- | --- | --- |
 | Product create and edit form with copyright declaration, license choice and price rules (free or ₱30 to ₱10,000) | Done | `src/lib/listings/listings.test.ts`, `e2e/listings.spec.ts` |
 | Secure uploads: one-time signed upload URLs to owner-scoped paths, extension and size checks, file signature check after upload, rejected files deleted, private resource bucket | Done | `src/lib/listings/listings.test.ts`, `e2e/listings.spec.ts` |
-| Database guards on listing files: owner folder only, no file changes while live, at most 10 files and 6 previews | Done | `supabase/tests/rls.test.ts` (29 tests) |
+| Database guards on listing files: owner folder only, no file changes while live, at most 10 files and 6 previews | Done | `supabase/tests/rls.test.ts` |
 | Uploaded files start quarantined ("waiting for safety check") | Done | `e2e/listings.spec.ts` |
 | Seller product management: list, submit for review with a readiness checklist, withdraw, archive | Done | `e2e/listings.spec.ts` |
+| Admin review queue: staff download files privately (logged), mark each file safe or blocked, approve or reject with a note the seller sees | Done | `supabase/tests/rls.test.ts`, `e2e/listings.spec.ts` |
+| A listing can only go live with the rights confirmation, a preview, and every file marked safe (enforced in the database) | Done | `supabase/tests/rls.test.ts` |
+| Approving a seller's first listing opens their shop; identity verification gates payouts, not listing | Done | `supabase/tests/rls.test.ts`, `e2e/listings.spec.ts` |
 | Seller onboarding steps 4 and 5: identity verification upload, payout details | Not started | |
 - Ranked search (database function with `ts_rank`), Filipino/English synonyms (DLL and daily lesson log)
 - Shop profile editing and publishing

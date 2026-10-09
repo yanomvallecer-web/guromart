@@ -17,7 +17,7 @@ const SCAN_LABEL: Record<string, string> = {
   pending: "Waiting for safety check",
   clean: "Checked",
   infected: "Blocked: failed safety check",
-  error: "Safety check failed, will retry",
+  failed: "Safety check failed, will retry",
 };
 
 function size(bytes: number) {

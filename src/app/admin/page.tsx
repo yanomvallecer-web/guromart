@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
 import { Card } from "@/components/ui/card";
@@ -44,7 +45,7 @@ async function Overview() {
     { label: "Active sellers", value: sellers.count },
     { label: "Sellers setting up", value: onboarding.count },
     { label: "Live resources", value: published.count },
-    { label: "Resources waiting for review", value: pending.count },
+    { label: "Resources waiting for review", value: pending.count, href: "/admin/listings" },
     { label: "Verifications to review", value: verifications.count },
     { label: "Open copyright reports", value: reports.count },
   ];
@@ -54,7 +55,9 @@ async function Overview() {
       <dl className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {tiles.map((t) => (
           <Card key={t.label} className="p-4">
-            <dt className="text-sm text-muted-foreground">{t.label}</dt>
+            <dt className="text-sm text-muted-foreground">
+              {"href" in t && t.href ? <Link href={t.href} className="font-semibold text-primary hover:underline">{t.label}</Link> : t.label}
+            </dt>
             <dd className="font-display text-3xl font-bold">{t.value ?? 0}</dd>
           </Card>
         ))}
