@@ -22,7 +22,7 @@ The prototype at https://guromart.grok.me was built and is hosted on Grok's app 
 | Files | Supabase Storage: private buckets for resources and IDs, public buckets for previews | Signed, expiring download URLs issued only after an entitlement check |
 | Validation | Zod at every server boundary | Forms, URL parameters and webhook payloads |
 | Payments | PayMongo Checkout (Phase 3) | See section 6 |
-| Search | PostgreSQL full-text (`simple` config, weighted title/topic/summary/competency/description) plus trigram index on titles | Enough for launch scale; Meilisearch only if relevance or typo tolerance becomes a real problem |
+| Search | `browse_product_ids()`: PostgreSQL full-text (`simple` config, weighted title/topic/summary/competency/description) ranked with `ts_rank_cd`, widened by an admin-editable `search_synonyms` table (DLL, DLP, LAS, MELC, AP, agham, matematika and more), plus trigram similarity on titles for typos | Enough for launch scale; Meilisearch only if relevance becomes a real problem |
 | Hosting | Vercel + Supabase (Singapore region) | Managed, close to the Philippines |
 | CI | GitHub Actions: lint, types, unit, database and end-to-end tests | |
 
@@ -78,4 +78,3 @@ Integration plan (Phase 3): create a Checkout Session server-side from the cart 
 ## 7. Known issues
 
 - On the first request after a server start, Next.js logs a one-time warning that Supabase Auth read the clock while prerendering `/account`, `/sell` and `/seller`. Pages render correctly. To investigate with the next Supabase SSR release.
-- Search "relevance" sorting currently orders matches by newest; ranked results need a small database function (Phase 2).

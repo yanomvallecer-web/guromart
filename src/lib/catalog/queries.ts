@@ -121,65 +121,45 @@ export async function getFeaturedStorefronts(limit = 6): Promise<FeaturedStore[]
 
 export type BrowseResult = { items: ProductCard[]; total: number; page: number; pageCount: number };
 
-/** Server-side filtered, sorted and paginated catalog query on indexed columns. */
+/**
+ * Server-side filtered, ranked and paginated catalog search. The database
+ * function applies the filters, widens the query with Filipino/English
+ * synonyms, tolerates title typos and orders by relevance; RLS limits it to
+ * live listings. Cards for the page are then loaded in that order.
+ */
 export async function browseProducts(params: BrowseParams): Promise<BrowseResult> {
   "use cache";
   cacheLife("minutes");
   cacheTag("products");
-  const taxonomy = await getTaxonomy();
-  const idFor = (list: TaxonomyItem[], c?: string) => (c ? (list.find((i) => i.code === c)?.id ?? -1) : undefined);
-
-  const gradeId = idFor(taxonomy.grades, params.grade);
-  let select = gradeId !== undefined ? `${CARD_SELECT}, product_grade_levels!inner(grade_level_id)` : CARD_SELECT;
-  if (params.shop) select = select.replace("storefronts(slug, name)", "storefronts!inner(slug, name)");
-  let query = createPublicClient().from("products").select(select, { count: "exact" }).eq("status", "published");
-
-  if (params.q) query = query.textSearch("search_vector", params.q, { type: "websearch", config: "simple" });
-  const categoryId = idFor(taxonomy.categories, params.category);
-  if (categoryId !== undefined) query = query.eq("category_id", categoryId);
-  const subjectId = idFor(taxonomy.subjects, params.subject);
-  if (subjectId !== undefined) query = query.eq("subject_id", subjectId);
-  const curriculumId = idFor(taxonomy.curricula, params.curriculum);
-  if (curriculumId !== undefined) query = query.eq("curriculum_id", curriculumId);
-  const periodId = idFor(taxonomy.periods, params.period);
-  if (periodId !== undefined) query = query.eq("academic_period_id", periodId);
-  if (gradeId !== undefined) query = query.eq("product_grade_levels.grade_level_id", gradeId);
-  if (params.shop) query = query.eq("storefronts.slug", params.shop);
-  if (params.language) query = query.eq("language_code", params.language);
-  if (params.format) query = query.contains("file_formats", [params.format]);
-  const range = priceRange(params.price);
-  if (range) {
-    query = query.gte("price_centavos", range[0]);
-    if (range[1] !== null) query = query.lte("price_centavos", range[1]);
-  }
-
-  switch (effectiveSort(params)) {
-    case "price_asc":
-      query = query.order("price_centavos", { ascending: true });
-      break;
-    case "price_desc":
-      query = query.order("price_centavos", { ascending: false });
-      break;
-    case "popular":
-      query = query.order("sales_count", { ascending: false }).order("download_count", { ascending: false });
-      break;
-    case "rating":
-      query = query.order("rating_avg", { ascending: false }).order("rating_count", { ascending: false });
-      break;
-    default:
-      // Full-text rank ordering needs an RPC; until then relevance falls back to newest among matches.
-      query = query.order("published_at", { ascending: false });
-  }
-
+  const db = createPublicClient();
   const page = params.page ?? 1;
-  const from = (page - 1) * PAGE_SIZE;
-  const { data, error, count } = await query.order("id").range(from, from + PAGE_SIZE - 1);
+  const range = priceRange(params.price);
+  const { data: hits, error } = await db.rpc("browse_product_ids", {
+    p_q: params.q ?? null,
+    p_category: params.category ?? null,
+    p_grade: params.grade ?? null,
+    p_subject: params.subject ?? null,
+    p_curriculum: params.curriculum ?? null,
+    p_period: params.period ?? null,
+    p_shop: params.shop ?? null,
+    p_language: params.language ?? null,
+    p_format: params.format ?? null,
+    p_price_min: range ? range[0] : null,
+    p_price_max: range ? range[1] : null,
+    p_sort: effectiveSort(params),
+    p_limit: PAGE_SIZE,
+    p_offset: (page - 1) * PAGE_SIZE,
+  });
   if (error) throw new Error(`Search failed: ${error.message}`);
-  const total = count ?? 0;
-  return {
-    items: (data as unknown as CardRow[]).map(toCard),
-    total,
-    page,
-    pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
-  };
+  const rows = (hits ?? []) as { id: string; total: number }[];
+  const total = rows.length ? Number(rows[0].total) : 0;
+
+  let items: ProductCard[] = [];
+  if (rows.length) {
+    const { data, error: cardError } = await db.from("products").select(CARD_SELECT).in("id", rows.map((r) => r.id));
+    if (cardError) throw new Error(`Search failed: ${cardError.message}`);
+    const byId = new Map((data as unknown as CardRow[]).map((r) => [r.id, toCard(r)]));
+    items = rows.map((r) => byId.get(r.id)).filter((c): c is ProductCard => Boolean(c));
+  }
+  return { items, total, page, pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
 }

@@ -558,3 +558,56 @@ describe("shop visibility after approval", () => {
     expect(rows[0].is_published).toBe(false);
   });
 });
+
+describe("ranked search", () => {
+  async function publish(storefrontId: string, slug: string, title: string, extra: Record<string, unknown> = {}) {
+    return insertProduct(admin, storefrontId, slug, { title, status: "published", ...extra });
+  }
+  const search = (text: string | null, sort = "relevance", extra = "") =>
+    q(anon, `select b.id, b.total, p.title from public.browse_product_ids(p_q => $1, p_sort => $2${extra}) b join public.products p on p.id = b.id`, [text, sort]);
+
+  it("ranks title matches first and widens queries with synonyms", async () => {
+    const s = await createSeller("s@example.test", "shop-one");
+    await publish(s.storefrontId, "item-a", "Science reviewer", { description: "Includes a daily lesson log for week 2." });
+    await publish(s.storefrontId, "item-b", "Daily lesson log for Grade 4 Science");
+    await publish(s.storefrontId, "item-c", "Fractions worksheet");
+
+    const dll = await search("DLL");
+    expect(dll.rows.map((r) => r.title)).toEqual(["Daily lesson log for Grade 4 Science", "Science reviewer"]);
+    expect(Number(dll.rows[0].total)).toBe(2);
+
+    const agham = await search("agham");
+    expect(agham.rows.map((r) => r.title).sort()).toEqual(["Daily lesson log for Grade 4 Science", "Science reviewer"]);
+  });
+
+  it("treats each listed synonym as an alternative", async () => {
+    const s = await createSeller("s@example.test", "shop-one");
+    await publish(s.storefrontId, "item-m", "Grade 6 Mathematics reviewer");
+    await publish(s.storefrontId, "item-q", "Science quiz for Grade 4");
+    expect((await search("matematika")).rows.map((r) => r.title)).toEqual(["Grade 6 Mathematics reviewer"]);
+    expect((await search("pagsusulit")).rows.map((r) => r.title)).toEqual(["Science quiz for Grade 4"]);
+  });
+
+  it("tolerates typos in titles", async () => {
+    const s = await createSeller("s@example.test", "shop-one");
+    await publish(s.storefrontId, "item-c", "Fractions worksheet");
+    const { rows } = await search("fractoins");
+    expect(rows.map((r) => r.title)).toEqual(["Fractions worksheet"]);
+  });
+
+  it("applies filters and only returns live listings", async () => {
+    const s = await createSeller("s@example.test", "shop-one");
+    const other = await createSeller("o@example.test", "shop-two", "suspended");
+    await publish(s.storefrontId, "item-free", "Free science sheet", { price_centavos: 0 });
+    await publish(s.storefrontId, "item-paid", "Paid science sheet", { price_centavos: 15000 });
+    await insertProduct(admin, s.storefrontId, "item-draft", { title: "Draft science sheet" });
+    await publish(other.storefrontId, "item-hidden", "Hidden science sheet");
+
+    const all = await search("science", "price_asc");
+    expect(all.rows.map((r) => r.title)).toEqual(["Free science sheet", "Paid science sheet"]);
+    const paid = await search("science", "relevance", ", p_price_min => 1");
+    expect(paid.rows.map((r) => r.title)).toEqual(["Paid science sheet"]);
+    const shop = await search(null, "newest", ", p_shop => 'shop-two'");
+    expect(shop.rows).toHaveLength(0);
+  });
+});
