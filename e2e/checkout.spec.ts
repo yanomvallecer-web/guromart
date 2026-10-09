@@ -68,3 +68,71 @@ test("forged or tampered webhooks are refused", async ({ request }) => {
   const unsigned = await request.post("/api/webhooks/paymongo", { data: last.body, headers: { "Content-Type": "application/json" } });
   expect(unsigned.status()).toBe(401);
 });
+
+test("a failed attempt and an expired order are explained, and a late payment still unlocks", async ({ page, browser }, testInfo) => {
+  const listing = await createLiveListing("Late Payment Test Reading Passage", 12000);
+
+  // Before any sale the seller sees an honest empty earnings page.
+  const sellerContext = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
+  const seller = await sellerContext.newPage();
+  await signIn(seller, listing.sellerEmail, "/seller/earnings");
+  await expect(seller.getByRole("heading", { name: "No sales yet" })).toBeVisible();
+
+  const email = uniqueEmail("late-payer");
+  await signIn(page, email, `/resources/${listing.slug}`);
+  await page.getByRole("button", { name: "Add to cart" }).click();
+  await expect(page.getByRole("link", { name: "In your cart" })).toBeVisible();
+  await page.goto("/cart");
+  await page.getByRole("button", { name: "Pay with PayMongo" }).click();
+  await page.waitForURL(`${STAND_IN}/checkout/**`);
+  const orderNumber = (await page.getByText(/^Order GM-\d+/).textContent())!.match(/GM-\d+/)![0];
+  const checkoutUrl = page.url();
+
+  // A declined attempt is explained on the order page; nothing unlocks.
+  await page.getByRole("button", { name: "Fail (test)" }).click();
+  await expect(page.getByText("Payment failed (test). Try again.")).toBeVisible();
+  await page.goto(`/orders/${orderNumber}`);
+  await expect(page.getByTestId("order-status")).toHaveText("Payment didn't go through");
+  await expect(page.getByTestId("order-problem")).toContainText("The card was declined by the issuing bank.");
+  await expect(page.getByRole("link", { name: "Back to my cart" })).toBeVisible();
+
+  // A day later the abandoned order is closed when the buyer looks at it.
+  await serviceRest(`orders?order_number=eq.${orderNumber}`, {
+    method: "PATCH",
+    body: JSON.stringify({ created_at: new Date(Date.now() - 26 * 3600_000).toISOString() }),
+  });
+  await page.goto("/orders");
+  await expect(page.getByRole("link", { name: new RegExp(`${orderNumber}.*Expired`) })).toBeVisible();
+  await page.goto(`/orders/${orderNumber}`);
+  await expect(page.getByTestId("order-status")).toHaveText("Expired");
+  await expect(page.getByTestId("order-problem")).toContainText("This order expired");
+  await expect(page.getByTestId("order-problem")).toContainText("nothing was charged");
+  await page.getByRole("link", { name: "Back to my cart" }).click();
+  await expect(page.getByRole("link", { name: "Late Payment Test Reading Passage" })).toBeVisible();
+  expect((await page.request.get(`/library/download/${listing.fileId}`, { maxRedirects: 0 })).status()).toBe(403);
+
+  // PayMongo confirms a payment for the expired order after all: the money
+  // was taken, so the buyer gets the resource and the seller is credited.
+  await page.goto(checkoutUrl);
+  await page.getByRole("button", { name: "Pay (test)" }).click();
+  await page.waitForURL(`**/orders/${orderNumber}?from=checkout`);
+  await expect(page.getByTestId("order-status")).toHaveText("Paid");
+  await expect(page.getByTestId("order-problem")).toHaveCount(0);
+  await page.goto("/library");
+  await expect(page.getByRole("link", { name: "Late Payment Test Reading Passage" })).toBeVisible();
+
+  // The seller's earnings come from the ledger: ₱120 less the 30% Starter fee, on hold for 7 days.
+  await seller.goto("/seller/earnings");
+  await expect(seller.getByTestId("earnings-pending")).toHaveText("₱84.00");
+  await expect(seller.getByTestId("earnings-available")).toHaveText("₱0.00");
+  await expect(seller.getByTestId("earnings-lifetime")).toHaveText("₱84.00");
+  const sale = seller.getByTestId("earnings-sale");
+  await expect(sale).toHaveCount(1);
+  await expect(sale).toContainText("Late Payment Test Reading Passage");
+  await expect(sale).toContainText("₱120.00");
+  await expect(sale).toContainText("GuroMart fee (30%)");
+  await expect(sale).toContainText("-₱36.00");
+  await expect(sale).toContainText("On hold until");
+  await expect(seller.getByTestId("earnings-releases")).toContainText("₱84.00");
+  await sellerContext.close();
+});

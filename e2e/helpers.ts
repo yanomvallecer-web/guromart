@@ -127,19 +127,22 @@ async function upload(bucket: string, objectPath: string, body: Buffer, contentT
 
 /**
  * Creates a seller with one live listing directly through the service APIs,
- * for tests about buying rather than listing. The file and preview are real
+ * for tests about buying rather than listing. The seller can sign in with
+ * the returned email. The file and preview are real
  * objects in storage and the listing goes live through the database publish check.
  */
 export async function createLiveListing(title: string, priceCentavos: number) {
   const stamp = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  const sellerEmail = `listed-${stamp}@example.test`;
   const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
     method: "POST",
     headers: { ...authHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({ email: `listed-${stamp}@example.test`, email_confirm: true }),
+    body: JSON.stringify({ email: sellerEmail, email_confirm: true }),
   });
   if (!res.ok) throw new Error(`create seller user failed: ${res.status} ${await res.text()}`);
   const userId = ((await res.json()) as { id: string }).id;
   const [account] = await serviceRest("seller_accounts", { method: "POST", body: JSON.stringify({ user_id: userId, seller_type: "teacher", status: "active" }) });
+  await serviceRest("user_roles", { method: "POST", body: JSON.stringify({ user_id: userId, role: "seller" }) });
   const [store] = await serviceRest("storefronts", {
     method: "POST",
     body: JSON.stringify({ seller_account_id: account.id, slug: `buy-${stamp}`, name: "Buying Test Shop", is_published: true }),
@@ -166,5 +169,5 @@ export async function createLiveListing(title: string, priceCentavos: number) {
   });
   await serviceRest("product_previews", { method: "POST", body: JSON.stringify({ product_id: product.id, storage_path: previewPath }) });
   await serviceRest(`products?id=eq.${product.id}`, { method: "PATCH", body: JSON.stringify({ status: "published" }) });
-  return { productId: product.id as string, slug, fileId: file.id as string };
+  return { productId: product.id as string, slug, fileId: file.id as string, sellerEmail };
 }
