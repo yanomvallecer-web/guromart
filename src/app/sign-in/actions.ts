@@ -24,6 +24,7 @@ export async function sendCode(_prev: SignInState, formData: FormData): Promise<
     },
   });
   if (error) {
+    console.error("Sign-in email failed", { status: error.status, code: error.code, message: error.message });
     const tooMany = error.status === 429;
     return {
       step: "email",
