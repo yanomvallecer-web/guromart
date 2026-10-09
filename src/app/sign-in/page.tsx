@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { safeNextPath } from "@/lib/auth/roles";
 import { publicEnv } from "@/lib/env";
 import { enabledSocialProviders } from "@/lib/auth/social";
 import { signInWithSocial } from "./actions";
+import { ANSWER_COOKIE, parseAnswer } from "./answer";
 import { SignInForm } from "./sign-in-form";
 
 export const metadata: Metadata = { title: "Sign in" };
@@ -67,7 +69,7 @@ async function SignInBody({ searchParams }: { searchParams: PageProps<"/sign-in"
           </div>
         </>
       ) : null}
-      <SignInForm next={next} />
+      <SignInForm next={next} answer={params.sent ? parseAnswer((await cookies()).get(ANSWER_COOKIE)?.value) : undefined} />
     </>
   );
 }

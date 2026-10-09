@@ -1,18 +1,45 @@
 "use server";
 
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { safeNextPath } from "@/lib/auth/roles";
 import { parseSocialProvider } from "@/lib/auth/social";
 import { publicEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { emailSchema, otpSchema } from "@/lib/validation/auth";
+import { ANSWER_COOKIE, type PlainPostAnswer } from "./answer";
 
 export type SignInState =
   | { step: "email"; error?: string; email?: string }
   // `resent` and `resendError` answer the "Send a new code" button on the code step.
   | { step: "code"; email: string; error?: string; resent?: boolean; resendError?: string };
 
-export async function sendCode(_prev: SignInState, formData: FormData): Promise<SignInState> {
+/**
+ * Before the page's JavaScript has loaded (slow mobile data), a form posts the
+ * old-fashioned way and React can't show the action's answer. Those posts
+ * carry no Next-Action header; for them the answer is kept for a few minutes
+ * in a private cookie and the page reloads to show it (see page.tsx).
+ */
+async function answerPlainPost(next: string, answer: PlainPostAnswer) {
+  if ((await headers()).has("next-action")) return;
+  (await cookies()).set(ANSWER_COOKIE, JSON.stringify(answer), { httpOnly: true, sameSite: "lax", path: "/sign-in", maxAge: 600, secure: process.env.NODE_ENV === "production" });
+  redirect(`/sign-in?next=${encodeURIComponent(next)}&sent=1`);
+}
+
+export async function sendCode(prev: SignInState, formData: FormData): Promise<SignInState> {
+  const state = await sendCodeState(prev, formData);
+  await answerPlainPost(safeNextPath(formData.get("next")), { email: state });
+  return state;
+}
+
+export async function verifyCode(prev: SignInState, formData: FormData): Promise<SignInState> {
+  const state = await verifyCodeState(prev, formData);
+  // Only failures get here; a correct code redirects inside verifyCodeState.
+  await answerPlainPost(safeNextPath(formData.get("next")), { email: { step: "code", email: state.email ?? "" }, code: state });
+  return state;
+}
+
+async function sendCodeState(_prev: SignInState, formData: FormData): Promise<SignInState> {
   const parsed = emailSchema.safeParse({ email: formData.get("email") });
   if (!parsed.success) return { step: "email", error: parsed.error.issues[0].message, email: String(formData.get("email") ?? "") };
 
@@ -43,7 +70,7 @@ export async function sendCode(_prev: SignInState, formData: FormData): Promise<
   return { step: "code", email: parsed.data.email, resent: resend };
 }
 
-export async function verifyCode(_prev: SignInState, formData: FormData): Promise<SignInState> {
+async function verifyCodeState(_prev: SignInState, formData: FormData): Promise<SignInState> {
   const parsed = otpSchema.safeParse({ email: formData.get("email"), token: formData.get("token") });
   const email = String(formData.get("email") ?? "");
   if (!parsed.success) return { step: "code", email, error: parsed.error.issues[0].message };
@@ -51,6 +78,7 @@ export async function verifyCode(_prev: SignInState, formData: FormData): Promis
   const supabase = await createClient();
   const { error } = await supabase.auth.verifyOtp({ email: parsed.data.email, token: parsed.data.token, type: "email" });
   if (error) return { step: "code", email, error: "That code is wrong or has expired. Check the latest email or send a new code." };
+  (await cookies()).delete({ name: ANSWER_COOKIE, path: "/sign-in" });
   redirect(safeNextPath(formData.get("next")));
 }
 

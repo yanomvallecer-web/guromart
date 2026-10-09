@@ -7,15 +7,17 @@ import { FormAlert, Input, Label } from "@/components/ui/form";
 import { useHydrated } from "@/lib/hooks/use-hydrated";
 import { cn } from "@/lib/utils";
 import { type SignInState, sendCode, verifyCode } from "./actions";
+import type { PlainPostAnswer } from "./answer";
 import { CODE_LENGTH, CodeInput } from "./code-input";
 
 /** Supabase lets each address request a new email about once a minute. */
 const RESEND_AFTER_SECONDS = 60;
 
-export function SignInForm({ next }: { next: string }) {
+/** `answer` is the result of a form posted before JavaScript loaded, shown after the reload. */
+export function SignInForm({ next, answer }: { next: string; answer?: PlainPostAnswer }) {
   const hydrated = useHydrated();
-  const [emailState, sendAction, sending] = useActionState(sendCode, { step: "email" } as SignInState);
-  const [codeState, verifyAction, verifying] = useActionState(verifyCode, { step: "code", email: "" } as SignInState);
+  const [emailState, sendAction, sending] = useActionState(sendCode, answer?.email ?? ({ step: "email" } as SignInState));
+  const [codeState, verifyAction, verifying] = useActionState(verifyCode, answer?.code ?? ({ step: "code", email: "" } as SignInState));
   // "Use a different email" hides this answer and shows the email form again.
   const [dismissed, setDismissed] = useState<SignInState | null>(null);
   const [wait, setWait] = useState(RESEND_AFTER_SECONDS);
