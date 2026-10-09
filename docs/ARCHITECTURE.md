@@ -43,6 +43,8 @@ Authorization is enforced in three layers, and the inner layers never trust the 
 
 The service-role client (`src/lib/supabase/admin.ts`) is server-only and reserved for webhooks, signed downloads and admin jobs that have already authorized the caller.
 
+Identity documents live in the private `verification-documents` bucket under the seller's own folder. Staff open them through `/admin/verification-files/{id}`, which issues a five-minute link and logs the view. Decisions go through `review_verification()` only. Payout details are visible only to the seller and staff, shown masked, and every change is written to the audit log with just the last four digits, because changing where money goes is a common account-takeover step. A retention period for ID documents still needs to be set under the Data Privacy Act (RA 10173).
+
 Other measures in place: security headers (`nosniff`, frame denial, referrer policy, permissions policy), same-site-only redirect targets after sign-in, input validation on every form and URL parameter, Supabase Auth rate limits on email codes. Application-level rate limiting for uploads, reports and checkout is planned for Phases 2 to 4.
 
 ## 4. Data model

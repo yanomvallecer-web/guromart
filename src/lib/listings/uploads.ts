@@ -1,6 +1,6 @@
 /** What sellers may upload. Resource files go to a private bucket; previews to a public one. */
 
-export type UploadKind = "file" | "preview";
+export type UploadKind = "file" | "preview" | "verification";
 
 type FileType = { ext: string[]; mime: string; format: string; magic: (b: Uint8Array) => boolean };
 
@@ -21,19 +21,31 @@ const FILE_TYPES: FileType[] = [
   { ext: ["webp"], mime: "image/webp", format: "webp", magic: isWebp },
 ];
 
-const PREVIEW_FORMATS = new Set(["png", "jpg", "webp"]);
+const ALLOWED_FORMATS: Record<UploadKind, Set<string> | null> = {
+  file: null,
+  preview: new Set(["png", "jpg", "webp"]),
+  verification: new Set(["pdf", "png", "jpg", "webp"]),
+};
+
+const TYPE_ERROR: Record<UploadKind, string> = {
+  file: "Upload PDF, Word, PowerPoint, Excel, ZIP or image files.",
+  preview: "Previews must be PNG, JPG or WebP images.",
+  verification: "Upload a PDF or a PNG, JPG or WebP photo.",
+};
 
 export const LIMITS = {
   file: 100 * 1024 * 1024,
   preview: 5 * 1024 * 1024,
+  verification: 10 * 1024 * 1024,
 } as const satisfies Record<UploadKind, number>;
 
 export const ACCEPT = {
   file: ".pdf,.docx,.pptx,.xlsx,.zip,.png,.jpg,.jpeg,.webp",
   preview: ".png,.jpg,.jpeg,.webp",
+  verification: ".pdf,.png,.jpg,.jpeg,.webp",
 } as const satisfies Record<UploadKind, string>;
 
-export const BUCKET = { file: "product-files", preview: "product-previews" } as const satisfies Record<UploadKind, string>;
+export const BUCKET = { file: "product-files", preview: "product-previews", verification: "verification-documents" } as const satisfies Record<UploadKind, string>;
 
 export type CheckedUpload = { ext: string; mime: string; format: string };
 
@@ -51,12 +63,8 @@ export function checkUpload(kind: UploadKind, name: string, size: number): { ok:
   if (!name || name.length > 255) return { ok: false, error: "The file name is missing or too long." };
   const ext = extensionOf(name);
   const type = FILE_TYPES.find((t) => t.ext.includes(ext));
-  if (!type || (kind === "preview" && !PREVIEW_FORMATS.has(type.format))) {
-    return {
-      ok: false,
-      error: kind === "preview" ? "Previews must be PNG, JPG or WebP images." : "Upload PDF, Word, PowerPoint, Excel, ZIP or image files.",
-    };
-  }
+  const allowed = ALLOWED_FORMATS[kind];
+  if (!type || (allowed && !allowed.has(type.format))) return { ok: false, error: TYPE_ERROR[kind] };
   if (!Number.isInteger(size) || size <= 0) return { ok: false, error: "The file is empty." };
   if (size > LIMITS[kind]) return { ok: false, error: `Files must be ${LIMITS[kind] / 1024 / 1024} MB or smaller.` };
   return { ok: true, value: { ext: type.ext[0], mime: type.mime, format: type.format } };

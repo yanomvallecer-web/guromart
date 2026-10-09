@@ -46,7 +46,7 @@ async function Overview() {
     { label: "Sellers setting up", value: onboarding.count },
     { label: "Live resources", value: published.count },
     { label: "Resources waiting for review", value: pending.count, href: "/admin/listings" },
-    { label: "Verifications to review", value: verifications.count },
+    { label: "Verifications to review", value: verifications.count, href: "/admin/verifications" },
     { label: "Open copyright reports", value: reports.count },
   ];
 
