@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,11 @@ export default function SignInPage({ searchParams }: PageProps<"/sign-in">) {
         </Suspense>
       </Card>
       <p className="text-xs text-muted-foreground">
-        By continuing you agree to GuroMart&apos;s terms of use and privacy notice, which are being finalized before public launch.
+        By continuing you agree to GuroMart&apos;s{" "}
+        <Link href="/privacy" className="font-semibold text-foreground hover:underline">
+          privacy policy
+        </Link>
+        . Terms of use are being finalized before public launch.
       </p>
     </div>
   );
