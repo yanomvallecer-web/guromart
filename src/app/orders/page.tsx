@@ -5,7 +5,7 @@ import { Receipt } from "lucide-react";
 import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
 import { Card, EmptyState } from "@/components/ui/card";
 import { requireViewer } from "@/lib/auth/dal";
-import { ORDER_STATUS, listOrders } from "@/lib/commerce/orders";
+import { listOrders, orderStatus } from "@/lib/commerce/orders";
 import { formatPrice } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Orders" };
@@ -34,7 +34,7 @@ async function Orders() {
         <Link key={o.id} href={`/orders/${o.order_number}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-surface-muted">
           <span className="font-semibold">{o.order_number}</span>
           <span className="text-sm text-muted-foreground">{dateFmt.format(new Date(o.created_at))}</span>
-          <span className="text-sm">{ORDER_STATUS[o.status].label}</span>
+          <span className={orderStatus(o).tone === "danger" ? "text-sm text-danger" : "text-sm"}>{orderStatus(o).label}</span>
           <span className="font-semibold">{formatPrice(o.total_centavos)}</span>
         </Link>
       ))}
