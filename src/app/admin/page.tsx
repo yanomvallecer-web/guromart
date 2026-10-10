@@ -4,7 +4,9 @@ import { Suspense } from "react";
 import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
 import { Card } from "@/components/ui/card";
 import { requireArea } from "@/lib/auth/dal";
+import { METHOD_NAME, accountPaymentMethods, livePaymentsAllowed, paymentMethods } from "@/lib/payments/paymongo";
 import { createClient } from "@/lib/supabase/server";
+import { WebhookSetup } from "./webhook-setup";
 
 export const metadata: Metadata = { title: "Admin", robots: { index: false } };
 
@@ -13,6 +15,9 @@ export default function AdminPage() {
     <PageShell title="Admin" description="Marketplace overview. Every number here is a live count from the database.">
       <Suspense fallback={<PanelSkeleton />}>
         <Overview />
+      </Suspense>
+      <Suspense fallback={<PanelSkeleton />}>
+        <PaymentsCheck />
       </Suspense>
     </PageShell>
   );
@@ -50,6 +55,7 @@ async function Overview() {
     { label: "Open copyright reports", value: reports.count },
   ];
 
+
   return (
     <div className="flex flex-col gap-6">
       <dl className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -62,6 +68,18 @@ async function Overview() {
           </Card>
         ))}
       </dl>
+      <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <p className="text-sm">Add slide previews to PowerPoint listings that only have a cover.</p>
+        <Link href="/admin/slide-previews" className="text-sm font-semibold text-primary hover:underline">
+          Slide previews
+        </Link>
+      </Card>
+      <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <p className="text-sm">Check new reviews and hide any that break the rules.</p>
+        <Link href="/admin/reviews" className="text-sm font-semibold text-primary hover:underline">
+          Reviews
+        </Link>
+      </Card>
       <Card className="p-6">
         <h2 className="mb-4 font-display text-xl font-bold">Recent activity</h2>
         {audit.data?.length ? (
@@ -90,5 +108,52 @@ async function Overview() {
         )}
       </Card>
     </div>
+  );
+}
+
+/** What payments need, checked live with PayMongo. Keys are never shown, only whether they're set. */
+async function PaymentsCheck() {
+  await requireArea("admin", "/admin");
+  const offered = paymentMethods();
+  const account = await accountPaymentMethods();
+  const webhookSet = Boolean(process.env.PAYMONGO_WEBHOOK_SECRET?.trim());
+  const name = (m: string) => METHOD_NAME[m] ?? m;
+  const missing = account.ok ? offered.filter((m) => !account.methods.includes(m)) : [];
+  return (
+    <Card className="mt-6 flex flex-col gap-2 p-6" data-testid="payments-check">
+      <h2 className="font-display text-xl font-bold">Payments</h2>
+      <p className="text-sm">
+        <span className="text-muted-foreground">GuroMart offers:</span> {offered.map(name).join(", ")}
+      </p>
+      {account.ok ? (
+        <>
+          <p className="text-sm">
+            <span className="text-muted-foreground">PayMongo ({account.mode} mode) allows this account:</span>{" "}
+            {account.methods.length ? account.methods.map(name).join(", ") : "no methods listed"}
+          </p>
+          <p className={`text-sm font-semibold ${missing.length ? "text-danger" : "text-success"}`}>
+            {missing.length
+              ? `Not allowed yet: ${missing.map(name).join(", ")}. Checkout would fail for these.`
+              : "Every method GuroMart offers is allowed."}
+          </p>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">PayMongo check: {account.error}</p>
+      )}
+      {account.ok && account.mode === "live" ? (
+        livePaymentsAllowed() ? (
+          <p className="text-sm font-semibold text-success" data-testid="live-payments-on">
+            Real payments are ON: buyers are charged real money.
+          </p>
+        ) : (
+          <p className="text-sm font-semibold text-danger" data-testid="live-key-warning">
+            PAYMONGO_SECRET_KEY in Vercel is the LIVE key, but real payments are off, so checkout stays closed. Set PAYMONGO_LIVE_PAYMENTS to
+            &quot;on&quot; in Vercel to start taking real payments.
+          </p>
+        )
+      ) : null}
+      <p className="text-sm text-muted-foreground">Webhook secret: {webhookSet ? "set" : "not set yet (checkout stays closed until it is)"}</p>
+      {!webhookSet && account.ok ? <WebhookSetup /> : null}
+    </Card>
   );
 }

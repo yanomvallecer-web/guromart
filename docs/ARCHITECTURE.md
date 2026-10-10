@@ -1,6 +1,6 @@
 # GuroMart architecture
 
-Last updated 9 October 2026, Phase 2 in progress.
+Last updated 9 October 2026, Phase 3 in progress.
 
 ## 1. The existing prototype
 
@@ -18,7 +18,7 @@ The prototype at https://guromart.grok.me was built and is hosted on Grok's app 
 | Web app | Next.js 16 (App Router, Cache Components), React 19, TypeScript | Server Components keep data access and authorization on the server; one deployable for UI and API |
 | UI | Tailwind CSS 4, shadcn-style components (Radix Slot, CVA), Lucide icons | Accessible primitives we own and can restyle |
 | Data | Supabase PostgreSQL with migrations in `supabase/migrations` | Relational integrity for orders, ledger and entitlements; row-level security |
-| Auth | Supabase Auth: email one-time code, optional Google | Teachers mostly have Gmail or DepEd Google accounts; no passwords to manage |
+| Auth | Supabase Auth: email link or code, optional Facebook and Google | Teachers mostly have Facebook, Gmail or DepEd Google accounts; no passwords to manage |
 | Files | Supabase Storage: private buckets for resources and IDs, public buckets for previews | Signed, expiring download URLs issued only after an entitlement check |
 | Validation | Zod at every server boundary | Forms, URL parameters and webhook payloads |
 | Payments | PayMongo Checkout (Phase 3) | See section 6 |
@@ -74,6 +74,10 @@ Business rules from the business model draft are encoded as settings or constrai
 Marketplace split payouts: we have not confirmed that PayMongo can split a payment between GuroMart and sellers automatically for this account type. So GuroMart will collect the full payment, record each seller's share in the append-only ledger, and pay sellers through an auditable payout workflow (biweekly, ₱500 minimum, 7-day hold). If PayMongo or Xendit (xenPlatform) confirms automated split payouts during onboarding, the ledger stays as the source of truth and the payout step is automated.
 
 Integration plan (Phase 3): create a Checkout Session server-side from the cart (prices read from the database, never the browser); verify the `Paymongo-Signature` header on webhooks with the webhook secret; insert into `payment_events` with `on conflict do nothing` for idempotency; in one transaction mark the order paid, create entitlements, and post ledger entries. A client-side "success" page only shows status; it never grants access. Sandbox (test keys) first; live keys only after PayMongo business verification.
+
+Abandoned orders (built in Phase 3). An order waiting for payment expires 25 hours after it was created (`orders.pending_expiry_hours` in `platform_settings`; the database never uses less than 24, PayMongo's checkout window). Expiry is lazy, so it needs no scheduler or extra secret: `expire_my_stale_orders()` runs when a buyer opens their orders or an order, and before a new checkout. Where pg_cron is installed the migration also schedules an hourly sweep. Expiry updates payments before orders, the same lock order as the webhook, so the two never deadlock. A payment PayMongo confirms after its order expired is still applied in full (access, seller credit, audit entry `order.paid_late`), because the buyer's money was taken; if they had meanwhile bought the same resources again, the existing duplicate-purchase flag marks it for a refund. Failed attempts arrive as `payment.failed` events, matched to the order by the checkout's payment intent id; they are recorded on the payment and shown to the buyer, but the order stays open because the buyer can retry on the same PayMongo page.
+
+Seller earnings (built in Phase 3). `/seller/earnings` reads only the ledger, under row-level security: `seller_balances` for on hold, available and lifetime amounts, `seller_upcoming_releases` (held amounts by Philippine calendar day) for when money becomes available, and sale entries joined to their order items for the price, commission and seller share of each sale.
 
 ## 7. Known issues
 

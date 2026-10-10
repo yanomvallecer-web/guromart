@@ -125,12 +125,13 @@ export async function submitListing(id: string): Promise<ActionState> {
   if (!["draft", "rejected"].includes(listing.status)) return { error: "This listing is already in review or live." };
   const { data } = await supabase
     .from("products")
-    .select("title, description, category_id, subject_id, copyright_declared_at, product_grade_levels(grade_level_id), product_files(id), product_previews(id)")
+    .select("title, topic, description, category_id, subject_id, copyright_declared_at, product_grade_levels(grade_level_id), product_files(id), product_previews(id)")
     .eq("id", id)
     .single();
   if (!data) return { error: "Unknown listing." };
   const problems = reviewProblems({
     title: data.title,
+    topic: data.topic,
     description: data.description,
     category_id: data.category_id,
     subject_id: data.subject_id,
@@ -202,13 +203,30 @@ export async function confirmUpload(id: string, input: { kind: UploadKind; path:
           file_format: checked.type.format,
           size_bytes: checked.size,
         })
-      : await supabase.from("product_previews").insert({ product_id: id, storage_path: input.path, alt_text: null });
+      : await supabase.from("product_previews").insert({ product_id: id, storage_path: input.path, alt_text: null, sort_order: await nextPreviewOrder(supabase, id) });
   if (row.error) {
     await discardObject(kind, input.path);
     return { error: row.error.message.includes("at most") ? row.error.message : "We couldn't attach the file. Please try again." };
   }
   revalidatePath(`/seller/products/${id}`);
   return { ok: true };
+}
+
+/** A short-lived link to one of the seller's own uploaded PowerPoints, so their browser can draw slide previews from it. */
+export async function ownPowerPointUrl(id: string, fileId: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const { supabase } = await ownListing(id);
+  if (!idSchema.safeParse(fileId).success) return { ok: false, error: "Unknown file." };
+  const { data: file } = await supabase.from("product_files").select("storage_path, file_format").eq("id", fileId).eq("product_id", id).maybeSingle();
+  if (!file || file.file_format !== "pptx") return { ok: false, error: "That file isn't a PowerPoint on this listing." };
+  const { data, error } = await createAdminClient().storage.from(BUCKET.file).createSignedUrl(file.storage_path, 120);
+  if (error || !data) return { ok: false, error: "We couldn't open the file. Please try again." };
+  return { ok: true, url: data.signedUrl };
+}
+
+/** New previews go after the existing ones, so they show in the order they were added. */
+async function nextPreviewOrder(supabase: Awaited<ReturnType<typeof ownListing>>["supabase"], id: string) {
+  const { data } = await supabase.from("product_previews").select("sort_order").eq("product_id", id).order("sort_order", { ascending: false }).limit(1);
+  return (data?.[0]?.sort_order ?? -1) + 1;
 }
 
 export async function removeMedia(id: string, kind: UploadKind, mediaId: string): Promise<ActionState> {

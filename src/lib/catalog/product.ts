@@ -19,6 +19,7 @@ export type ProductDetail = {
   file_formats: string[];
   rating_avg: number;
   rating_count: number;
+  download_count: number;
   published_at: string | null;
   updated_at: string;
   category: string | null;
@@ -27,7 +28,7 @@ export type ProductDetail = {
   period: string | null;
   language: string | null;
   grades: string[];
-  storefront: { slug: string; name: string } | null;
+  storefront: { id: string; slug: string; name: string } | null;
   previews: { storage_path: string; alt_text: string | null }[];
 };
 
@@ -40,10 +41,10 @@ export async function getPublishedProduct(slug: string): Promise<ProductDetail |
     .from("products")
     .select(
       `id, slug, title, summary, description, price_centavos, topic, learning_competency, period_detail,
-       page_count, is_editable, license_type, license_terms, file_formats, rating_avg, rating_count, published_at, updated_at,
+       page_count, is_editable, license_type, license_terms, file_formats, rating_avg, rating_count, download_count, published_at, updated_at,
        product_categories(name), subjects(name), curricula(name), academic_periods(name), languages(name),
        product_grade_levels(grade_levels(name, sort_order)),
-       storefronts(slug, name),
+       storefronts(id, slug, name),
        product_previews(storage_path, alt_text, sort_order)`,
     )
     .eq("slug", slug)

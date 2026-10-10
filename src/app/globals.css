@@ -21,6 +21,8 @@
   --danger-soft: #fdecea;
   --ring: #1a56a8;
   --radius: 12px;
+  /* Height of the phone tab bar and the resource page's buy bar (same slot). */
+  --bottom-bar: 4rem;
 }
 
 @theme inline {
@@ -46,6 +48,16 @@
   --radius-md: calc(var(--radius) - 4px);
   --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-display-face), var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --animate-sheet-up: sheet-up 200ms ease-out;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
 }
 
 body {
@@ -58,4 +70,19 @@ body {
 :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+/* A page with a second bar stacked above the phone tab bar (the cart's total and Pay
+   button) gets room for both, so neither covers the end of the page. */
+@media (width < 48rem) {
+  html:not([data-app="android"]) body:has([data-stacked-bar]) {
+    padding-bottom: calc(2 * var(--bottom-bar) + env(safe-area-inset-bottom));
+  }
+}
+
+/* Inside the Android app, paid checkout is hidden and app-only notes show instead
+   (see components/site/android-app.tsx for why). */
+html[data-app="android"] [data-web-checkout],
+html:not([data-app="android"]) [data-app-only] {
+  display: none !important;
 }

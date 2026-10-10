@@ -63,9 +63,10 @@ export async function signIn(page: Page, email: string, next = "/account") {
   await page.goto(`/sign-in?next=${encodeURIComponent(next)}`);
   await page.getByLabel("Email address").fill(email);
   await page.getByRole("button", { name: "Email me a sign-in code" }).click();
-  await expect(page.getByText(`We sent a sign-in code to ${email}`)).toBeVisible();
-  await page.getByLabel("Code from your email").fill(await latestCode(email));
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+  await expect(page.getByText(email, { exact: true })).toBeVisible();
+  // The phone's code autofill puts the whole code in the first box; the form then submits itself.
+  await page.getByRole("textbox", { name: "Digit 1 of 6" }).fill(await latestCode(email));
   await page.waitForURL((url) => url.pathname === next);
 }
 
@@ -116,7 +117,7 @@ const TEST_PNG = Buffer.from(
   "base64",
 );
 
-async function upload(bucket: string, objectPath: string, body: Buffer, contentType: string) {
+export async function upload(bucket: string, objectPath: string, body: Buffer, contentType: string) {
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${objectPath}`, {
     method: "POST",
     headers: { ...authHeaders(), "Content-Type": contentType },
@@ -127,23 +128,35 @@ async function upload(bucket: string, objectPath: string, body: Buffer, contentT
 
 /**
  * Creates a seller with one live listing directly through the service APIs,
- * for tests about buying rather than listing. The file and preview are real
+ * for tests about buying rather than listing. The seller can sign in with
+ * the returned email. The file and preview are real
  * objects in storage and the listing goes live through the database publish check.
  */
-export async function createLiveListing(title: string, priceCentavos: number) {
+export async function createLiveListing(title: string, priceCentavos: number, previewCount = 1) {
   const stamp = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  const sellerEmail = `listed-${stamp}@example.test`;
   const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
     method: "POST",
     headers: { ...authHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({ email: `listed-${stamp}@example.test`, email_confirm: true }),
+    body: JSON.stringify({ email: sellerEmail, email_confirm: true }),
   });
   if (!res.ok) throw new Error(`create seller user failed: ${res.status} ${await res.text()}`);
   const userId = ((await res.json()) as { id: string }).id;
   const [account] = await serviceRest("seller_accounts", { method: "POST", body: JSON.stringify({ user_id: userId, seller_type: "teacher", status: "active" }) });
+  await serviceRest("user_roles", { method: "POST", body: JSON.stringify({ user_id: userId, role: "seller" }) });
   const [store] = await serviceRest("storefronts", {
     method: "POST",
     body: JSON.stringify({ seller_account_id: account.id, slug: `buy-${stamp}`, name: "Buying Test Shop", is_published: true }),
   });
+  const listing = await addLiveListing({ accountId: account.id, storefrontId: store.id }, title, priceCentavos, previewCount);
+  return { ...listing, sellerEmail, accountId: account.id as string, storefrontId: store.id as string, storeSlug: store.slug as string };
+}
+
+/** Adds another live listing to an existing shop (see createLiveListing). */
+export async function addLiveListing(shop: { accountId: string; storefrontId: string }, title: string, priceCentavos: number, previewCount = 1) {
+  const account = { id: shop.accountId };
+  const store = { id: shop.storefrontId };
+  const stamp = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
   const [category] = await serviceRest("product_categories?code=eq.worksheet&select=id");
   const slug = `buy-test-${stamp}`;
   const [product] = await serviceRest("products", {
@@ -164,7 +177,12 @@ export async function createLiveListing(title: string, priceCentavos: number) {
       mime_type: "application/pdf", file_format: "pdf", size_bytes: TEST_PDF.length, scan_status: "clean",
     }),
   });
-  await serviceRest("product_previews", { method: "POST", body: JSON.stringify({ product_id: product.id, storage_path: previewPath }) });
+  await serviceRest("product_previews", { method: "POST", body: JSON.stringify({ product_id: product.id, storage_path: previewPath, sort_order: 0 }) });
+  for (let i = 1; i < previewCount; i++) {
+    const extraPath = `${account.id}/${product.id}/${stamp}-${i}.png`;
+    await upload("product-previews", extraPath, TEST_PNG, "image/png");
+    await serviceRest("product_previews", { method: "POST", body: JSON.stringify({ product_id: product.id, storage_path: extraPath, sort_order: i }) });
+  }
   await serviceRest(`products?id=eq.${product.id}`, { method: "PATCH", body: JSON.stringify({ status: "published" }) });
-  return { productId: product.id as string, slug, fileId: file.id as string };
+  return { productId: product.id as string, slug, fileId: file.id as string, folder: `${account.id}/${product.id}` };
 }

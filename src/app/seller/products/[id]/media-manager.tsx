@@ -4,11 +4,11 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { FileText, ImageIcon, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { FormAlert } from "@/components/ui/form";
-import { ACCEPT, type UploadKind } from "@/lib/listings/uploads";
-import { createClient } from "@/lib/supabase/browser";
-import { confirmUpload, createUploadTicket, removeMedia } from "../actions";
+import { ACCEPT, MAX_PREVIEWS, type UploadKind } from "@/lib/listings/uploads";
+import { SlideMaker, addSlidePreviews } from "./slide-maker";
+import { removeMedia } from "../actions";
+import { uploadAll } from "./upload-all";
 
 type FileRow = { id: string; original_filename: string; file_format: string; size_bytes: number; scan_status: string };
 type PreviewRow = { id: string; url: string; alt: string | null };
@@ -25,9 +25,11 @@ function size(bytes: number) {
 }
 
 export function MediaManager({ listingId, editable, files, previews }: { listingId: string; editable: boolean; files: FileRow[]; previews: PreviewRow[] }) {
+  const slotsLeft = MAX_PREVIEWS - previews.length;
+  const decks = files.filter((f) => f.file_format === "pptx").map((f) => ({ id: f.id, name: f.original_filename }));
   return (
     <>
-      <Card className="flex flex-col gap-4 p-6">
+      <section className="flex flex-col gap-4">
         <div>
           <h2 className="font-display text-xl font-bold">Files buyers download</h2>
           <p className="text-sm text-muted-foreground">
@@ -53,14 +55,16 @@ export function MediaManager({ listingId, editable, files, previews }: { listing
             ))}
           </ul>
         ) : null}
-        {editable ? <Uploader listingId={listingId} kind="file" label="Upload files" /> : <LockedNote />}
-      </Card>
+        {editable ? <Uploader listingId={listingId} kind="file" label="Upload files" previewSlots={slotsLeft} /> : <LockedNote />}
+      </section>
 
-      <Card className="flex flex-col gap-4 p-6">
+      <section className="flex flex-col gap-4">
         <div>
           <h2 className="font-display text-xl font-bold">Preview images</h2>
           <p className="text-sm text-muted-foreground">
-            Public images that show what&apos;s inside, such as a cover and sample pages. PNG, JPG or WebP, up to 5 MB, 6 images at most.
+            Public images that show what&apos;s inside: at least 2, the cover and a page from inside. PNG, JPG or WebP, up to 5 MB, 6 images at most.
+            The first image is the big one; the rest show as small slides under it. When you upload a PowerPoint, its first slides are added
+            here automatically.
           </p>
         </div>
         {previews.length ? (
@@ -68,7 +72,7 @@ export function MediaManager({ listingId, editable, files, previews }: { listing
             {previews.map((p) => (
               <li key={p.id} className="relative overflow-hidden rounded-[10px] border border-border bg-surface-muted">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.url} alt={p.alt ?? "Preview image"} className="aspect-[4/3] w-full object-cover" />
+                <img src={p.url} alt={p.alt ?? "Preview image"} className="aspect-[4/3] w-full bg-surface object-contain" />
                 {editable ? (
                   <div className="absolute right-1 top-1">
                     <RemoveButton listingId={listingId} kind="preview" mediaId={p.id} label="preview image" />
@@ -78,8 +82,15 @@ export function MediaManager({ listingId, editable, files, previews }: { listing
             ))}
           </ul>
         ) : null}
-        {editable ? <Uploader listingId={listingId} kind="preview" label="Add preview images" /> : <LockedNote />}
-      </Card>
+        {editable ? (
+          <div className="flex flex-col gap-3">
+            <Uploader listingId={listingId} kind="preview" label="Add preview images" />
+            <SlideMaker listingId={listingId} slotsLeft={slotsLeft} decks={decks} hasCover={previews.length > 0} />
+          </div>
+        ) : (
+          <LockedNote />
+        )}
+      </section>
     </>
   );
 }
@@ -88,34 +99,20 @@ function LockedNote() {
   return <p className="text-sm text-muted-foreground">Unpublish the resource to a draft to change its files.</p>;
 }
 
-function Uploader({ listingId, kind, label }: { listingId: string; kind: UploadKind; label: string }) {
+function Uploader({ listingId, kind, label, previewSlots = 0 }: { listingId: string; kind: UploadKind; label: string; previewSlots?: number }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
 
   async function upload(list: FileList) {
-    const supabase = createClient();
-    const failed: string[] = [];
     const all = Array.from(list);
-    for (const [i, file] of all.entries()) {
-      setProgress(`Uploading ${file.name} (${i + 1} of ${all.length})…`);
-      const ticket = await createUploadTicket(listingId, { kind, name: file.name, size: file.size });
-      if (!ticket.ok) {
-        failed.push(`${file.name}: ${ticket.error}`);
-        continue;
-      }
-      const sent = await supabase.storage.from(ticket.bucket).uploadToSignedUrl(ticket.path, ticket.token, file, { contentType: ticket.contentType });
-      if (sent.error) {
-        failed.push(`${file.name}: the upload didn't finish. Check your connection and try again.`);
-        continue;
-      }
-      setProgress(`Checking ${file.name}…`);
-      const confirmed = await confirmUpload(listingId, { kind, path: ticket.path, name: file.name });
-      if (confirmed.error) failed.push(`${file.name}: ${confirmed.error}`);
-    }
-    setProgress(null);
+    const failed = await uploadAll(listingId, kind, all, setProgress);
+    // A PowerPoint that uploaded fine also fills the free preview places with its first slides.
+    const deck = kind === "file" ? all.find((f) => f.name.toLowerCase().endsWith(".pptx") && !failed.some((e) => e.startsWith(`${f.name}:`))) : undefined;
+    if (deck) failed.push(...(await addSlidePreviews(listingId, deck, deck.name, previewSlots, setProgress, previewSlots < MAX_PREVIEWS)));
     setErrors(failed);
+    setProgress(null);
     if (input.current) input.current.value = "";
     router.refresh();
   }

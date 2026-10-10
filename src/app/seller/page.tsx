@@ -5,6 +5,8 @@ import { CheckCircle2, Circle } from "lucide-react";
 import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
 import { Badge, Card } from "@/components/ui/card";
 import { requireArea } from "@/lib/auth/dal";
+import { CopyButton } from "@/components/site/copy-button";
+import { publicEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Seller dashboard" };
@@ -54,6 +56,7 @@ async function Dashboard() {
     return acc;
   }, {});
   const total = products.data?.length ?? 0;
+  const shopUrl = store ? `${publicEnv().NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")}/shop/${store.slug}` : null;
 
   const steps = [
     { label: "Create your account", done: true },
@@ -72,12 +75,23 @@ async function Dashboard() {
           <div>
             <p className="text-sm text-muted-foreground">Your shop</p>
             <p className="font-display text-2xl font-bold">{store?.name}</p>
-            <p className="text-sm text-muted-foreground">guromart.ph/shop/{store?.slug}</p>
+            {shopUrl ? (
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <a href={shopUrl} className="break-all text-sm font-medium text-primary hover:underline" data-testid="shop-url">
+                  {shopUrl.replace(/^https?:\/\//, "")}
+                </a>
+                <CopyButton text={shopUrl} label="Copy link" />
+              </div>
+            ) : null}
+            {store && !store.is_published ? (
+              <p className="mt-1 text-xs text-muted-foreground">Your shop isn&apos;t public yet, so this link opens only for you until it is.</p>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge>{STATUS_LABEL[account.status] ?? account.status}</Badge>
             <Badge className="bg-surface-muted capitalize text-foreground">{account.plan} plan</Badge>
             <Link href="/seller/shop" className="text-sm font-semibold text-primary hover:underline">Edit shop profile</Link>
+            <Link href="/seller/earnings" className="text-sm font-semibold text-primary hover:underline">Earnings</Link>
           </div>
         </Card>
         <Card className="p-6">
@@ -86,6 +100,7 @@ async function Dashboard() {
             <div className="flex gap-3 text-sm font-semibold">
               <Link href="/seller/products" className="text-primary hover:underline">Manage resources</Link>
               <Link href="/seller/products/new" className="text-primary hover:underline">Add a resource</Link>
+              <Link href="/seller/bundles" className="text-primary hover:underline">Lesson bundles</Link>
             </div>
           </div>
           {total === 0 ? (
