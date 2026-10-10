@@ -66,6 +66,10 @@ export function MediaManager({ listingId, editable, files, previews }: { listing
             The first image is the big one; the rest show as small slides under it. When you upload a PowerPoint, its first slides are added
             here automatically.
           </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Teachers decide faster when they can see the inside: add a page with an activity, a sample of the discussion and part of the
+            assessment, not just the cover.
+          </p>
         </div>
         {previews.length ? (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3" data-testid="preview-list">

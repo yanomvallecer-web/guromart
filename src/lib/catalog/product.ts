@@ -23,6 +23,7 @@ export type ProductDetail = {
   published_at: string | null;
   updated_at: string;
   category: string | null;
+  category_code: string | null;
   subject: string | null;
   curriculum: string | null;
   period: string | null;
@@ -42,7 +43,7 @@ export async function getPublishedProduct(slug: string): Promise<ProductDetail |
     .select(
       `id, slug, title, summary, description, price_centavos, topic, learning_competency, period_detail,
        page_count, is_editable, license_type, license_terms, file_formats, rating_avg, rating_count, download_count, published_at, updated_at,
-       product_categories(name), subjects(name), curricula(name), academic_periods(name), languages(name),
+       product_categories(code, name), subjects(name), curricula(name), academic_periods(name), languages(name),
        product_grade_levels(grade_levels(name, sort_order)),
        storefronts(slug, name),
        product_previews(storage_path, alt_text, sort_order)`,
@@ -62,6 +63,7 @@ export async function getPublishedProduct(slug: string): Promise<ProductDetail |
     ...(row as unknown as ProductDetail),
     rating_avg: Number(row.rating_avg),
     category: name("product_categories"),
+    category_code: (row.product_categories as { code: string } | null)?.code ?? null,
     subject: name("subjects"),
     curriculum: name("curricula"),
     period: name("academic_periods"),

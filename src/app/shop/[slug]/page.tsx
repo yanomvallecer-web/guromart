@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { ProductGrid } from "@/components/catalog/product-card";
 import { EmptyState } from "@/components/ui/card";
-import { browseProducts } from "@/lib/catalog/queries";
+import { shopSummary } from "@/lib/catalog/labels";
+import { browseProducts, getCatalogFacets } from "@/lib/catalog/queries";
+import { paymentMethodsSentence, paymentsReady } from "@/lib/payments/paymongo";
 import { getStorefront } from "@/lib/catalog/storefront";
 import { publicObjectUrl } from "@/lib/storage";
 
@@ -26,7 +28,9 @@ export default function ShopPage({ params }: PageProps<"/shop/[slug]">) {
 async function Shop({ params }: { params: PageProps<"/shop/[slug]">["params"] }) {
   const store = await getStorefront((await params).slug);
   if (!store) notFound();
-  const products = await browseProducts({ shop: store.slug, sort: "newest" });
+  const [products, facets] = await Promise.all([browseProducts({ shop: store.slug, sort: "newest" }), getCatalogFacets()]);
+  const shop = facets.shops[store.slug];
+  const paid = products.items.some((p) => p.price_centavos > 0);
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-4">
@@ -53,6 +57,14 @@ async function Shop({ params }: { params: PageProps<"/shop/[slug]">["params"] })
           </div>
         </div>
         {store.description ? <p className="max-w-2xl whitespace-pre-line">{store.description}</p> : null}
+        {shop ? <p className="text-sm text-muted-foreground">Publishes: {shopSummary(shop)}</p> : null}
+        {paid ? (
+          <p className="text-sm text-muted-foreground" data-web-checkout>
+            {paymentsReady()
+              ? `Paid resources: pay with ${paymentMethodsSentence()}. Files go to My Library once payment is confirmed.`
+              : "Online payment is paused right now. Free resources can still be downloaded."}
+          </p>
+        ) : null}
       </header>
       {products.items.length ? (
         <ProductGrid products={products.items} />

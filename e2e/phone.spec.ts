@@ -16,7 +16,7 @@ async function beforeJavaScriptLoads(browser: import("@playwright/test").Browser
   return context;
 }
 
-const resultCount = async (page: Page) => Number((await page.getByText(/^\d+ resources?$/).textContent())!.split(" ")[0]);
+const resultCount = async (page: Page) => Number((await page.getByTestId("result-count").textContent())!.split(" ")[0]);
 
 test("filters open in a bottom sheet with the real result count, and stay in the URL", async ({ page }) => {
   const listing = await createLiveListing(`Phone Filter Sheet Worksheet ${Date.now()}`, 0);
@@ -48,10 +48,13 @@ test("filters open in a bottom sheet with the real result count, and stay in the
   // Choosing chips updates the count from the same search the page runs.
   await trigger.click();
   // Chips are labels around visually hidden radio buttons: tap the chip.
-  const chip = (name: string) => sheet.locator("label").filter({ has: page.getByRole("radio", { name, exact: true }) });
+  // A chip's name is the choice, then how many live resources it has.
+  const named = (name: string) => ({ name: new RegExp(`^${name}( \\d+ resources?)?$`) });
+  const radio = (name: string) => sheet.getByRole("radio", named(name));
+  const chip = (name: string) => sheet.locator("label").filter({ has: page.getByRole("radio", named(name)) });
   await chip("Grade 3").click();
   await chip("Worksheets").click();
-  await expect(sheet.getByRole("radio", { name: "Grade 3" })).toBeChecked();
+  await expect(radio("Grade 3")).toBeChecked();
   const show = sheet.getByRole("button", { name: /^Show \d+ resources?$/ });
   await expect(show).toBeVisible();
   const counted = Number((await show.textContent())!.match(/\d+/)![0]);
@@ -84,7 +87,7 @@ test("filters work before JavaScript loads", async ({ browser }) => {
   await expect(page).toHaveURL(/#filters$/);
   const sheet = page.locator("#filters");
   await expect(sheet).toBeVisible();
-  await sheet.getByText("Worksheets", { exact: true }).click();
+  await sheet.locator("label").filter({ hasText: /^Worksheets( \d+ resources?)?$/ }).click();
   await sheet.getByRole("button", { name: "Show resources" }).click();
   await expect(page).toHaveURL(/category=worksheet/);
   await expect(page.getByRole("link", { name: "Remove filter: Worksheets" })).toBeVisible();

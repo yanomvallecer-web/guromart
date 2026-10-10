@@ -10,7 +10,8 @@ import { EmptyState } from "@/components/ui/card";
 import { ChipGroup, ChoiceChip } from "@/components/ui/chip";
 import { Label, NativeSelect } from "@/components/ui/form";
 import { shortGradeLabel } from "@/lib/catalog/labels";
-import { type Taxonomy, browseProducts, getTaxonomy } from "@/lib/catalog/queries";
+import { type Facet, type Taxonomy, browseProducts, countProducts, getCatalogFacets, getShelf, getTaxonomy } from "@/lib/catalog/queries";
+import { CONTACT_EMAIL } from "@/lib/site";
 import { type BrowseParams, type FilterKey, activeFilters, browseHref, effectiveSort, parseBrowseParams } from "@/lib/catalog/search-params";
 
 export const metadata: Metadata = { title: "Browse teaching resources" };
@@ -83,7 +84,7 @@ function filterLabel(key: FilterKey, value: string, t: Taxonomy): string {
 
 async function Browse({ searchParams }: { searchParams: PageProps<"/browse">["searchParams"] }) {
   const params = parseBrowseParams(await searchParams);
-  const [taxonomy, result] = await Promise.all([getTaxonomy(), browseProducts(params)]);
+  const [taxonomy, result, facets] = await Promise.all([getTaxonomy(), browseProducts(params), getCatalogFacets()]);
   const sort = effectiveSort(params);
   const active = activeFilters(params);
   const clearHref = params.q ? `/browse?q=${encodeURIComponent(params.q)}` : "/browse";
@@ -97,27 +98,65 @@ async function Browse({ searchParams }: { searchParams: PageProps<"/browse">["se
     params[k] ? <input key={k} type="hidden" name={k} value={String(params[k])} /> : null,
   );
 
-  const select = (prefix: string, name: keyof BrowseParams, label: string, options: Option[]) => (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={`${prefix}-${name}`}>{label}</Label>
-      <NativeSelect id={`${prefix}-${name}`} name={name} defaultValue={(params[name] as string | undefined) ?? ""}>
-        <option value="">Any</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </NativeSelect>
-    </div>
-  );
-  const chips = (name: keyof BrowseParams, legend: string, options: { value: string; label: React.ReactNode }[]) => (
-    <ChipGroup legend={legend}>
-      <ChoiceChip name={name} value="" defaultChecked={!params[name]}>Any</ChoiceChip>
-      {options.map((o) => (
+  const select = (prefix: string, name: keyof BrowseParams, label: string, options: Option[], counted?: Facet[]) => {
+    // With counts, options that have live resources come first and the rest are grouped below.
+    const count = new Map(counted?.map((f) => [f.code, f.count]));
+    const withCount = (o: Option) => (counted ? `${o.label} (${count.get(o.value) ?? 0})` : o.label);
+    const has = counted ? options.filter((o) => (count.get(o.value) ?? 0) > 0) : options;
+    const none = counted ? options.filter((o) => !count.get(o.value)) : [];
+    return (
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={`${prefix}-${name}`}>{label}</Label>
+        <NativeSelect id={`${prefix}-${name}`} name={name} defaultValue={(params[name] as string | undefined) ?? ""}>
+          <option value="">Any</option>
+          {has.map((o) => (
+            <option key={o.value} value={o.value}>{withCount(o)}</option>
+          ))}
+          {none.length ? (
+            <optgroup label="No resources yet">
+              {none.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </optgroup>
+          ) : null}
+        </NativeSelect>
+      </div>
+    );
+  };
+  const chips = (name: keyof BrowseParams, legend: string, options: { value: string; label: React.ReactNode; name?: string }[], counted?: Facet[]) => {
+    const count = new Map(counted?.map((f) => [f.code, f.count]));
+    const has = counted ? options.filter((o) => (count.get(o.value) ?? 0) > 0) : options;
+    const none = counted ? options.filter((o) => !count.get(o.value)) : [];
+    const chip = (o: (typeof options)[number]) => {
+      const c = count.get(o.value);
+      return (
         <ChoiceChip key={o.value} name={name} value={o.value} defaultChecked={params[name] === o.value}>
           {o.label}
+          {c ? " " : null}
+          {c ? (
+            <span className=" rounded-full bg-primary-soft px-1.5 text-xs font-bold text-primary">
+              {c}
+              <span className="sr-only">{c === 1 ? " resource" : " resources"}</span>
+            </span>
+          ) : null}
         </ChoiceChip>
-      ))}
-    </ChipGroup>
-  );
+      );
+    };
+    return (
+      <ChipGroup legend={legend}>
+        <ChoiceChip name={name} value="" defaultChecked={!params[name]}>Any</ChoiceChip>
+        {has.map(chip)}
+        {none.length ? (
+          <details open={none.some((o) => o.value === params[name])} className="w-full">
+            <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold text-primary">
+              {none.length} more with no resources yet
+            </summary>
+            <div className="flex flex-wrap gap-2 pt-1">{none.map(chip)}</div>
+          </details>
+        ) : null}
+      </ChipGroup>
+    );
+  };
   const moreActive = Boolean(params.period || params.curriculum || params.language || params.format);
 
   return (
@@ -127,18 +166,20 @@ async function Browse({ searchParams }: { searchParams: PageProps<"/browse">["se
         <form action="/browse" className="flex flex-col gap-4 rounded-[12px] border border-border bg-surface p-4">
           <h2 className="font-display text-lg font-bold">Filters</h2>
           {carried}
-          {select("f", "category", "Resource type", opts(taxonomy.categories))}
-          {select("f", "grade", "Grade level", opts(taxonomy.grades))}
-          {select("f", "subject", "Subject", opts(taxonomy.subjects))}
+          {select("f", "grade", "Grade level", opts(taxonomy.grades), facets.grades)}
+          {select("f", "subject", "Subject", opts(taxonomy.subjects), facets.subjects)}
+          {select("f", "category", "Resource type", opts(taxonomy.categories), facets.categories)}
           {select("f", "curriculum", "Curriculum", opts(taxonomy.curricula))}
           {select("f", "period", "Academic period", opts(taxonomy.periods))}
           {select("f", "language", "Language", opts(taxonomy.languages))}
           {select("f", "format", "File format", FORMATS)}
           {select("f", "price", "Price", PRICES)}
           <Button type="submit">Apply filters</Button>
-          <Link href={clearHref} className="text-center text-sm font-semibold text-primary hover:underline">
-            Clear filters
-          </Link>
+          {active.length ? (
+            <Link href={clearHref} className="flex min-h-11 items-center justify-center text-sm font-semibold text-primary hover:underline">
+              Clear all filters
+            </Link>
+          ) : null}
         </form>
       </aside>
 
@@ -159,9 +200,10 @@ async function Browse({ searchParams }: { searchParams: PageProps<"/browse">["se
                   </>
                 ),
               })),
+              facets.grades,
             )}
-            {chips("subject", "Subject", opts(taxonomy.subjects))}
-            {chips("category", "Resource type", opts(taxonomy.categories))}
+            {chips("subject", "Subject", opts(taxonomy.subjects), facets.subjects)}
+            {chips("category", "Resource type", opts(taxonomy.categories), facets.categories)}
             {chips("price", "Price", PRICES)}
             <details open={moreActive} className="group rounded-[12px] border border-border">
               <summary className="flex min-h-11 cursor-pointer list-none items-center px-4 text-sm font-semibold text-primary [&::-webkit-details-marker]:hidden">
@@ -175,8 +217,19 @@ async function Browse({ searchParams }: { searchParams: PageProps<"/browse">["se
               </div>
             </details>
           </FilterSheet>
-          {active.length ? (
+          {active.length || params.q ? (
             <ul aria-label="Filters in use" className="flex shrink-0 items-center gap-2 sm:flex-wrap">
+              {params.q ? (
+                <li>
+                  <Link
+                    href={browseHref(params, { q: null, sort: params.sort === "relevance" ? null : (params.sort ?? null) })}
+                    aria-label={`Remove search: ${params.q}`}
+                    className="flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-full border border-primary bg-surface px-4 text-sm font-semibold text-primary hover:bg-primary-soft"
+                  >
+                    &ldquo;{params.q}&rdquo; <X className="size-4" aria-hidden />
+                  </Link>
+                </li>
+              ) : null}
               {active.map((f) => {
                 const label = filterLabel(f.key, f.value, taxonomy);
                 return (
@@ -191,10 +244,10 @@ async function Browse({ searchParams }: { searchParams: PageProps<"/browse">["se
                   </li>
                 );
               })}
-              {active.length > 1 ? (
+              {active.length > 0 ? (
                 <li>
                   <Link href={clearHref} className="flex min-h-11 items-center whitespace-nowrap px-2 text-sm font-semibold text-primary hover:underline">
-                    Clear all
+                    Clear filters
                   </Link>
                 </li>
               ) : null}
@@ -207,16 +260,14 @@ async function Browse({ searchParams }: { searchParams: PageProps<"/browse">["se
             {params.q ? <>Results for &ldquo;{params.q}&rdquo;</> : "All teaching resources"}
           </h1>
           <div className="flex items-center justify-between gap-2 sm:justify-end">
-            <p className="text-sm text-muted-foreground" aria-live="polite">
+            <p className="text-sm text-muted-foreground" aria-live="polite" data-testid="result-count">
               {result.total} {result.total === 1 ? "resource" : "resources"}
             </p>
             <SortMenu current={SORT_LABEL[sort]} options={sortOptions} />
           </div>
         </div>
         {result.items.length === 0 ? (
-          <EmptyState icon={<SearchX />} title="No resources match yet">
-            Try fewer filters or a different word. New resources are added as teacher shops publish them.
-          </EmptyState>
+          <NoResults params={params} taxonomy={taxonomy} total={facets.total} />
         ) : (
           <ProductGrid products={result.items} className="lg:grid-cols-3" />
         )}
@@ -232,6 +283,64 @@ async function Browse({ searchParams }: { searchParams: PageProps<"/browse">["se
           </nav>
         ) : null}
       </section>
+    </div>
+  );
+}
+
+/**
+ * No matches: say which single change would bring results back (each count
+ * comes from the same search), offer the whole catalog, and show the newest
+ * resources so the page is never a dead end.
+ */
+async function NoResults({ params, taxonomy, total }: { params: BrowseParams; taxonomy: Taxonomy; total: number }) {
+  const changes = [
+    ...(params.q ? [{ label: `Search all resources, not just “${params.q}”`, change: { q: null } as const, without: { ...params, q: undefined } }] : []),
+    ...activeFilters(params).map((f) => ({
+      label: `Remove “${filterLabel(f.key, f.value, taxonomy)}”`,
+      change: { [f.key]: null },
+      without: { ...params, [f.key]: undefined },
+    })),
+  ];
+  const [counts, latest] = await Promise.all([Promise.all(changes.map((c) => countProducts(c.without))), getShelf("new", 4)]);
+  const helpful = changes.map((c, i) => ({ ...c, count: counts[i] })).filter((c) => c.count > 0);
+  const subject = encodeURIComponent("Resource request");
+  const body = encodeURIComponent(`I'm looking for: ${params.q ?? ""}\nGrade and subject: \n`);
+  return (
+    <div className="flex flex-col gap-8">
+      <EmptyState icon={<SearchX />} title="No resources match yet">
+        GuroMart is new, so many grades and subjects don&apos;t have resources yet.
+        {helpful.length ? " One of these changes will show results:" : ""}
+      </EmptyState>
+      <ul className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-center">
+        {helpful.map((c) => (
+          <li key={c.label}>
+            <Link href={browseHref(params, c.change)} className={buttonVariants({ variant: "outline", className: "h-auto min-h-11 w-full whitespace-normal py-2 text-left" })}>
+              {c.label}: {c.count} {c.count === 1 ? "resource" : "resources"}
+            </Link>
+          </li>
+        ))}
+        {total > 0 && !helpful.length ? (
+          <li>
+            <Link href="/browse" className={buttonVariants({ variant: "outline", className: "w-full" })}>
+              Browse all {total} {total === 1 ? "resource" : "resources"}
+            </Link>
+          </li>
+        ) : null}
+      </ul>
+      <p className="text-center text-sm text-muted-foreground">
+        Can&apos;t find what you need?{" "}
+        <a href={`mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`} className="font-semibold text-primary hover:underline">
+          Email us what you&apos;re looking for
+        </a>
+        . It shows us what teachers need most. Made something like it?{" "}
+        <Link href="/sell" className="font-semibold text-primary hover:underline">Sell it on GuroMart</Link>.
+      </p>
+      {latest.length ? (
+        <section aria-labelledby="latest-h" className="flex flex-col gap-4">
+          <h2 id="latest-h" className="font-display text-xl font-bold">Newest resources</h2>
+          <ProductGrid products={latest} className="lg:grid-cols-4" />
+        </section>
+      ) : null}
     </div>
   );
 }

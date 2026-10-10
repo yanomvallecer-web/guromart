@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Plus_Jakarta_Sans } from "next/font/google";
 import { AndroidAppDetect } from "@/components/site/android-app";
 import { ServiceWorkerRegister } from "@/components/site/service-worker-register";
+import { NavMemory } from "@/components/catalog/back-to-results";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { TabBar } from "@/components/site/tab-bar";
@@ -38,6 +40,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <SiteFooter />
         <TabBar />
         <ServiceWorkerRegister />
+        <Suspense fallback={null}>
+          <NavMemory />
+        </Suspense>
       </body>
     </html>
   );

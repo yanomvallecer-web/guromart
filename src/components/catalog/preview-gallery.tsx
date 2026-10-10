@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
 
 export type GalleryImage = { src: string; alt: string };
 
@@ -12,9 +12,26 @@ export function PreviewGallery({ images }: { images: GalleryImage[] }) {
   const many = images.length > 1;
   const go = (i: number) => setCurrent((i + images.length) % images.length);
   const shown = images[current];
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [zoomed, setZoomed] = useState(false);
+  const keys = (e: React.KeyboardEvent) => {
+    if (!many) return;
+    if (e.key === "ArrowRight") go(current + 1);
+    if (e.key === "ArrowLeft") go(current - 1);
+  };
+  const arrow = (dir: "prev" | "next", className = "") => (
+    <button
+      type="button"
+      onClick={() => go(dir === "next" ? current + 1 : current - 1)}
+      aria-label={dir === "next" ? "Next preview" : "Previous preview"}
+      className={`absolute top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-surface/95 text-foreground shadow-sm focus-visible:outline-2 focus-visible:outline-primary ${dir === "next" ? "right-2" : "left-2"} ${className}`}
+    >
+      {dir === "next" ? <ChevronRight className="size-5" aria-hidden /> : <ChevronLeft className="size-5" aria-hidden />}
+    </button>
+  );
 
   return (
-    <div className="flex flex-col gap-2" data-testid="preview-gallery">
+    <div className="flex flex-col gap-2" data-testid="preview-gallery" onKeyDown={keys}>
       <div
         className="relative"
         onTouchStart={(e) => (touchX.current = e.touches[0]?.clientX ?? null)}
@@ -37,25 +54,65 @@ export function PreviewGallery({ images }: { images: GalleryImage[] }) {
             <span className="absolute left-2 top-2 rounded-full bg-surface/95 px-2.5 py-0.5 text-xs font-bold shadow-sm" aria-live="polite">
               Preview {current + 1} of {images.length}
             </span>
-            <button
-              type="button"
-              onClick={() => go(current - 1)}
-              aria-label="Previous preview"
-              className="absolute left-2 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-surface/95 shadow-sm focus-visible:outline-2 focus-visible:outline-primary"
-            >
-              <ChevronLeft className="size-5" aria-hidden />
-            </button>
-            <button
-              type="button"
-              onClick={() => go(current + 1)}
-              aria-label="Next preview"
-              className="absolute right-2 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-surface/95 shadow-sm focus-visible:outline-2 focus-visible:outline-primary"
-            >
-              <ChevronRight className="size-5" aria-hidden />
-            </button>
+            {arrow("prev")}
+            {arrow("next")}
           </>
         ) : null}
+        <button
+          type="button"
+          onClick={() => {
+            setZoomed(true);
+            dialogRef.current?.showModal();
+          }}
+          className="absolute bottom-2 right-2 flex min-h-11 items-center gap-1.5 rounded-full bg-foreground/85 px-3.5 text-sm font-semibold text-white shadow-sm hover:bg-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          <Maximize2 className="size-4" aria-hidden /> Enlarge
+        </button>
       </div>
+
+      {/* Full-screen view: the image at its own size, scrollable when larger than the screen. */}
+      <dialog
+        ref={dialogRef}
+        aria-label={`Preview ${current + 1} of ${images.length}, enlarged`}
+        onKeyDown={keys}
+        onClose={() => setZoomed(false)}
+        onClick={(e) => {
+          if (e.target === dialogRef.current) dialogRef.current?.close();
+        }}
+        className="m-0 h-dvh max-h-none w-screen max-w-none bg-foreground/95 p-0 backdrop:bg-foreground/60 open:flex open:flex-col"
+      >
+        {zoomed ? (
+          <>
+        <div className="flex items-center justify-between gap-3 px-4 py-2 text-white">
+          <span className="text-sm font-semibold">
+            Preview {current + 1} of {images.length}
+          </span>
+          <button
+            type="button"
+            onClick={() => dialogRef.current?.close()}
+            aria-label="Close enlarged preview"
+            className="flex size-11 items-center justify-center rounded-full hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white"
+          >
+            <X className="size-6" aria-hidden />
+          </button>
+        </div>
+        <div className="relative min-h-0 flex-1 overflow-auto">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={shown.src} alt={shown.alt} className="mx-auto block h-auto w-full max-w-[1400px] object-contain" />
+        </div>
+        {many ? (
+          <div className="flex items-center justify-center gap-4 px-4 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+            <button type="button" onClick={() => go(current - 1)} aria-label="Previous preview" className="flex size-11 items-center justify-center rounded-full bg-surface text-foreground">
+              <ChevronLeft className="size-5" aria-hidden />
+            </button>
+            <button type="button" onClick={() => go(current + 1)} aria-label="Next preview" className="flex size-11 items-center justify-center rounded-full bg-surface text-foreground">
+              <ChevronRight className="size-5" aria-hidden />
+            </button>
+          </div>
+        ) : null}
+          </>
+        ) : null}
+      </dialog>
 
       {many ? (
         <ul aria-label="All previews" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
