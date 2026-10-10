@@ -53,10 +53,16 @@ export type ProductCard = {
   subject: string | null;
   storefront: { slug: string; name: string } | null;
   preview_path: string | null;
+  topic: string | null;
+  grades: string[];
+  file_formats: string[];
+  page_count: number | null;
+  is_editable: boolean;
 };
 
-const CARD_SELECT = `id, slug, title, price_centavos, rating_avg, rating_count,
+const CARD_SELECT = `id, slug, title, topic, price_centavos, rating_avg, rating_count, file_formats, page_count, is_editable,
   product_categories(code, name), subjects(name), storefronts(slug, name),
+  product_grade_levels(grade_levels(name, sort_order)),
   product_previews(storage_path, sort_order)`;
 
 type CardRow = {
@@ -70,6 +76,11 @@ type CardRow = {
   subjects: { name: string } | null;
   storefronts: { slug: string; name: string } | null;
   product_previews: { storage_path: string; sort_order: number }[] | null;
+  topic: string | null;
+  file_formats: string[] | null;
+  page_count: number | null;
+  is_editable: boolean;
+  product_grade_levels: { grade_levels: { name: string; sort_order: number } | null }[] | null;
 };
 
 function toCard(row: CardRow): ProductCard {
@@ -86,6 +97,15 @@ function toCard(row: CardRow): ProductCard {
     subject: row.subjects?.name ?? null,
     storefront: row.storefronts,
     preview_path: preview?.storage_path ?? null,
+    topic: row.topic,
+    grades: (row.product_grade_levels ?? [])
+      .map((g) => g.grade_levels)
+      .filter((g): g is { name: string; sort_order: number } => Boolean(g))
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((g) => g.name),
+    file_formats: row.file_formats ?? [],
+    page_count: row.page_count,
+    is_editable: row.is_editable,
   };
 }
 
@@ -99,7 +119,8 @@ export async function getShelf(shelf: HomeShelf, limit = 8): Promise<ProductCard
   let query = createPublicClient().from("products").select(CARD_SELECT).eq("status", "published");
   if (shelf === "featured") query = query.eq("is_featured", true).order("published_at", { ascending: false });
   if (shelf === "free") query = query.eq("price_centavos", 0).order("download_count", { ascending: false });
-  if (shelf === "popular") query = query.order("sales_count", { ascending: false }).order("download_count", { ascending: false });
+  if (shelf === "popular")
+    query = query.order("sales_count", { ascending: false }).order("download_count", { ascending: false }).order("published_at", { ascending: false });
   if (shelf === "new") query = query.order("published_at", { ascending: false });
   const { data, error } = await query.limit(limit);
   if (error) throw new Error(`Could not load products: ${error.message}`);
@@ -107,6 +128,92 @@ export async function getShelf(shelf: HomeShelf, limit = 8): Promise<ProductCard
 }
 
 export type FeaturedStore = { slug: string; name: string; tagline: string | null };
+
+export type Facet = { code: string; name: string; count: number };
+export type ShopFacet = { count: number; subjects: string[]; grades: string[] };
+export type CatalogFacets = {
+  total: number;
+  free: number;
+  grades: Facet[];
+  subjects: Facet[];
+  categories: Facet[];
+  /** By storefront slug: how many live resources, and the subjects and grades they cover. */
+  shops: Record<string, ShopFacet>;
+};
+
+type FacetRow = {
+  price_centavos: number;
+  subjects: { code: string; name: string } | null;
+  product_categories: { code: string; name: string } | null;
+  storefronts: { slug: string } | null;
+  product_grade_levels: { grade_levels: { code: string; name: string; sort_order: number } | null }[] | null;
+};
+
+/**
+ * Live resource counts by grade, subject, type and shop, counted from the
+ * published listings themselves (RLS limits rows to live ones), so every
+ * number shown is real. Lists keep the taxonomy's own order.
+ */
+export async function getCatalogFacets(): Promise<CatalogFacets> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("products");
+  const db = createPublicClient();
+  const rows: FacetRow[] = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await db
+      .from("products")
+      .select("price_centavos, subjects(code, name), product_categories(code, name), storefronts(slug), product_grade_levels(grade_levels(code, name, sort_order))")
+      .eq("status", "published")
+      .order("id")
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`Could not count resources: ${error.message}`);
+    rows.push(...(data as unknown as FacetRow[]));
+    if (data.length < PAGE) break;
+  }
+  const taxonomy = await getTaxonomy();
+  const tally = (key: (r: FacetRow) => string[]) => {
+    const counts = new Map<string, number>();
+    for (const r of rows) for (const k of new Set(key(r))) counts.set(k, (counts.get(k) ?? 0) + 1);
+    return counts;
+  };
+  const gradeCodes = (r: FacetRow) => (r.product_grade_levels ?? []).flatMap((g) => (g.grade_levels ? [g.grade_levels.code] : []));
+  const facets = (items: TaxonomyItem[], counts: Map<string, number>) =>
+    items.map((i) => ({ code: i.code, name: i.name, count: counts.get(i.code) ?? 0 }));
+
+  const gradeName = new Map(taxonomy.grades.map((g, i) => [g.code, { name: g.name, i }]));
+  const shops = new Map<string, ShopFacet & { gradeCodes: Set<string>; subjectSet: Set<string> }>();
+  for (const r of rows) {
+    const slug = r.storefronts?.slug;
+    if (!slug) continue;
+    const shop = shops.get(slug) ?? { count: 0, subjects: [], grades: [], gradeCodes: new Set(), subjectSet: new Set() };
+    shop.count += 1;
+    if (r.subjects) shop.subjectSet.add(r.subjects.name);
+    for (const g of gradeCodes(r)) shop.gradeCodes.add(g);
+    shops.set(slug, shop);
+  }
+  return {
+    total: rows.length,
+    free: rows.filter((r) => r.price_centavos === 0).length,
+    grades: facets(taxonomy.grades, tally(gradeCodes)),
+    subjects: facets(taxonomy.subjects, tally((r) => (r.subjects ? [r.subjects.code] : []))),
+    categories: facets(taxonomy.categories, tally((r) => (r.product_categories ? [r.product_categories.code] : []))),
+    shops: Object.fromEntries(
+      [...shops].map(([slug, s]) => [
+        slug,
+        {
+          count: s.count,
+          subjects: [...s.subjectSet].sort(),
+          grades: [...s.gradeCodes]
+            .filter((c) => gradeName.has(c))
+            .sort((a, b) => gradeName.get(a)!.i - gradeName.get(b)!.i)
+            .map((c) => gradeName.get(c)!.name),
+        },
+      ]),
+    ),
+  };
+}
 
 export async function getFeaturedStorefronts(limit = 6): Promise<FeaturedStore[]> {
   "use cache";

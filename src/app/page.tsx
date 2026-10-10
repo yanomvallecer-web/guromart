@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { ProductGrid, ProductGridSkeleton } from "@/components/catalog/product-card";
 import { SearchForm } from "@/components/site/search-form";
 import { buttonVariants } from "@/components/ui/button";
-import { type HomeShelf, countProducts, getFeaturedStorefronts, getShelf, getTaxonomy } from "@/lib/catalog/queries";
+import { type CatalogFacets, type Facet, type HomeShelf, getCatalogFacets, getFeaturedStorefronts, getShelf, getTaxonomy } from "@/lib/catalog/queries";
+import { shopSummary } from "@/lib/catalog/labels";
 
-/** Below this many live resources the shelves would look bare, so the homepage explains the launch instead. */
+/** Below this many live resources, extra shelves would only repeat the featured ones. */
 const LAUNCH_THRESHOLD = 8;
 
 export default function HomePage() {
@@ -28,13 +29,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-10 px-4 py-8 sm:gap-14 sm:px-6 sm:py-12">
-        <Suspense fallback={<div className="h-24 animate-pulse rounded-[12px] bg-border/50" />}>
-          <GradeRow />
-        </Suspense>
-
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-10 px-4 py-6 sm:gap-12 sm:px-6 sm:py-8">
         <Suspense fallback={<ProductGridSkeleton />}>
-          <Shelves />
+          <Resources />
         </Suspense>
 
         <Suspense fallback={null}>
@@ -78,92 +75,87 @@ async function QuickCategories() {
   );
 }
 
-/** Grades in one swipeable row; subjects and types are in Browse's filters. */
-async function GradeRow() {
-  const { grades } = await getTaxonomy();
-  return (
-    <section aria-labelledby="grades-h" className="flex flex-col gap-3">
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 id="grades-h" className="font-display text-2xl font-bold">Browse by grade</h2>
-        <Link href="/browse" className="flex min-h-11 items-center gap-1 text-sm font-semibold text-primary hover:underline">
-          See all <ArrowRight className="size-4" aria-hidden />
-        </Link>
-      </div>
-      <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-        {grades.map((g) => (
-          <li key={g.code} className="shrink-0">
-            <Link href={`/browse?grade=${g.code}`} className="flex min-h-11 items-center whitespace-nowrap rounded-full border border-border bg-surface px-4 text-sm font-semibold hover:border-primary hover:text-primary">
-              {g.name}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 /**
- * While only a handful of resources are live, one honest launch message and a
- * single "Newly added" shelf instead of four shelves repeating the same few.
- * Each shelf appears only when it has something on it.
+ * Resources first, then the grades and subjects that have some. While the
+ * catalog is small, the extra shelves wait until they wouldn't repeat the
+ * same few resources.
  */
-async function Shelves() {
-  const live = await countProducts({});
-  if (live < LAUNCH_THRESHOLD) {
-    return (
-      <>
-        <LaunchNotice live={live} />
-        <Shelf shelf="new" title="Newly added" href="/browse?sort=newest" />
-      </>
-    );
-  }
+async function Resources() {
+  const facets = await getCatalogFacets();
+  const small = facets.total < LAUNCH_THRESHOLD;
   return (
     <>
-      <Shelf shelf="featured" title="Featured resources" href="/browse?sort=popular" />
-      <Shelf shelf="free" title="Free resources" href="/browse?price=free" />
-      <Shelf shelf="popular" title="Popular downloads" href="/browse?sort=popular" />
-      <Shelf shelf="new" title="Newly added" href="/browse?sort=newest" />
+      <ShelfSection
+        shelf="popular"
+        id="featured-h"
+        title="Featured resources"
+        criteria="Most bought and downloaded first, then newest. Every resource was checked by GuroMart before it went live."
+        href="/browse?sort=popular"
+      />
+
+      <GradesAndSubjects facets={facets} />
+
+      {small ? null : (
+        <>
+          <ShelfSection shelf="free" id="free-h" title="Free resources" criteria="Most downloaded first." href="/browse?price=free" />
+          <ShelfSection shelf="new" id="new-h" title="Newly added" criteria="Newest first." href="/browse?sort=newest" />
+        </>
+      )}
     </>
   );
 }
 
-function LaunchNotice({ live }: { live: number }) {
+/** Only grades and subjects that have live resources, with how many. */
+function GradesAndSubjects({ facets }: { facets: CatalogFacets }) {
+  const grades = facets.grades.filter((g) => g.count > 0);
+  const subjects = facets.subjects.filter((s) => s.count > 0).sort((a, b) => b.count - a.count);
+  if (!grades.length && !subjects.length) return null;
+  const row = (label: string, items: Facet[], key: "grade" | "subject") => (
+    <div className="flex flex-col gap-2">
+      <h3 className="text-sm font-semibold text-muted-foreground">{label}</h3>
+      <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+        {items.map((i) => (
+          <li key={i.code} className="shrink-0">
+            <Link
+              href={`/browse?${key}=${i.code}`}
+              className="relative flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-surface px-4 text-sm font-semibold hover:border-primary hover:text-primary"
+            >
+              {i.name}{" "}
+              <span className="rounded-full bg-primary-soft px-2 text-xs font-bold text-primary">
+                {i.count}
+                <span className="sr-only"> {i.count === 1 ? "resource" : "resources"}</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
   return (
-    <section aria-labelledby="launch-h" className="flex flex-col gap-4 rounded-[16px] border border-border bg-surface p-6 sm:p-8">
-      <span className="flex size-11 items-center justify-center rounded-full bg-accent-soft text-foreground" aria-hidden>
-        <Sparkles className="size-5" />
-      </span>
-      <div>
-        <h2 id="launch-h" className="font-display text-2xl font-bold">GuroMart is just opening</h2>
-        <p className="mt-1 max-w-2xl text-muted-foreground">
-          Teacher shops are joining now, and their lesson plans, DLLs and worksheets appear here as each one is checked and approved.
-          {live > 0 ? " Have a look at what's already in, or open a shop of your own." : " Open a shop of your own and be one of the first."}
-        </p>
+    <section aria-labelledby="grades-h" className="flex flex-col gap-4">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 id="grades-h" className="font-display text-2xl font-bold">Available grades and subjects</h2>
+        <Link href="/browse" className="flex min-h-11 shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:underline">
+          See all <ArrowRight className="size-4" aria-hidden />
+        </Link>
       </div>
-      <div className="flex flex-wrap gap-3">
-        <Link href="/browse" className={buttonVariants({ size: "lg" })}>Browse resources</Link>
-        <Link href="/sell" className={buttonVariants({ variant: "outline", size: "lg" })}>Sell on GuroMart</Link>
-      </div>
+      {grades.length ? row("Grades", grades, "grade") : null}
+      {subjects.length ? row("Subjects", subjects, "subject") : null}
     </section>
   );
 }
 
-function Shelf({ shelf, title, href }: { shelf: HomeShelf; title: string; href: string }) {
-  return (
-    <Suspense fallback={<ProductGridSkeleton />}>
-      <ShelfSection shelf={shelf} title={title} href={href} />
-    </Suspense>
-  );
-}
-
-async function ShelfSection({ shelf, title, href }: { shelf: HomeShelf; title: string; href: string }) {
+async function ShelfSection({ shelf, id, title, criteria, href }: { shelf: HomeShelf; id: string; title: string; criteria: string; href: string }) {
   const products = await getShelf(shelf);
   if (products.length === 0) return null;
   return (
-    <section aria-labelledby={`${shelf}-h`} className="flex flex-col gap-4">
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 id={`${shelf}-h`} className="font-display text-2xl font-bold">{title}</h2>
-        <Link href={href} className="flex min-h-11 items-center text-sm font-semibold text-primary hover:underline">
+    <section aria-labelledby={id} className="flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 id={id} className="font-display text-2xl font-bold">{title}</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">{criteria}</p>
+        </div>
+        <Link href={href} className="flex min-h-11 shrink-0 items-center text-sm font-semibold text-primary hover:underline">
           See all
         </Link>
       </div>
@@ -173,18 +165,25 @@ async function ShelfSection({ shelf, title, href }: { shelf: HomeShelf; title: s
   );
 }
 
+/** Shops with live resources, most resources first, with the subjects and grades they publish for. */
 async function Storefronts() {
-  const stores = await getFeaturedStorefronts();
-  if (stores.length === 0) return null;
+  const [stores, facets] = await Promise.all([getFeaturedStorefronts(24), getCatalogFacets()]);
+  const live = stores
+    .map((s) => ({ ...s, facet: facets.shops[s.slug] }))
+    .filter((s) => s.facet?.count)
+    .sort((a, b) => b.facet.count - a.facet.count)
+    .slice(0, 6);
+  if (live.length === 0) return null;
   return (
     <section aria-labelledby="shops-h" className="flex flex-col gap-4">
       <h2 id="shops-h" className="font-display text-2xl font-bold">Teacher shops</h2>
-      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {stores.map((s) => (
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {live.map((s) => (
           <li key={s.slug}>
             <Link href={`/shop/${s.slug}`} className="flex h-full flex-col gap-1 rounded-[12px] border border-border bg-surface p-4 hover:border-primary">
               <span className="font-bold">{s.name}</span>
               {s.tagline ? <span className="text-sm text-muted-foreground">{s.tagline}</span> : null}
+              <span className="text-sm text-muted-foreground">{shopSummary(s.facet)}</span>
             </Link>
           </li>
         ))}

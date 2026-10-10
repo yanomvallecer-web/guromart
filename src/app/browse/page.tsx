@@ -207,7 +207,7 @@ async function Browse({ searchParams }: { searchParams: PageProps<"/browse">["se
             {params.q ? <>Results for &ldquo;{params.q}&rdquo;</> : "All teaching resources"}
           </h1>
           <div className="flex items-center justify-between gap-2 sm:justify-end">
-            <p className="text-sm text-muted-foreground" aria-live="polite">
+            <p className="text-sm text-muted-foreground" aria-live="polite" data-testid="result-count">
               {result.total} {result.total === 1 ? "resource" : "resources"}
             </p>
             <SortMenu current={SORT_LABEL[sort]} options={sortOptions} />
