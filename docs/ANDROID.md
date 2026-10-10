@@ -10,7 +10,7 @@ package or web address changes.
 | Piece | Where | Why |
 | --- | --- | --- |
 | Web app manifest | `src/app/manifest.ts` → `/manifest.webmanifest` | Name, colours and icons the app is built from |
-| Icons | `public/icons/`, `src/app/apple-icon.png` | 192 and 512 px launcher icons (also used as maskable) |
+| Icons | `public/icons/` (copied from the brand kit) | 192 and 512 px launcher icons (also used as maskable) |
 | Service worker | `public/sw.js`, registered in `components/site/service-worker-register.tsx` | Shows `public/offline.html` when there's no connection; caches nothing else |
 | Digital Asset Links | `src/app/.well-known/assetlinks.json/route.ts` | Proves the app and the site belong together, so no address bar shows |
 | App mode | `components/site/android-app.tsx`, `globals.css` | Hides paid checkout inside the app (see below) |
