@@ -6,7 +6,8 @@ import { formatPrice } from "@/lib/format";
 import { publicObjectUrl } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
-export function ProductCard({ product }: { product: Card }) {
+/** A resource card. `link={false}` draws it without a link, for the seller's preview of a draft. */
+export function ProductCard({ product, link = true }: { product: Card; link?: boolean }) {
   const type = shortTypeLabel(product.category_code, product.category);
   const title = displayTitle(product);
   const context = [gradeSummary(product.grades), product.subject, typeName(product.category_code, product.category)].filter(Boolean).join(" · ");
@@ -14,7 +15,7 @@ export function ProductCard({ product }: { product: Card }) {
   const slides = lengthUnit(product.category_code, product.file_formats) === "slide";
   const free = product.price_centavos === 0;
   return (
-    <Link href={`/resources/${product.slug}`} className="group flex h-full flex-col gap-2.5 rounded-[12px] text-foreground no-underline">
+    <CardShell link={link} href={`/resources/${product.slug}`}>
       {/* One 4:3 frame for every card. Slides fit whole; pages show their top, where the title is. */}
       <div className="relative aspect-[4/3] overflow-hidden rounded-[12px] border border-border bg-surface">
         {product.preview_path ? (
@@ -54,7 +55,18 @@ export function ProductCard({ product }: { product: Card }) {
         </div>
         {product.storefront ? <p className="truncate text-xs text-muted-foreground">by {product.storefront.name}</p> : null}
       </div>
+    </CardShell>
+  );
+}
+
+function CardShell({ link, href, children }: { link: boolean; href: string; children: React.ReactNode }) {
+  const className = "group flex h-full flex-col gap-2.5 rounded-[12px] text-foreground no-underline";
+  return link ? (
+    <Link href={href} className={className}>
+      {children}
     </Link>
+  ) : (
+    <div className={className}>{children}</div>
   );
 }
 

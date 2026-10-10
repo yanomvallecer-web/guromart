@@ -125,12 +125,13 @@ export async function submitListing(id: string): Promise<ActionState> {
   if (!["draft", "rejected"].includes(listing.status)) return { error: "This listing is already in review or live." };
   const { data } = await supabase
     .from("products")
-    .select("title, description, category_id, subject_id, copyright_declared_at, product_grade_levels(grade_level_id), product_files(id), product_previews(id)")
+    .select("title, topic, description, category_id, subject_id, copyright_declared_at, product_grade_levels(grade_level_id), product_files(id), product_previews(id)")
     .eq("id", id)
     .single();
   if (!data) return { error: "Unknown listing." };
   const problems = reviewProblems({
     title: data.title,
+    topic: data.topic,
     description: data.description,
     category_id: data.category_id,
     subject_id: data.subject_id,

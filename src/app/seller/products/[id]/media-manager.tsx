@@ -62,7 +62,7 @@ export function MediaManager({ listingId, editable, files, previews }: { listing
         <div>
           <h2 className="font-display text-xl font-bold">Preview images</h2>
           <p className="text-sm text-muted-foreground">
-            Public images that show what&apos;s inside, such as a cover and sample pages. PNG, JPG or WebP, up to 5 MB, 6 images at most.
+            Public images that show what&apos;s inside: at least 2, the cover and a page from inside. PNG, JPG or WebP, up to 5 MB, 6 images at most.
             The first image is the big one; the rest show as small slides under it. When you upload a PowerPoint, its first slides are added
             here automatically.
           </p>

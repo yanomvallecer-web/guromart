@@ -27,6 +27,7 @@ function friendly(message: string | undefined, fallback: string) {
     "not free",
     "access to this resource was removed",
     "nothing to pay for",
+    "bundle is not available",
   ];
   return message && known.some((k) => message.includes(k)) ? message.replace(/\.?$/, ".") : fallback;
 }
@@ -117,25 +118,50 @@ export async function buyNow(productId: string, from: string): Promise<CartActio
   return openCheckout(order, config, viewer.email, `${siteUrl()}${path}`);
 }
 
+/**
+ * Buy a lesson bundle: one PayMongo payment at the bundle price. The database
+ * makes one order item per resource, so access is still granted per resource
+ * by the verified payment webhook.
+ */
+export async function buyBundle(bundleId: string, from: string): Promise<CartActionState> {
+  const path = /^\/bundles\/[a-z0-9-]{1,120}$/.test(safeNextPath(from)) ? from : "/browse";
+  const viewer = await requireViewer(path);
+  if (!idSchema.safeParse(bundleId).success) return { error: "This bundle is not available." };
+  const config = paymongoConfig();
+  if (!config) return { error: "Online payment isn't set up yet." };
+
+  const supabase = await createClient();
+  await expireStaleOrders(supabase);
+  const { data: bundle } = await supabase.from("bundles").select("title").eq("id", bundleId).maybeSingle();
+  if (!bundle) return { error: "This bundle is not available." };
+  const { data: order, error } = await supabase
+    .rpc("create_order_for_bundle", { p_bundle_id: bundleId })
+    .single<{ order_id: string; order_number: string; total_centavos: number }>();
+  if (error || !order) return { error: friendly(error?.message, "We couldn't start checkout. Please try again.") };
+  return openCheckout(order, config, viewer.email, `${siteUrl()}${path}`, [
+    { name: `Bundle: ${bundle.title}`.slice(0, 255), amountCentavos: order.total_centavos },
+  ]);
+}
+
 /** Opens a PayMongo checkout for an order the database just created, and sends the buyer there. */
 async function openCheckout(
   order: { order_id: string; order_number: string; total_centavos: number },
   config: NonNullable<ReturnType<typeof paymongoConfig>>,
   email: string | null,
   cancelUrl: string,
+  /** One line for the whole order (a bundle) instead of a line per resource. */
+  summaryLines?: { name: string; amountCentavos: number }[],
 ): Promise<CartActionState> {
   const admin = createAdminClient();
-  const { data: items } = await admin
-    .from("order_items")
-    .select("title_snapshot, unit_price_centavos")
-    .eq("order_id", order.order_id)
-    .order("created_at");
+  const { data: items } = summaryLines
+    ? { data: null }
+    : await admin.from("order_items").select("title_snapshot, unit_price_centavos").eq("order_id", order.order_id).order("created_at");
 
   let session: Awaited<ReturnType<typeof createCheckoutSession>>;
   try {
     session = await createCheckoutSession(config, {
       orderNumber: order.order_number,
-      lines: (items ?? []).map((i) => ({ name: i.title_snapshot, amountCentavos: i.unit_price_centavos })),
+      lines: summaryLines ?? (items ?? []).map((i) => ({ name: i.title_snapshot, amountCentavos: i.unit_price_centavos })),
       successUrl: `${siteUrl()}/orders/${order.order_number}?from=checkout`,
       cancelUrl,
       email,

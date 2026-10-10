@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listingFromForm, pesosToCentavos, reviewProblems } from "./schema";
+import { completeness, listingFromForm, pesosToCentavos, reviewProblems } from "./schema";
 import { checkUpload, cleanFileName, matchesSignature, objectPath } from "./uploads";
 
 describe("pesosToCentavos", () => {
@@ -43,7 +43,7 @@ describe("listingFromForm", () => {
 });
 
 describe("reviewProblems", () => {
-  const ready = { title: "Fractions", description: "x".repeat(60), category_id: 1, subject_id: 2, grade_count: 1, file_count: 1, preview_count: 1, copyright_declared: true };
+  const ready = { title: "Fractions", topic: "Adding fractions", description: "x".repeat(60), category_id: 1, subject_id: 2, grade_count: 1, file_count: 1, preview_count: 2, copyright_declared: true };
   it("is empty when everything is there", () => {
     expect(reviewProblems(ready)).toEqual([]);
   });
@@ -51,6 +51,28 @@ describe("reviewProblems", () => {
     expect(reviewProblems({ ...ready, file_count: 0, copyright_declared: false })).toEqual([
       "Upload at least one file.",
       "Confirm you own the rights to sell this resource.",
+    ]);
+  });
+  it("needs a lesson topic and a cover plus an inside page", () => {
+    expect(reviewProblems({ ...ready, topic: " ", preview_count: 1 })).toEqual([
+      'Add the lesson topic, for example "Heat vs. Temperature". It\'s the title teachers see first.',
+      "Add at least 2 preview images: the cover and a page from inside, so teachers can see what they get.",
+    ]);
+  });
+});
+
+describe("completeness", () => {
+  it("marks required and recommended items from the listing's own fields", () => {
+    const items = completeness({
+      title: "Fractions", topic: "Adding fractions", description: "x".repeat(60), category_id: 1, subject_id: 2, grade_count: 1,
+      file_count: 1, preview_count: 2, copyright_declared: true, summary: null, learning_competency: "M4NS-IIa", page_count: 7,
+      curriculum_id: null, academic_period_id: 2, language_code: null,
+    });
+    expect(items.filter((i) => i.required).every((i) => i.done)).toBe(true);
+    expect(items.filter((i) => !i.done).map((i) => i.label)).toEqual([
+      "Language",
+      "4 or more previews, including an activity and the assessment",
+      "Short summary",
     ]);
   });
 });

@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { BookOpen, Download, FileText } from "lucide-react";
+import { BookOpen, Bookmark, Download, FileText } from "lucide-react";
+import { ProductGrid } from "@/components/catalog/product-card";
 import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge, Card, EmptyState } from "@/components/ui/card";
 import { requireViewer } from "@/lib/auth/dal";
+import { getCardsByIds } from "@/lib/catalog/queries";
 import { getLibrary, getLibraryDetails } from "@/lib/commerce/cart";
+import { createClient } from "@/lib/supabase/server";
 import { formatBytes } from "@/lib/format";
 import { publicObjectUrl } from "@/lib/storage";
 import { cn } from "@/lib/utils";
@@ -34,8 +37,57 @@ const chipClass = (active: boolean) =>
   );
 
 async function Library({ searchParams }: { searchParams: PageProps<"/library">["searchParams"] }) {
-  await requireViewer("/library");
+  const viewer = await requireViewer("/library");
   const raw = await searchParams;
+  const supabase = await createClient();
+  const { data: savedRows } = await supabase.from("wishlists").select("product_id").eq("user_id", viewer.id).order("created_at", { ascending: false });
+  const saved = await getCardsByIds((savedRows ?? []).map((r) => r.product_id));
+  const tab = raw.tab === "saved" ? "saved" : "owned";
+  const tabs = (
+    <nav aria-label="Library sections" className="flex gap-2 border-b border-border">
+      {(
+        [
+          ["owned", "/library", "Owned"],
+          ["saved", "/library?tab=saved", `Saved (${saved.length})`],
+        ] as const
+      ).map(([key, href, label]) => (
+        <Link
+          key={key}
+          href={href}
+          aria-current={tab === key ? "page" : undefined}
+          className={cn(
+            "-mb-px flex min-h-11 items-center border-b-2 px-3 text-[15px] font-semibold",
+            tab === key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {label}
+        </Link>
+      ))}
+    </nav>
+  );
+  if (tab === "saved") {
+    return (
+      <div className="flex flex-col gap-4">
+        {tabs}
+        {saved.length ? (
+          <ProductGrid products={saved} />
+        ) : (
+          <EmptyState icon={<Bookmark />} title="Nothing saved yet" action={<Link href="/browse" className={buttonVariants({ variant: "outline" })}>Browse resources</Link>}>
+            Tap Save on any resource to keep it here for later.
+          </EmptyState>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-4">
+      {tabs}
+      <Owned raw={raw} />
+    </div>
+  );
+}
+
+async function Owned({ raw }: { raw: Awaited<PageProps<"/library">["searchParams"]> }) {
   const pick = (v: string | string[] | undefined) => (typeof v === "string" && CODE.test(v) ? v : undefined);
   const grade = pick(raw.grade);
   const period = pick(raw.period);

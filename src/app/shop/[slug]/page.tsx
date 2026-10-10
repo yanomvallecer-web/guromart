@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { BookOpen } from "lucide-react";
+import { ShopBundles } from "@/components/catalog/bundle-links";
+import { FollowControl } from "@/components/catalog/follow-control";
 import { ProductGrid } from "@/components/catalog/product-card";
-import { EmptyState } from "@/components/ui/card";
+import { EmptyState, Skeleton } from "@/components/ui/card";
 import { browseProducts } from "@/lib/catalog/queries";
 import { getStorefront } from "@/lib/catalog/storefront";
 import { publicObjectUrl } from "@/lib/storage";
@@ -52,8 +54,14 @@ async function Shop({ params }: { params: PageProps<"/shop/[slug]">["params"] })
             {store.tagline ? <p className="mt-1 text-lg text-muted-foreground">{store.tagline}</p> : null}
           </div>
         </div>
+        <Suspense fallback={<Skeleton className="h-11 w-32" />}>
+          <FollowControl storefrontId={store.id} path={`/shop/${store.slug}`} />
+        </Suspense>
         {store.description ? <p className="max-w-2xl whitespace-pre-line">{store.description}</p> : null}
       </header>
+      <Suspense fallback={null}>
+        <ShopBundles storefrontId={store.id} />
+      </Suspense>
       {products.items.length ? (
         <ProductGrid products={products.items} />
       ) : (

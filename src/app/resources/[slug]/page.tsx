@@ -4,6 +4,10 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { FileText, Star } from "lucide-react";
 import { PreviewGallery } from "@/components/catalog/preview-gallery";
+import { ProductBundles } from "@/components/catalog/bundle-links";
+import { FollowControl } from "@/components/catalog/follow-control";
+import { ReviewsSection } from "@/components/catalog/reviews";
+import { SaveControl } from "@/components/catalog/save-control";
 import { ShareButton } from "@/components/catalog/share-button";
 import { BuyPanel } from "@/components/commerce/buy-panel";
 import { Card, Skeleton } from "@/components/ui/card";
@@ -101,13 +105,24 @@ async function Resource({ params }: { params: PageProps<"/resources/[slug]">["pa
             </>
           ) : null}
         </section>
+
+        <div className="order-7">
+          <Suspense fallback={<Skeleton className="h-32 w-full" />}>
+            <ReviewsSection productId={product.id} slug={product.slug} />
+          </Suspense>
+        </div>
       </div>
 
       <aside className="contents lg:flex lg:flex-col lg:gap-4">
         <header className="order-1 flex flex-col gap-1">
           <div className="flex items-start justify-between gap-3">
             {kicker ? <p className="pt-1 text-sm font-semibold text-muted-foreground">{kicker}</p> : <span />}
-            <ShareButton title={product.title} />
+            <div className="flex items-start gap-2">
+              <Suspense fallback={null}>
+                <SaveControl productId={product.id} path={`/resources/${product.slug}`} />
+              </Suspense>
+              <ShareButton title={product.title} />
+            </div>
           </div>
           <h1 className="font-display text-[28px] font-bold leading-tight sm:text-3xl">{product.title}</h1>
           {product.storefront || byline.length ? (
@@ -160,6 +175,23 @@ async function Resource({ params }: { params: PageProps<"/resources/[slug]">["pa
           <p>{LICENSE[product.license_type]}</p>
           {product.license_terms ? <p className="mt-2 whitespace-pre-line text-muted-foreground">{product.license_terms}</p> : null}
         </Card>
+
+        <div className="order-6 empty:hidden">
+          <Suspense fallback={null}>
+            <ProductBundles productId={product.id} />
+          </Suspense>
+        </div>
+
+        {product.storefront ? (
+          <Card className="order-6 flex flex-col gap-3 p-5 text-sm">
+            <p>
+              Sold by <Link href={`/shop/${product.storefront.slug}`} className="font-semibold text-primary hover:underline">{product.storefront.name}</Link>. Follow the shop to hear when it adds something new.
+            </p>
+            <Suspense fallback={<Skeleton className="h-11 w-32" />}>
+              <FollowControl storefrontId={product.storefront.id} path={`/resources/${product.slug}`} />
+            </Suspense>
+          </Card>
+        ) : null}
       </aside>
     </article>
   );

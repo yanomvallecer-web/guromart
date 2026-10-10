@@ -731,8 +731,8 @@ describe("checkout and payment events", () => {
     expect(order.total_centavos).toBe(22500);
     const items = await q(user(buyer), "select unit_price_centavos, commission_bps, platform_fee_centavos, seller_earnings_centavos from public.order_items order by unit_price_centavos");
     expect(items.rows).toEqual([
-      { unit_price_centavos: 7500, commission_bps: 3000, platform_fee_centavos: 2250, seller_earnings_centavos: 5250 },
-      { unit_price_centavos: 15000, commission_bps: 3000, platform_fee_centavos: 4500, seller_earnings_centavos: 10500 },
+      { unit_price_centavos: 7500, commission_bps: 1000, platform_fee_centavos: 750, seller_earnings_centavos: 6750 },
+      { unit_price_centavos: 15000, commission_bps: 1000, platform_fee_centavos: 1500, seller_earnings_centavos: 13500 },
     ]);
     expect((await q(user(buyer), "select status from public.orders")).rows[0].status).toBe("pending_payment");
     expect((await q(user(buyer), "select * from public.entitlements")).rows).toHaveLength(0);
@@ -740,12 +740,13 @@ describe("checkout and payment events", () => {
 
   it("uses the Pro rate and a negotiated override", async () => {
     const { s, buyer } = await setup("pro");
+    await q(admin, "update public.platform_settings set value = '800' where key = 'commission.pro_bps'");
     await checkout(buyer);
-    expect((await q(user(buyer), "select distinct commission_bps from public.order_items")).rows).toEqual([{ commission_bps: 1500 }]);
-    await q(admin, "update public.seller_accounts set commission_bps_override = 1000 where id = $1", [s.sellerId]);
+    expect((await q(user(buyer), "select distinct commission_bps from public.order_items")).rows).toEqual([{ commission_bps: 800 }]);
+    await q(admin, "update public.seller_accounts set commission_bps_override = 500 where id = $1", [s.sellerId]);
     const again = (await q(user(buyer), "select * from public.create_order_from_cart()")).rows[0];
     const items = await q(admin, "select distinct commission_bps from public.order_items where order_id = $1", [again.order_id]);
-    expect(items.rows).toEqual([{ commission_bps: 1000 }]);
+    expect(items.rows).toEqual([{ commission_bps: 500 }]);
   });
 
   it("refuses an empty cart and keeps payment events away from buyers", async () => {
@@ -763,7 +764,7 @@ describe("checkout and payment events", () => {
     expect((await q(user(buyer), "select source from public.entitlements")).rows).toEqual([{ source: "purchase" }, { source: "purchase" }]);
     expect((await q(user(buyer), "select * from public.cart_items")).rows).toHaveLength(0);
     const balance = await q(user(s.userId), "select balance_centavos, available_centavos from public.seller_balances");
-    expect(Number(balance.rows[0].balance_centavos)).toBe(15750);
+    expect(Number(balance.rows[0].balance_centavos)).toBe(20250);
     expect(Number(balance.rows[0].available_centavos)).toBe(0);
     expect((await q(admin, "select sales_count from public.products where id = $1", [a.id])).rows[0].sales_count).toBe(1);
     const notes = await q(admin, "select user_id, type from public.notifications where type in ('order.paid', 'sale.made') order by type");
@@ -839,7 +840,7 @@ describe("checkout and payment events", () => {
     expect(after.rows).toEqual([{ status: "paid", has_paid_at: true, payment: "paid" }]);
     expect((await q(user(buyer), "select source from public.entitlements")).rows).toHaveLength(2);
     const balance = await q(user(s.userId), "select balance_centavos from public.seller_balances");
-    expect(Number(balance.rows[0].balance_centavos)).toBe(15750);
+    expect(Number(balance.rows[0].balance_centavos)).toBe(20250);
     const flagged = await q(admin, "select metadata->>'order_status' as was from public.audit_logs where action = 'order.paid_late'");
     expect(flagged.rows).toEqual([{ was: "expired" }]);
     // A paid order is never expired afterwards.
@@ -943,7 +944,7 @@ describe("buy now", () => {
     const order = (await q(user(buyer), "select * from public.create_order_for_product($1)", [a.id])).rows[0];
     expect(order.total_centavos).toBe(7500);
     const items = await q(user(buyer), "select product_id, unit_price_centavos, commission_bps, platform_fee_centavos, seller_earnings_centavos from public.order_items");
-    expect(items.rows).toEqual([{ product_id: a.id, unit_price_centavos: 7500, commission_bps: 3000, platform_fee_centavos: 2250, seller_earnings_centavos: 5250 }]);
+    expect(items.rows).toEqual([{ product_id: a.id, unit_price_centavos: 7500, commission_bps: 1000, platform_fee_centavos: 750, seller_earnings_centavos: 6750 }]);
     expect((await q(user(buyer), "select status from public.orders")).rows[0].status).toBe("pending_payment");
     const cart = await q(user(buyer), "select product_id from public.cart_items order by product_id");
     expect(cart.rows.map((r) => r.product_id).sort()).toEqual([a.id, b.id].sort());
@@ -967,5 +968,105 @@ describe("buy now", () => {
     await expectError(user(buyer), "select * from public.create_order_for_product($1)", [a.id], /already in your library/);
     await expectError(anon, "select * from public.create_order_for_product($1)", [a.id], /permission denied/);
     expect((await q(admin, "select count(*)::int as n from public.orders")).rows[0].n).toBe(0);
+  });
+});
+
+describe("lesson bundles", () => {
+  const service = { role: "service_role" } as const;
+  async function setup() {
+    const s = await createSeller("s@example.test", "shop-one");
+    const a = await insertProduct(admin, s.storefrontId, "plan-a", { status: "published", price_centavos: 5000, title: "Heat lesson plan" });
+    const b = await insertProduct(admin, s.storefrontId, "slides-b", { status: "published", price_centavos: 7000, title: "Heat slides" });
+    const free = await insertProduct(admin, s.storefrontId, "free-c", { status: "published", price_centavos: 0, title: "Heat worksheet" });
+    const other = await createSeller("o@example.test", "shop-two");
+    const theirs = await insertProduct(admin, other.storefrontId, "their-d", { status: "published", price_centavos: 5000 });
+    const bundle = (
+      await q<{ id: string }>(user(s.userId),
+        "insert into public.bundles (storefront_id, slug, title, price_centavos) values ($1, 'heat-set', 'Heat vs. Temperature set', 9900) returning id",
+        [s.storefrontId])
+    ).rows[0];
+    return { s, a, b, free, theirs, bundle };
+  }
+
+  it("takes only the seller's own live paid resources and needs two and a lower price to publish", async () => {
+    const { s, a, b, free, theirs, bundle } = await setup();
+    await expectError(user(s.userId), "insert into public.bundle_items (bundle_id, product_id) values ($1, $2)", [bundle.id, theirs.id], /own live, paid/);
+    await expectError(user(s.userId), "insert into public.bundle_items (bundle_id, product_id) values ($1, $2)", [bundle.id, free.id], /own live, paid/);
+    await q(user(s.userId), "insert into public.bundle_items (bundle_id, product_id) values ($1, $2)", [bundle.id, a.id]);
+    await expectError(user(s.userId), "update public.bundles set status = 'published' where id = $1", [bundle.id], /at least two/);
+    await q(user(s.userId), "insert into public.bundle_items (bundle_id, product_id) values ($1, $2)", [bundle.id, b.id]);
+    await expectError(user(s.userId), "update public.bundles set status = 'published', price_centavos = 12000 where id = $1", [bundle.id], /less than/);
+    expect((await q(anon, "select count(*)::int as n from public.bundles")).rows[0].n).toBe(0);
+    await q(user(s.userId), "update public.bundles set status = 'published' where id = $1", [bundle.id]);
+    expect((await q(anon, "select count(*)::int as n from public.bundle_items where bundle_id = $1", [bundle.id])).rows[0].n).toBe(2);
+    await expectError(user(s.userId), "update public.bundles set status = 'hidden' where id = $1", [bundle.id], /staff/);
+    // A resource going offline takes the bundle off sale.
+    await q(admin, "update public.products set status = 'archived' where id = $1", [b.id]);
+    expect((await q(anon, "select count(*)::int as n from public.bundles")).rows[0].n).toBe(0);
+  });
+
+  it("sells the set as one order split across its resources, and grants each on payment", async () => {
+    const { s, a, b, bundle } = await setup();
+    for (const p of [a, b]) await q(user(s.userId), "insert into public.bundle_items (bundle_id, product_id) values ($1, $2)", [bundle.id, p.id]);
+    await q(user(s.userId), "update public.bundles set status = 'published' where id = $1", [bundle.id]);
+    const buyer = await createUser("buyer@example.test");
+    const order = (await q(user(buyer), "select * from public.create_order_for_bundle($1)", [bundle.id])).rows[0];
+    expect(order.total_centavos).toBe(9900);
+    const items = await q(user(buyer), "select product_id, unit_price_centavos, commission_bps, platform_fee_centavos, seller_earnings_centavos from public.order_items order by unit_price_centavos");
+    expect(items.rows).toEqual([
+      { product_id: a.id, unit_price_centavos: 4125, commission_bps: 1000, platform_fee_centavos: 413, seller_earnings_centavos: 3712 },
+      { product_id: b.id, unit_price_centavos: 5775, commission_bps: 1000, platform_fee_centavos: 578, seller_earnings_centavos: 5197 },
+    ]);
+    await q(service, "insert into public.payments (order_id, provider, provider_checkout_id, amount_centavos) values ($1, 'paymongo', 'cs_bundle', 9900)", [order.order_id]);
+    const outcome = await q(service, "select public.apply_payment_event('evt_bundle', 'checkout_session.payment.paid', '{}'::jsonb, false, 'cs_bundle', 'pay_b', 9900, 500, 'gcash') as outcome");
+    expect(outcome.rows[0].outcome).toBe("paid");
+    expect((await q(user(buyer), "select product_id from public.entitlements order by product_id")).rows.map((r) => r.product_id).sort()).toEqual([a.id, b.id].sort());
+    // Owning part of the set means it can't be bought again as a set.
+    await expectError(user(buyer), "select * from public.create_order_for_bundle($1)", [bundle.id], /already in your library/);
+    await expectError(user(s.userId), "select * from public.create_order_for_bundle($1)", [bundle.id], /your own resource/);
+  });
+});
+
+describe("review replies and moderation", () => {
+  it("lets only the seller reply, keeps the reply out of the reviewer's hands, and shows first names only", async () => {
+    const s = await createSeller("s@example.test", "shop-one");
+    const p = await insertProduct(admin, s.storefrontId, "fractions-1", { status: "published", price_centavos: 0 });
+    const buyer = await createUser("buyer@example.test", "Liza Cruz");
+    await q(admin, "insert into public.entitlements (user_id, product_id, source) values ($1, $2, 'free')", [buyer, p.id]);
+    const review = (await q(user(buyer), "insert into public.reviews (product_id, user_id, rating, body) values ($1, $2, 5, 'Great') returning id", [p.id, buyer])).rows[0];
+    await expectError(user(buyer), "update public.reviews set seller_reply = 'fake' where id = $1", [review.id], /seller can reply/);
+    await expectError(user(buyer), "select public.reply_to_review($1, 'hi')", [review.id], /Only the seller/);
+    await q(user(s.userId), "select public.reply_to_review($1, 'Salamat po!')", [review.id]);
+    const shown = await q(anon, "select rating, body, reviewer, seller_reply from public.product_reviews($1)", [p.id]);
+    expect(shown.rows).toEqual([{ rating: 5, body: "Great", reviewer: "Liza", seller_reply: "Salamat po!" }]);
+    await q(admin, "update public.reviews set status = 'hidden' where id = $1", [review.id]);
+    expect((await q(anon, "select * from public.product_reviews($1)", [p.id])).rows).toHaveLength(0);
+    expect((await q(anon, "select rating_count from public.products where id = $1", [p.id])).rows[0].rating_count).toBe(0);
+  });
+});
+
+describe("following shops and teaching preferences", () => {
+  it("notifies followers once when the shop publishes a resource", async () => {
+    const s = await createSeller("s@example.test", "shop-one");
+    const fan = await createUser("fan@example.test");
+    await q(user(fan), "insert into public.shop_follows (user_id, storefront_id) values ($1, $2)", [fan, s.storefrontId]);
+    expect((await q(anon, "select public.shop_follower_count($1) as n", [s.storefrontId])).rows[0].n).toBe(1);
+    const other = await createUser("other@example.test");
+    expect((await q(user(other), "select * from public.shop_follows")).rows).toHaveLength(0);
+    const p = await insertProduct(admin, s.storefrontId, "new-one", { status: "pending_review" });
+    await addReadyMedia(p.id, s.sellerId);
+    await q(admin, "update public.products set status = 'published' where id = $1", [p.id]);
+    await q(admin, "update public.products set status = 'draft' where id = $1", [p.id]);
+    await q(admin, "update public.products set status = 'published' where id = $1", [p.id]);
+    const notes = await q(user(fan), "select type, link_path from public.notifications");
+    expect(notes.rows).toEqual([{ type: "shop.new_resource", link_path: "/resources/new-one" }]);
+  });
+
+  it("keeps each teacher's preferences private", async () => {
+    const a = await createUser("a@example.test");
+    const b = await createUser("b@example.test");
+    await q(user(a), "insert into public.teaching_preferences (user_id, grade_level_id) select $1, id from public.grade_levels where code = 'grade-7'", [a]);
+    expect((await q(user(b), "select * from public.teaching_preferences")).rows).toHaveLength(0);
+    await expectError(user(b), "insert into public.teaching_preferences (user_id) values ($1)", [a], /row-level security/);
   });
 });

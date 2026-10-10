@@ -291,3 +291,12 @@ function searchArgs(params: BrowseParams, limit: number, offset: number) {
     p_offset: offset,
   };
 }
+
+/** Cards for specific live resources, in the order given. RLS drops any that aren't live. */
+export async function getCardsByIds(ids: string[]): Promise<ProductCard[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await createPublicClient().from("products").select(CARD_SELECT).eq("status", "published").in("id", ids);
+  if (error) throw new Error(`Could not load resources: ${error.message}`);
+  const byId = new Map((data as unknown as CardRow[]).map((r) => [r.id, toCard(r)]));
+  return ids.map((id) => byId.get(id)).filter((c): c is ProductCard => Boolean(c));
+}

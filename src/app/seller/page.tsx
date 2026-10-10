@@ -100,6 +100,7 @@ async function Dashboard() {
             <div className="flex gap-3 text-sm font-semibold">
               <Link href="/seller/products" className="text-primary hover:underline">Manage resources</Link>
               <Link href="/seller/products/new" className="text-primary hover:underline">Add a resource</Link>
+              <Link href="/seller/bundles" className="text-primary hover:underline">Lesson bundles</Link>
             </div>
           </div>
           {total === 0 ? (

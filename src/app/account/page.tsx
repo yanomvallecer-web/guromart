@@ -8,6 +8,9 @@ import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
 import { Badge, Card } from "@/components/ui/card";
 import { requireArea } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
+import { getTaxonomy } from "@/lib/catalog/queries";
+import { getTeachingPreferences } from "@/lib/account/preferences";
+import { PreferencesForm } from "./preferences-form";
 import { ProfileForm } from "./profile-form";
 
 export const metadata: Metadata = { title: "My account" };
@@ -31,6 +34,7 @@ async function AccountBody() {
     .eq("id", viewer.id)
     .single();
   if (error) throw new Error("Could not load your profile.");
+  const [taxonomy, prefs] = await Promise.all([getTaxonomy(), getTeachingPreferences()]);
   const row = "flex min-h-12 w-full items-center gap-3 px-4 text-[15px] font-semibold hover:bg-surface-muted [&>svg]:size-5";
   return (
     <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
@@ -56,7 +60,17 @@ async function AccountBody() {
         <h2 className="mb-4 font-display text-xl font-bold">Profile</h2>
         <ProfileForm profile={profile} />
       </Card>
-      <Card className="flex flex-col gap-3 p-6">
+      <Card id="teaching" className="scroll-mt-24 p-6 lg:col-start-1">
+        <h2 className="mb-1 font-display text-xl font-bold">What you teach</h2>
+        <p className="mb-4 text-sm text-muted-foreground">Browse will start with resources for this grade and subject. You can always show everything.</p>
+        <PreferencesForm
+          grades={taxonomy.grades}
+          subjects={taxonomy.subjects}
+          grade={prefs?.grade?.code ?? ""}
+          subject={prefs?.subject?.code ?? ""}
+        />
+      </Card>
+      <Card className="flex flex-col gap-3 p-6 lg:col-start-2 lg:row-start-1">
         <h2 className="font-display text-xl font-bold">Sign-in</h2>
         <p className="text-sm text-muted-foreground">{viewer.email}</p>
         <div className="flex flex-wrap gap-2">

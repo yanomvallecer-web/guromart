@@ -92,8 +92,12 @@ export function listingFromForm(form: FormData) {
   });
 }
 
+/** Preview images a listing needs before review: a cover and at least one inside page. */
+export const MIN_PREVIEWS = 2;
+
 export type ReviewCheck = {
   title: string;
+  topic: string | null;
   description: string;
   category_id: number | null;
   subject_id: number | null;
@@ -107,12 +111,44 @@ export type ReviewCheck = {
 export function reviewProblems(c: ReviewCheck): string[] {
   const problems: string[] = [];
   if (c.title.trim().length < 4) problems.push("Add a title.");
+  if (!c.topic?.trim()) problems.push("Add the lesson topic, for example \"Heat vs. Temperature\". It's the title teachers see first.");
   if (c.description.trim().length < 50) problems.push("Describe the resource in at least 50 characters.");
   if (!c.category_id) problems.push("Choose a resource type.");
   if (!c.subject_id) problems.push("Choose a subject.");
   if (c.grade_count === 0) problems.push("Choose at least one grade level.");
   if (c.file_count === 0) problems.push("Upload at least one file.");
-  if (c.preview_count === 0) problems.push("Add at least one preview image so teachers can see what they get.");
+  if (c.preview_count < MIN_PREVIEWS)
+    problems.push(`Add at least ${MIN_PREVIEWS} preview images: the cover and a page from inside, so teachers can see what they get.`);
   if (!c.copyright_declared) problems.push("Confirm you own the rights to sell this resource.");
   return problems;
+}
+
+export type CompletenessCheck = ReviewCheck & {
+  summary: string | null;
+  learning_competency: string | null;
+  page_count: number | null;
+  curriculum_id: number | null;
+  academic_period_id: number | null;
+  language_code: string | null;
+};
+
+/**
+ * Everything that makes a listing easy to judge, required or not, with
+ * whether it's done. Required items are the ones reviewProblems checks.
+ */
+export function completeness(c: CompletenessCheck): { label: string; done: boolean; required: boolean }[] {
+  return [
+    { label: "Lesson topic", done: Boolean(c.topic?.trim()), required: true },
+    { label: "Resource type, subject and grade", done: Boolean(c.category_id && c.subject_id && c.grade_count), required: true },
+    { label: "Description of at least 50 characters", done: c.description.trim().length >= 50, required: true },
+    { label: "The file teachers download", done: c.file_count > 0, required: true },
+    { label: `${MIN_PREVIEWS} or more preview images`, done: c.preview_count >= MIN_PREVIEWS, required: true },
+    { label: "Copyright confirmation", done: c.copyright_declared, required: true },
+    { label: "Learning competency (MELC or code)", done: Boolean(c.learning_competency?.trim()), required: false },
+    { label: "Number of pages or slides", done: Boolean(c.page_count), required: false },
+    { label: "Quarter or curriculum", done: Boolean(c.academic_period_id || c.curriculum_id), required: false },
+    { label: "Language", done: Boolean(c.language_code), required: false },
+    { label: "4 or more previews, including an activity and the assessment", done: c.preview_count >= 4, required: false },
+    { label: "Short summary", done: Boolean(c.summary?.trim()), required: false },
+  ];
 }

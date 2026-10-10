@@ -148,6 +148,15 @@ export async function createLiveListing(title: string, priceCentavos: number, pr
     method: "POST",
     body: JSON.stringify({ seller_account_id: account.id, slug: `buy-${stamp}`, name: "Buying Test Shop", is_published: true }),
   });
+  const listing = await addLiveListing({ accountId: account.id, storefrontId: store.id }, title, priceCentavos, previewCount);
+  return { ...listing, sellerEmail, accountId: account.id as string, storefrontId: store.id as string, storeSlug: store.slug as string };
+}
+
+/** Adds another live listing to an existing shop (see createLiveListing). */
+export async function addLiveListing(shop: { accountId: string; storefrontId: string }, title: string, priceCentavos: number, previewCount = 1) {
+  const account = { id: shop.accountId };
+  const store = { id: shop.storefrontId };
+  const stamp = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
   const [category] = await serviceRest("product_categories?code=eq.worksheet&select=id");
   const slug = `buy-test-${stamp}`;
   const [product] = await serviceRest("products", {
@@ -175,5 +184,5 @@ export async function createLiveListing(title: string, priceCentavos: number, pr
     await serviceRest("product_previews", { method: "POST", body: JSON.stringify({ product_id: product.id, storage_path: extraPath, sort_order: i }) });
   }
   await serviceRest(`products?id=eq.${product.id}`, { method: "PATCH", body: JSON.stringify({ status: "published" }) });
-  return { productId: product.id as string, slug, fileId: file.id as string, sellerEmail, folder: `${account.id}/${product.id}` };
+  return { productId: product.id as string, slug, fileId: file.id as string, folder: `${account.id}/${product.id}` };
 }

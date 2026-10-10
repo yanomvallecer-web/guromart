@@ -30,6 +30,8 @@ export const browseParamsSchema = z.object({
   price: z.enum(PRICE_BANDS).optional().catch(undefined),
   sort: z.enum(SORTS).optional().catch(undefined),
   page: z.coerce.number().int().min(1).max(500).optional().catch(undefined),
+  /** "1" turns off the teaching-preference defaults for this search. */
+  all: z.literal("1").optional().catch(undefined),
 });
 
 export type BrowseParams = Partial<z.infer<typeof browseParamsSchema>>;

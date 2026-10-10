@@ -58,6 +58,7 @@ test("a seller drafts a resource, uploads files securely and submits it for revi
 
   await openStep(page, "Details");
   await page.getByRole("textbox", { name: "Description" }).fill("Twenty-four worksheets on living things and their environment, with answer keys for every page.");
+  await page.getByRole("textbox", { name: /Lesson topic/ }).fill("Living things and their environment");
   await tapChip(page, "radio", "Science");
   await tapChip(page, "checkbox", "Grade 4");
   await page.getByRole("button", { name: "Next: Price" }).click();
@@ -81,6 +82,17 @@ test("a seller drafts a resource, uploads files securely and submits it for revi
 
   await page.locator("#upload-preview").setInputFiles({ name: "cover.png", mimeType: "image/png", buffer: PNG });
   await expect(page.getByTestId("preview-list").getByRole("img")).toBeVisible();
+  // One preview isn't enough: teachers need to see a page from inside too.
+  await expect(page.getByRole("button", { name: "Submit for review" })).toBeDisabled();
+  await page.locator("#upload-preview").setInputFiles({ name: "inside.png", mimeType: "image/png", buffer: PNG });
+  await expect(page.getByTestId("preview-list").getByRole("img")).toHaveCount(2);
+  await page.reload();
+
+  // The seller sees their card as teachers will, and what's left to fill in.
+  await expect(page.getByTestId("card-preview")).toContainText("Living things and their environment");
+  await expect(page.getByTestId("card-preview")).toContainText("Grade 4 · Science · Worksheet");
+  await expect(page.getByTestId("card-preview")).toContainText("₱75.00");
+  await expect(page.getByTestId("completeness")).toContainText("Listing completeness: 6 of 12");
 
   // Storage holds exactly one resource file under the seller's own folder, and it is private.
   const userId = await userIdFor(email);
@@ -139,6 +151,7 @@ async function submitListing(page: import("@playwright/test").Page, email: strin
   await page.waitForURL(/\/seller\/products\/[0-9a-f-]{36}$/);
   await openStep(page, "Details");
   await page.getByRole("textbox", { name: "Description" }).fill("Thirty mixed practice items on adding and subtracting fractions, with an answer key.");
+  await page.getByRole("textbox", { name: /Lesson topic/ }).fill("Adding and subtracting fractions");
   await tapChip(page, "radio", "Mathematics");
   await tapChip(page, "checkbox", "Grade 5");
   await openStep(page, "Price");
@@ -151,6 +164,8 @@ async function submitListing(page: import("@playwright/test").Page, email: strin
   await expect(page.getByTestId("file-list").getByText("Fractions.pdf")).toBeVisible();
   await page.locator("#upload-preview").setInputFiles({ name: "cover.png", mimeType: "image/png", buffer: PNG });
   await expect(page.getByTestId("preview-list").getByRole("img")).toBeVisible();
+  await page.locator("#upload-preview").setInputFiles({ name: "inside.png", mimeType: "image/png", buffer: PNG });
+  await expect(page.getByTestId("preview-list").getByRole("img")).toHaveCount(2);
   await page.getByRole("button", { name: "Submit for review" }).click();
   await expect(page.getByTestId("listing-status")).toHaveText("In review");
   return page.url().split("/").pop()!;
@@ -209,7 +224,8 @@ test("staff check files, reject with a note, then approve a resubmitted listing"
   await expect(visitor.getByText("₱60.00")).toBeVisible();
   // Search finds it by relevance even with a typo in the query.
   await visitor.goto(`/browse?q=${encodeURIComponent(title.replace("Fractions", "Fractoins"))}`);
-  await expect(visitor.getByRole("link", { name: new RegExp(title) })).toBeVisible();
+  // Cards lead with the lesson topic, so find this listing's card by its address.
+  await expect(visitor.locator(`a[href="/resources/${product.slug}"]`)).toBeVisible();
   await visitorContext.close();
 
   await page.reload();

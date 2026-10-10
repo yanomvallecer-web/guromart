@@ -11,6 +11,7 @@ import { ChipGroup, ChoiceChip } from "@/components/ui/chip";
 import { Label, NativeSelect } from "@/components/ui/form";
 import { shortGradeLabel } from "@/lib/catalog/labels";
 import { type Taxonomy, browseProducts, getTaxonomy } from "@/lib/catalog/queries";
+import { getTeachingPreferences } from "@/lib/account/preferences";
 import { type BrowseParams, type FilterKey, activeFilters, browseHref, effectiveSort, parseBrowseParams } from "@/lib/catalog/search-params";
 
 export const metadata: Metadata = { title: "Browse teaching resources" };
@@ -83,17 +84,25 @@ function filterLabel(key: FilterKey, value: string, t: Taxonomy): string {
 
 async function Browse({ searchParams }: { searchParams: PageProps<"/browse">["searchParams"] }) {
   const params = parseBrowseParams(await searchParams);
+  // A plain visit to Browse starts from the grade and subject the teacher said they teach.
+  // Any search, filter or "Show all" (all=1) leaves the results as asked.
+  const prefs = !params.q && !params.all && activeFilters(params).length === 0 ? await getTeachingPreferences() : null;
+  if (prefs) {
+    if (prefs.grade) params.grade = prefs.grade.code;
+    if (prefs.subject) params.subject = prefs.subject.code;
+    params.all = "1";
+  }
   const [taxonomy, result] = await Promise.all([getTaxonomy(), browseProducts(params)]);
   const sort = effectiveSort(params);
   const active = activeFilters(params);
-  const clearHref = params.q ? `/browse?q=${encodeURIComponent(params.q)}` : "/browse";
+  const clearHref = params.q ? `/browse?q=${encodeURIComponent(params.q)}&all=1` : "/browse?all=1";
   const sortOptions = [...(params.q ? ["relevance"] : []), "newest", "popular", "rating", "price_asc", "price_desc"].map((s) => ({
     label: SORT_LABEL[s],
     href: browseHref(params, { sort: s }),
     active: s === sort,
   }));
   // Kept when filters change: the search words, the shop being browsed and the sort order.
-  const carried = (["q", "shop", "sort"] as const).map((k) =>
+  const carried = (["q", "shop", "sort", "all"] as const).map((k) =>
     params[k] ? <input key={k} type="hidden" name={k} value={String(params[k])} /> : null,
   );
 
@@ -202,6 +211,14 @@ async function Browse({ searchParams }: { searchParams: PageProps<"/browse">["se
           ) : null}
         </div>
 
+        {prefs ? (
+          <p data-testid="pref-banner" className="rounded-[10px] bg-accent-soft px-4 py-3 text-sm">
+            Showing {[prefs.grade?.name, prefs.subject?.name].filter(Boolean).join(" · ")} resources, based on what you teach.{" "}
+            <Link href={clearHref} className="font-semibold text-primary hover:underline">Show all resources</Link>
+            {" · "}
+            <Link href="/account#teaching" className="font-semibold text-primary hover:underline">Change</Link>
+          </p>
+        ) : null}
         <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-2">
           <h1 id="results-h" className="font-display text-2xl font-bold">
             {params.q ? <>Results for &ldquo;{params.q}&rdquo;</> : "All teaching resources"}

@@ -192,8 +192,9 @@ export function ListingForm({
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="topic">Topic (optional)</Label>
-            <Input {...field("topic")} maxLength={200} defaultValue={values.topic} />
+            <Label htmlFor="topic">Lesson topic (needed before review)</Label>
+            <Input {...field("topic")} maxLength={200} defaultValue={values.topic} placeholder="e.g. Heat vs. Temperature" />
+            <p className="text-xs text-muted-foreground">Shown as the main title on cards and your resource page. Keep it short: one topic, not a list.</p>
             <FieldError id="topic-error" messages={fe.topic} />
           </div>
           <div className="flex flex-col gap-1.5">

@@ -74,6 +74,12 @@ async function Overview() {
           Slide previews
         </Link>
       </Card>
+      <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <p className="text-sm">Check new reviews and hide any that break the rules.</p>
+        <Link href="/admin/reviews" className="text-sm font-semibold text-primary hover:underline">
+          Reviews
+        </Link>
+      </Card>
       <Card className="p-6">
         <h2 className="mb-4 font-display text-xl font-bold">Recent activity</h2>
         {audit.data?.length ? (

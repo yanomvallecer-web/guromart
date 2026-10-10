@@ -47,7 +47,7 @@ test("paying unlocks downloads only after PayMongo's signed confirmation", async
   const buyerId = await userIdFor(email);
   const [order] = await serviceRest(`orders?user_id=eq.${buyerId}&select=id,status,order_items(seller_earnings_centavos,platform_fee_centavos)`);
   expect(order.status).toBe("paid");
-  expect(order.order_items).toEqual([{ seller_earnings_centavos: 8400, platform_fee_centavos: 3600 }]);
+  expect(order.order_items).toEqual([{ seller_earnings_centavos: 10800, platform_fee_centavos: 1200 }]);
 
   // A replayed delivery changes nothing.
   const last = await (await fetch(`${STAND_IN}/last-delivery`)).json();
@@ -121,18 +121,18 @@ test("a failed attempt and an expired order are explained, and a late payment st
   await page.goto("/library");
   await expect(page.getByRole("link", { name: "Late Payment Test Reading Passage" })).toBeVisible();
 
-  // The seller's earnings come from the ledger: ₱120 less the 30% Starter fee, on hold for 7 days.
+  // The seller's earnings come from the ledger: ₱120 less the 10% GuroMart fee, on hold for 7 days.
   await seller.goto("/seller/earnings");
-  await expect(seller.getByTestId("earnings-pending")).toHaveText("₱84.00");
+  await expect(seller.getByTestId("earnings-pending")).toHaveText("₱108.00");
   await expect(seller.getByTestId("earnings-available")).toHaveText("₱0.00");
-  await expect(seller.getByTestId("earnings-lifetime")).toHaveText("₱84.00");
+  await expect(seller.getByTestId("earnings-lifetime")).toHaveText("₱108.00");
   const sale = seller.getByTestId("earnings-sale");
   await expect(sale).toHaveCount(1);
   await expect(sale).toContainText("Late Payment Test Reading Passage");
   await expect(sale).toContainText("₱120.00");
-  await expect(sale).toContainText("GuroMart fee (30%)");
-  await expect(sale).toContainText("-₱36.00");
+  await expect(sale).toContainText("GuroMart fee (10%)");
+  await expect(sale).toContainText("-₱12.00");
   await expect(sale).toContainText("On hold until");
-  await expect(seller.getByTestId("earnings-releases")).toContainText("₱84.00");
+  await expect(seller.getByTestId("earnings-releases")).toContainText("₱108.00");
   await sellerContext.close();
 });
