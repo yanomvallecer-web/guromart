@@ -9,7 +9,7 @@ const WATERMARK = "Preview · GuroMart";
 
 export type SlideImage = { index: number; blob: Blob; url: string };
 
-export async function renderSlideImages(file: File, max: number, onProgress?: (done: number, total: number) => void): Promise<{ total: number; images: SlideImage[] }> {
+export async function renderSlideImages(file: Blob, max: number, onProgress?: (done: number, total: number) => void): Promise<{ total: number; images: SlideImage[] }> {
   const [{ parseZip, buildPresentation, renderSlide, RECOMMENDED_ZIP_LIMITS }, { toCanvas }] = await Promise.all([
     import("@aiden0z/pptx-renderer"),
     import("html-to-image"),

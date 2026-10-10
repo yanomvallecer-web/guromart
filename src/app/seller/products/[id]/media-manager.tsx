@@ -6,7 +6,7 @@ import { FileText, ImageIcon, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FormAlert } from "@/components/ui/form";
 import { ACCEPT, MAX_PREVIEWS, type UploadKind } from "@/lib/listings/uploads";
-import { SlideMaker } from "./slide-maker";
+import { SlideMaker, addSlidePreviews } from "./slide-maker";
 import { removeMedia } from "../actions";
 import { uploadAll } from "./upload-all";
 
@@ -25,6 +25,8 @@ function size(bytes: number) {
 }
 
 export function MediaManager({ listingId, editable, files, previews }: { listingId: string; editable: boolean; files: FileRow[]; previews: PreviewRow[] }) {
+  const slotsLeft = MAX_PREVIEWS - previews.length;
+  const decks = files.filter((f) => f.file_format === "pptx").map((f) => ({ id: f.id, name: f.original_filename }));
   return (
     <>
       <section className="flex flex-col gap-4">
@@ -53,7 +55,7 @@ export function MediaManager({ listingId, editable, files, previews }: { listing
             ))}
           </ul>
         ) : null}
-        {editable ? <Uploader listingId={listingId} kind="file" label="Upload files" /> : <LockedNote />}
+        {editable ? <Uploader listingId={listingId} kind="file" label="Upload files" previewSlots={slotsLeft} /> : <LockedNote />}
       </section>
 
       <section className="flex flex-col gap-4">
@@ -61,17 +63,9 @@ export function MediaManager({ listingId, editable, files, previews }: { listing
           <h2 className="font-display text-xl font-bold">Preview images</h2>
           <p className="text-sm text-muted-foreground">
             Public images that show what&apos;s inside, such as a cover and sample pages. PNG, JPG or WebP, up to 5 MB, 6 images at most.
-            The first image is the big one; the rest show as small slides under it.
+            The first image is the big one; the rest show as small slides under it. When you upload a PowerPoint, its first slides are added
+            here automatically.
           </p>
-          <details className="mt-2 text-sm">
-            <summary className="cursor-pointer font-semibold text-primary">How to turn PowerPoint slides into images</summary>
-            <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">
-              <li>In PowerPoint, choose File, then Export (on a Mac, File, then Export).</li>
-              <li>Pick PNG as the file format and choose &quot;All slides&quot;. PowerPoint saves one image per slide in a folder.</li>
-              <li>Upload your cover slide first, then up to 5 sample slides. Keep answer keys and full lessons out of the previews.</li>
-            </ol>
-            <p className="mt-1 text-muted-foreground">In Google Slides, use File, then Download, then PNG image for the current slide.</p>
-          </details>
         </div>
         {previews.length ? (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3" data-testid="preview-list">
@@ -91,7 +85,7 @@ export function MediaManager({ listingId, editable, files, previews }: { listing
         {editable ? (
           <div className="flex flex-col gap-3">
             <Uploader listingId={listingId} kind="preview" label="Add preview images" />
-            <SlideMaker listingId={listingId} slotsLeft={MAX_PREVIEWS - previews.length} />
+            <SlideMaker listingId={listingId} slotsLeft={slotsLeft} decks={decks} />
           </div>
         ) : (
           <LockedNote />
@@ -105,14 +99,19 @@ function LockedNote() {
   return <p className="text-sm text-muted-foreground">Unpublish the resource to a draft to change its files.</p>;
 }
 
-function Uploader({ listingId, kind, label }: { listingId: string; kind: UploadKind; label: string }) {
+function Uploader({ listingId, kind, label, previewSlots = 0 }: { listingId: string; kind: UploadKind; label: string; previewSlots?: number }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
 
   async function upload(list: FileList) {
-    setErrors(await uploadAll(listingId, kind, Array.from(list), setProgress));
+    const all = Array.from(list);
+    const failed = await uploadAll(listingId, kind, all, setProgress);
+    // A PowerPoint that uploaded fine also fills the free preview places with its first slides.
+    const deck = kind === "file" ? all.find((f) => f.name.toLowerCase().endsWith(".pptx") && !failed.some((e) => e.startsWith(`${f.name}:`))) : undefined;
+    if (deck) failed.push(...(await addSlidePreviews(listingId, deck, deck.name, previewSlots, setProgress)));
+    setErrors(failed);
     setProgress(null);
     if (input.current) input.current.value = "";
     router.refresh();

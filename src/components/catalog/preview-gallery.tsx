@@ -30,7 +30,7 @@ export function PreviewGallery({ images }: { images: GalleryImage[] }) {
         <img
           src={shown.src}
           alt={shown.alt}
-          className="aspect-[4/3] max-h-[60dvh] w-full rounded-[12px] border border-border bg-surface object-contain lg:max-h-[70dvh]"
+          className="mx-auto block h-auto max-h-[60dvh] w-full rounded-[12px] border border-border bg-surface object-contain lg:max-h-[70dvh]"
         />
         {many ? (
           <>

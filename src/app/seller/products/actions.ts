@@ -211,6 +211,17 @@ export async function confirmUpload(id: string, input: { kind: UploadKind; path:
   return { ok: true };
 }
 
+/** A short-lived link to one of the seller's own uploaded PowerPoints, so their browser can draw slide previews from it. */
+export async function ownPowerPointUrl(id: string, fileId: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const { supabase } = await ownListing(id);
+  if (!idSchema.safeParse(fileId).success) return { ok: false, error: "Unknown file." };
+  const { data: file } = await supabase.from("product_files").select("storage_path, file_format").eq("id", fileId).eq("product_id", id).maybeSingle();
+  if (!file || file.file_format !== "pptx") return { ok: false, error: "That file isn't a PowerPoint on this listing." };
+  const { data, error } = await createAdminClient().storage.from(BUCKET.file).createSignedUrl(file.storage_path, 120);
+  if (error || !data) return { ok: false, error: "We couldn't open the file. Please try again." };
+  return { ok: true, url: data.signedUrl };
+}
+
 /** New previews go after the existing ones, so they show in the order they were added. */
 async function nextPreviewOrder(supabase: Awaited<ReturnType<typeof ownListing>>["supabase"], id: string) {
   const { data } = await supabase.from("product_previews").select("sort_order").eq("product_id", id).order("sort_order", { ascending: false }).limit(1);
