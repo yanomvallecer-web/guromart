@@ -6,6 +6,7 @@ GuroMart is a multi-vendor marketplace where Filipino teachers discover, buy, do
 
 - [Architecture and decisions](docs/ARCHITECTURE.md)
 - [Roadmap, feature status and remaining dependencies](docs/ROADMAP.md)
+- [Android app on Google Play](docs/ANDROID.md)
 
 ## What works today (Phases 1 and 2, part of Phase 3)
 

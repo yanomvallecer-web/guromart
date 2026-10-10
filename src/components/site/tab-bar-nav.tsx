@@ -33,9 +33,10 @@ export function TabBarNav({ signedIn, cartCount }: { signedIn: boolean; cartCoun
 
   return (
     <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden">
-      <ul className="grid h-[var(--bottom-bar)] grid-cols-5">
+      {/* Equal columns for however many tabs show: the Android app hides Cart. */}
+      <ul className="grid h-[var(--bottom-bar)] auto-cols-fr grid-flow-col">
         {tabs.map(({ label, href, icon: Icon, active, badge }) => (
-          <li key={label} className="min-w-0">
+          <li key={label} className="min-w-0" data-web-checkout={label === "Cart" ? true : undefined}>
             <Link
               href={href}
               aria-current={active ? "page" : undefined}

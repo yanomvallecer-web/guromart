@@ -5,6 +5,7 @@ import { FileText, ShoppingCart } from "lucide-react";
 import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, EmptyState } from "@/components/ui/card";
+import { WebCheckoutOnly } from "@/components/site/android-app";
 import { requireViewer } from "@/lib/auth/dal";
 import { getCart } from "@/lib/commerce/cart";
 import { formatPrice } from "@/lib/format";
@@ -74,39 +75,43 @@ async function CartContents() {
         ))}
       </ul>
 
-      {paymongoConfig() && cart.buyableCount ? (
-        // On phones the total and Pay button sit in a bar above the tab bar; from md up, a summary card.
-        <Card
-          data-testid="checkout-bar"
-          data-stacked-bar
-          className="flex h-fit flex-col gap-3 p-5 max-md:fixed max-md:inset-x-0 max-md:bottom-[calc(var(--bottom-bar)+env(safe-area-inset-bottom))] max-md:z-30 max-md:flex-row max-md:items-center max-md:gap-3 max-md:rounded-none max-md:border-x-0 max-md:px-4 max-md:py-2 max-md:shadow-[0_-4px_16px_rgb(21_35_63/0.08)]"
-        >
-          <h2 className="font-display text-lg font-bold max-md:sr-only">Summary</h2>
-          <div className="flex justify-between text-sm max-md:shrink-0 max-md:flex-col">
-            <span className="max-md:text-xs max-md:text-muted-foreground">{cart.buyableCount} {cart.buyableCount === 1 ? "resource" : "resources"}</span>
-            <span className="font-semibold max-md:font-display max-md:text-xl max-md:font-bold">{formatPrice(cart.totalCentavos)}</span>
-          </div>
-          <div className="min-w-0 flex-1 md:flex-none">
-            <CheckoutButton />
-          </div>
-          <p className="text-xs text-muted-foreground max-md:hidden">
-            You&apos;ll pay on PayMongo&apos;s secure page with GCash, Maya or a card. Test mode: no real money moves.
-          </p>
-        </Card>
-      ) : (
-        <Card className="flex h-fit flex-col gap-3 p-5">
-          <h2 className="font-display text-lg font-bold">Summary</h2>
-          <div className="flex justify-between text-sm">
-            <span>{cart.buyableCount} {cart.buyableCount === 1 ? "resource" : "resources"}</span>
-            <span className="font-semibold">{formatPrice(cart.totalCentavos)}</span>
-          </div>
-          {paymongoConfig() ? null : (
-            <p className="rounded-[10px] bg-surface-muted p-3 text-sm text-muted-foreground">
-              Online payment is not open yet. Your cart is saved, and you&apos;ll be able to pay with GCash, Maya or a card once checkout opens.
-            </p>
+      <div>
+        <WebCheckoutOnly>
+          {paymongoConfig() && cart.buyableCount ? (
+            // On phones the total and Pay button sit in a bar above the tab bar; from md up, a summary card.
+            <Card
+              data-testid="checkout-bar"
+              data-stacked-bar
+              className="flex h-fit flex-col gap-3 p-5 max-md:fixed max-md:inset-x-0 max-md:bottom-[calc(var(--bottom-bar)+env(safe-area-inset-bottom))] max-md:z-30 max-md:flex-row max-md:items-center max-md:gap-3 max-md:rounded-none max-md:border-x-0 max-md:px-4 max-md:py-2 max-md:shadow-[0_-4px_16px_rgb(21_35_63/0.08)]"
+            >
+              <h2 className="font-display text-lg font-bold max-md:sr-only">Summary</h2>
+              <div className="flex justify-between text-sm max-md:shrink-0 max-md:flex-col">
+                <span className="max-md:text-xs max-md:text-muted-foreground">{cart.buyableCount} {cart.buyableCount === 1 ? "resource" : "resources"}</span>
+                <span className="font-semibold max-md:font-display max-md:text-xl max-md:font-bold">{formatPrice(cart.totalCentavos)}</span>
+              </div>
+              <div className="min-w-0 flex-1 md:flex-none">
+                <CheckoutButton />
+              </div>
+              <p className="text-xs text-muted-foreground max-md:hidden">
+                You&apos;ll pay on PayMongo&apos;s secure page with GCash, Maya or a card. Test mode: no real money moves.
+              </p>
+            </Card>
+          ) : (
+            <Card className="flex h-fit flex-col gap-3 p-5">
+              <h2 className="font-display text-lg font-bold">Summary</h2>
+              <div className="flex justify-between text-sm">
+                <span>{cart.buyableCount} {cart.buyableCount === 1 ? "resource" : "resources"}</span>
+                <span className="font-semibold">{formatPrice(cart.totalCentavos)}</span>
+              </div>
+              {paymongoConfig() ? null : (
+                <p className="rounded-[10px] bg-surface-muted p-3 text-sm text-muted-foreground">
+                  Online payment is not open yet. Your cart is saved, and you&apos;ll be able to pay with GCash, Maya or a card once checkout opens.
+                </p>
+              )}
+            </Card>
           )}
-        </Card>
-      )}
+        </WebCheckoutOnly>
+      </div>
     </div>
   );
 }
