@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { methodNames, setUpWebhook, WEBHOOK_EVENTS, parseWebhookEvent, paymentMethodsSentence, paymentMethodsShort, paymongoConfig, verifyWebhookSignature } from "./paymongo";
+import { methodNames, paymentsReady, setUpWebhook, WEBHOOK_EVENTS, parseWebhookEvent, paymentMethodsSentence, paymentMethodsShort, paymongoConfig, verifyWebhookSignature } from "./paymongo";
 
 const secret = "whsk_test_secret";
 const sign = (body: string, t = "1791580000", key = secret) => createHmac("sha256", key).update(`${t}.${body}`).digest("hex");
@@ -173,5 +173,15 @@ describe("setUpWebhook", () => {
   it("reports PayMongo's error", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json(401, { errors: [{ detail: "API key is invalid." }] })));
     expect(await setUpWebhook(url, env)).toEqual({ ok: false, error: "PayMongo answered 401: API key is invalid." });
+  });
+});
+
+describe("paymentsReady", () => {
+  it("hides checkout instead of throwing when the key is not a test key", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(paymentsReady({ PAYMONGO_SECRET_KEY: "sk_live_x", PAYMONGO_WEBHOOK_SECRET: "whsk" })).toBe(false);
+    expect(paymentsReady({ PAYMONGO_SECRET_KEY: "sk_test_x", PAYMONGO_WEBHOOK_SECRET: "whsk" })).toBe(true);
+    expect(paymentsReady({})).toBe(false);
+    spy.mockRestore();
   });
 });

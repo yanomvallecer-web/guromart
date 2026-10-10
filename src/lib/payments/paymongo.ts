@@ -32,6 +32,16 @@ export function paymongoConfig(env: Record<string, string | undefined> = process
   return { secretKey, webhookSecret, apiBase, methods: paymentMethods(env) };
 }
 
+/** For pages: whether checkout can be offered. A bad setup hides checkout and is logged instead of breaking the page. */
+export function paymentsReady(env: Record<string, string | undefined> = process.env): boolean {
+  try {
+    return paymongoConfig(env) !== null;
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+
 /**
  * How buyers can pay, from PAYMONGO_PAYMENT_METHODS. The default is QR Ph,
  * the one method an individual (unregistered) PayMongo account can accept;

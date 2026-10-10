@@ -4,7 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { getViewer } from "@/lib/auth/dal";
 import { buyNowReady } from "@/lib/commerce/buy-now";
 import { getProductAccess } from "@/lib/commerce/cart";
-import { paymongoConfig } from "@/lib/payments/paymongo";
+import { paymentsReady } from "@/lib/payments/paymongo";
 import { cn } from "@/lib/utils";
 import { WebCheckoutOnly } from "@/components/site/android-app";
 import { BuyButton } from "./buy-button";
@@ -35,7 +35,7 @@ export async function BuyPanel({ productId, slug, free }: { productId: string; s
     );
   }
   // Buy now needs online payment and its database function (see lib/commerce/buy-now.ts).
-  const offerBuyNow = !free && Boolean(paymongoConfig()) && (await buyNowReady());
+  const offerBuyNow = !free && paymentsReady() && (await buyNowReady());
   if (access === "in_cart") {
     if (offerBuyNow) return webOnly(<BuyButton productId={productId} path={path} free={false} offerBuyNow inCart />);
     return webOnly(

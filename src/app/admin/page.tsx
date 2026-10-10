@@ -134,6 +134,11 @@ async function PaymentsCheck() {
       ) : (
         <p className="text-sm text-muted-foreground">PayMongo check: {account.error}</p>
       )}
+      {account.ok && account.mode === "live" ? (
+        <p className="text-sm font-semibold text-danger" data-testid="live-key-warning">
+          PAYMONGO_SECRET_KEY in Vercel is the LIVE key. Checkout stays closed until it&apos;s replaced with the TEST secret key (sk_test_…).
+        </p>
+      ) : null}
       <p className="text-sm text-muted-foreground">Webhook secret: {webhookSet ? "set" : "not set yet (checkout stays closed until it is)"}</p>
       {!webhookSet && account.ok ? <WebhookSetup /> : null}
     </Card>

@@ -9,7 +9,7 @@ import { WebCheckoutOnly } from "@/components/site/android-app";
 import { requireViewer } from "@/lib/auth/dal";
 import { getCart } from "@/lib/commerce/cart";
 import { formatPrice } from "@/lib/format";
-import { paymongoConfig, paymentMethodsSentence } from "@/lib/payments/paymongo";
+import { paymentMethodsSentence, paymentsReady } from "@/lib/payments/paymongo";
 import { publicObjectUrl } from "@/lib/storage";
 import { CheckoutButton } from "./checkout-button";
 import { RemoveFromCart } from "./remove-button";
@@ -77,7 +77,7 @@ async function CartContents() {
 
       <div>
         <WebCheckoutOnly>
-          {paymongoConfig() && cart.buyableCount ? (
+          {paymentsReady() && cart.buyableCount ? (
             // On phones the total and Pay button sit in a bar above the tab bar; from md up, a summary card.
             <Card
               data-testid="checkout-bar"
@@ -103,7 +103,7 @@ async function CartContents() {
                 <span>{cart.buyableCount} {cart.buyableCount === 1 ? "resource" : "resources"}</span>
                 <span className="font-semibold">{formatPrice(cart.totalCentavos)}</span>
               </div>
-              {paymongoConfig() ? null : (
+              {paymentsReady() ? null : (
                 <p className="rounded-[10px] bg-surface-muted p-3 text-sm text-muted-foreground">
                   Online payment is not open yet. Your cart is saved, and you&apos;ll be able to pay with {paymentMethodsSentence()} once checkout opens.
                 </p>
