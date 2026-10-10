@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { methodNames, paymentsReady, setUpWebhook, WEBHOOK_EVENTS, parseWebhookEvent, paymentMethodsSentence, paymentMethodsShort, paymongoConfig, verifyWebhookSignature } from "./paymongo";
+import { methodNames, paymentsLive, paymentsReady, setUpWebhook, WEBHOOK_EVENTS, parseWebhookEvent, paymentMethodsSentence, paymentMethodsShort, paymongoConfig, verifyWebhookSignature } from "./paymongo";
 
 const secret = "whsk_test_secret";
 const sign = (body: string, t = "1791580000", key = secret) => createHmac("sha256", key).update(`${t}.${body}`).digest("hex");
@@ -111,7 +111,7 @@ describe("paymongoConfig", () => {
   });
 
   it("defaults to the PayMongo API with QR Ph, which individual accounts can accept", () => {
-    expect(paymongoConfig(base)).toEqual({ ...{ secretKey: "sk_test_abc", webhookSecret: "whsk_abc" }, apiBase: "https://api.paymongo.com", methods: ["qrph"] });
+    expect(paymongoConfig(base)).toEqual({ ...{ secretKey: "sk_test_abc", webhookSecret: "whsk_abc" }, apiBase: "https://api.paymongo.com", methods: ["qrph"], live: false });
     expect(paymongoConfig({ ...base, PAYMONGO_PAYMENT_METHODS: "qrph, gcash,paymaya,card" })?.methods).toEqual(["qrph", "gcash", "paymaya", "card"]);
   });
 
@@ -124,8 +124,23 @@ describe("paymongoConfig", () => {
     expect(paymentMethodsSentence(["gcash", "card", "qrph"])).toBe("GCash, a card or a QR Ph code from any bank app");
   });
 
-  it("refuses live keys and unknown API hosts", () => {
-    expect(() => paymongoConfig({ ...base, PAYMONGO_SECRET_KEY: "sk_live_abc" })).toThrow(/test key/);
+  it("refuses a live key unless real payments are switched on", () => {
+    expect(() => paymongoConfig({ ...base, PAYMONGO_SECRET_KEY: "sk_live_abc" })).toThrow(/real payments are off/);
+    expect(() => paymongoConfig({ ...base, PAYMONGO_SECRET_KEY: "sk_live_abc", PAYMONGO_LIVE_PAYMENTS: "yes" })).toThrow(/real payments are off/);
+    expect(paymongoConfig({ ...base, PAYMONGO_SECRET_KEY: "sk_live_abc", PAYMONGO_LIVE_PAYMENTS: "on" })?.live).toBe(true);
+    expect(paymentsLive({ ...base, PAYMONGO_SECRET_KEY: "sk_live_abc", PAYMONGO_LIVE_PAYMENTS: "on" })).toBe(true);
+    expect(paymentsLive({ ...base, PAYMONGO_SECRET_KEY: "sk_live_abc" })).toBe(false);
+    expect(paymentsLive(base)).toBe(false);
+    expect(() => paymongoConfig({ ...base, PAYMONGO_SECRET_KEY: "pk_test_abc" })).toThrow(/secret key/);
+  });
+
+  it("never points a live key at a stand-in API", () => {
+    expect(() =>
+      paymongoConfig({ ...base, PAYMONGO_SECRET_KEY: "sk_live_abc", PAYMONGO_LIVE_PAYMENTS: "on", PAYMONGO_API_BASE: "http://127.0.0.1:4010" }),
+    ).toThrow(/API_BASE/);
+  });
+
+  it("refuses unknown API hosts", () => {
     expect(() => paymongoConfig({ ...base, PAYMONGO_API_BASE: "https://evil.example.com" })).toThrow(/API_BASE/);
     expect(paymongoConfig({ ...base, PAYMONGO_API_BASE: "http://127.0.0.1:4010/" })?.apiBase).toBe("http://127.0.0.1:4010");
   });
@@ -148,7 +163,7 @@ describe("setUpWebhook", () => {
 
   it("refuses without a test key", async () => {
     expect(await setUpWebhook(url, {})).toMatchObject({ ok: false });
-    expect(await setUpWebhook(url, { PAYMONGO_SECRET_KEY: "sk_live_x" })).toMatchObject({ ok: false });
+    expect(await setUpWebhook(url, { PAYMONGO_SECRET_KEY: "sk_live_x" })).toMatchObject({ ok: false, error: expect.stringMatching(/real payments are off/) });
   });
 
   it("creates the webhook with both events and returns its secret", async () => {

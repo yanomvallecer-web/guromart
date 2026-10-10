@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
 import { Card } from "@/components/ui/card";
 import { requireArea } from "@/lib/auth/dal";
-import { METHOD_NAME, accountPaymentMethods, paymentMethods } from "@/lib/payments/paymongo";
+import { METHOD_NAME, accountPaymentMethods, livePaymentsAllowed, paymentMethods } from "@/lib/payments/paymongo";
 import { createClient } from "@/lib/supabase/server";
 import { WebhookSetup } from "./webhook-setup";
 
@@ -135,9 +135,16 @@ async function PaymentsCheck() {
         <p className="text-sm text-muted-foreground">PayMongo check: {account.error}</p>
       )}
       {account.ok && account.mode === "live" ? (
-        <p className="text-sm font-semibold text-danger" data-testid="live-key-warning">
-          PAYMONGO_SECRET_KEY in Vercel is the LIVE key. Checkout stays closed until it&apos;s replaced with the TEST secret key (sk_test_…).
-        </p>
+        livePaymentsAllowed() ? (
+          <p className="text-sm font-semibold text-success" data-testid="live-payments-on">
+            Real payments are ON: buyers are charged real money.
+          </p>
+        ) : (
+          <p className="text-sm font-semibold text-danger" data-testid="live-key-warning">
+            PAYMONGO_SECRET_KEY in Vercel is the LIVE key, but real payments are off, so checkout stays closed. Set PAYMONGO_LIVE_PAYMENTS to
+            &quot;on&quot; in Vercel to start taking real payments.
+          </p>
+        )
       ) : null}
       <p className="text-sm text-muted-foreground">Webhook secret: {webhookSet ? "set" : "not set yet (checkout stays closed until it is)"}</p>
       {!webhookSet && account.ok ? <WebhookSetup /> : null}

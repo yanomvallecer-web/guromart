@@ -9,7 +9,7 @@ import { WebCheckoutOnly } from "@/components/site/android-app";
 import { requireViewer } from "@/lib/auth/dal";
 import { getCart } from "@/lib/commerce/cart";
 import { formatPrice } from "@/lib/format";
-import { paymentMethodsSentence, paymentsReady } from "@/lib/payments/paymongo";
+import { paymentMethodsSentence, paymentsLive, paymentsReady } from "@/lib/payments/paymongo";
 import { publicObjectUrl } from "@/lib/storage";
 import { CheckoutButton } from "./checkout-button";
 import { RemoveFromCart } from "./remove-button";
@@ -93,7 +93,7 @@ async function CartContents() {
                 <CheckoutButton />
               </div>
               <p className="text-xs text-muted-foreground max-md:hidden">
-                You&apos;ll pay on PayMongo&apos;s secure page with {paymentMethodsSentence()}. Test mode: no real money moves.
+                You&apos;ll pay on PayMongo&apos;s secure page with {paymentMethodsSentence()}.{paymentsLive() ? null : " Test mode: no real money moves."}
               </p>
             </Card>
           ) : (

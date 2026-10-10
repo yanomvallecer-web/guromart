@@ -7,29 +7,52 @@ import { z } from "zod";
  * https://developers.paymongo.com/docs/creating-webhook
  */
 
-export type PaymongoConfig = { secretKey: string; webhookSecret: string; apiBase: string; methods: string[] };
+export type PaymongoConfig = { secretKey: string; webhookSecret: string; apiBase: string; methods: string[]; live: boolean };
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
 /**
  * Payment configuration from the server environment, or null when payments
- * are not set up. Only test keys are accepted until GuroMart is cleared to
- * take real payments. A different API base (a local stand-in for tests) is
- * only allowed on localhost.
+ * are not set up. A live key (real money) is refused unless the owner has
+ * also set PAYMONGO_LIVE_PAYMENTS=on, so a pasted live key alone never starts
+ * charging buyers. A different API base (a local stand-in for tests) is only
+ * allowed on localhost, and never with a live key.
  */
 export function paymongoConfig(env: Record<string, string | undefined> = process.env): PaymongoConfig | null {
   const secretKey = env.PAYMONGO_SECRET_KEY?.trim();
   const webhookSecret = env.PAYMONGO_WEBHOOK_SECRET?.trim();
   if (!secretKey || !webhookSecret) return null;
-  if (!secretKey.startsWith("sk_test_")) {
-    throw new Error("PAYMONGO_SECRET_KEY must be a test key (sk_test_…). Live payments are not enabled.");
-  }
+  const live = keyMode(secretKey, env);
   const apiBase = (env.PAYMONGO_API_BASE?.trim() || "https://api.paymongo.com").replace(/\/$/, "");
   const host = new URL(apiBase).hostname;
-  if (host !== "api.paymongo.com" && !LOCAL_HOSTS.has(host)) {
+  if (host !== "api.paymongo.com" && (live || !LOCAL_HOSTS.has(host))) {
     throw new Error("PAYMONGO_API_BASE may only point to api.paymongo.com or a local test server.");
   }
-  return { secretKey, webhookSecret, apiBase, methods: paymentMethods(env) };
+  return { secretKey, webhookSecret, apiBase, methods: paymentMethods(env), live };
+}
+
+/** Whether the switch for real payments is on. */
+export function livePaymentsAllowed(env: Record<string, string | undefined> = process.env): boolean {
+  return env.PAYMONGO_LIVE_PAYMENTS?.trim().toLowerCase() === "on";
+}
+
+/** true for an allowed live key, false for a test key; throws for anything else. */
+function keyMode(secretKey: string, env: Record<string, string | undefined>): boolean {
+  if (secretKey.startsWith("sk_test_")) return false;
+  if (secretKey.startsWith("sk_live_")) {
+    if (livePaymentsAllowed(env)) return true;
+    throw new Error("PAYMONGO_SECRET_KEY is a live key, but real payments are off. Set PAYMONGO_LIVE_PAYMENTS=on to allow them.");
+  }
+  throw new Error("PAYMONGO_SECRET_KEY must be a PayMongo secret key (sk_test_… or sk_live_…).");
+}
+
+/** For pages: whether checkout takes real money. False when payments are off or in test mode. */
+export function paymentsLive(env: Record<string, string | undefined> = process.env): boolean {
+  try {
+    return paymongoConfig(env)?.live ?? false;
+  } catch {
+    return false;
+  }
 }
 
 /** For pages: whether checkout can be offered. A bad setup hides checkout and is logged instead of breaking the page. */
@@ -113,7 +136,12 @@ export async function setUpWebhook(
   env: Record<string, string | undefined> = process.env,
 ): Promise<{ ok: true; secret: string; existed: boolean } | { ok: false; error: string }> {
   const secretKey = env.PAYMONGO_SECRET_KEY?.trim();
-  if (!secretKey?.startsWith("sk_test_")) return { ok: false, error: "Add the PayMongo test secret key (sk_test_…) to Vercel first." };
+  if (!secretKey) return { ok: false, error: "Add the PayMongo secret key to Vercel first." };
+  try {
+    keyMode(secretKey, env);
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
   const apiBase = (env.PAYMONGO_API_BASE?.trim() || "https://api.paymongo.com").replace(/\/$/, "");
   if (!["api.paymongo.com", ...LOCAL_HOSTS].includes(new URL(apiBase).hostname)) return { ok: false, error: "PAYMONGO_API_BASE points somewhere unexpected." };
   const headers = { Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`, "Content-Type": "application/json", Accept: "application/json" };

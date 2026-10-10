@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 
 type OrderStatus = "pending_payment" | "paid" | "failed" | "cancelled" | "expired" | "refunded" | "partially_refunded";
 
-export type OrderPayment = { payment_method: string | null; status: string; failure_reason: string | null };
+export type OrderPayment = { payment_method: string | null; status: string; failure_reason: string | null; livemode: boolean };
 
 export type OrderSummary = {
   id: string;
@@ -35,7 +35,7 @@ export async function expireStaleOrders(supabase: SupabaseClient) {
 type PaymentRow = OrderPayment & { created_at: string };
 const latest = (payments: PaymentRow[]): OrderPayment | null => {
   const p = [...payments].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-  return p ? { payment_method: p.payment_method, status: p.status, failure_reason: p.failure_reason } : null;
+  return p ? { payment_method: p.payment_method, status: p.status, failure_reason: p.failure_reason, livemode: p.livemode } : null;
 };
 
 /** The signed-in buyer's orders, newest first (RLS limits rows to their own). */
@@ -44,7 +44,7 @@ export async function listOrders(): Promise<OrderSummary[]> {
   await expireStaleOrders(supabase);
   const { data, error } = await supabase
     .from("orders")
-    .select("id, order_number, status, total_centavos, created_at, paid_at, payments(payment_method, status, failure_reason, created_at)")
+    .select("id, order_number, status, total_centavos, created_at, paid_at, payments(payment_method, status, failure_reason, livemode, created_at)")
     .order("created_at", { ascending: false })
     .limit(100);
   if (error) throw new Error(`Could not load your orders: ${error.message}`);
@@ -64,7 +64,7 @@ export async function getOrder(orderNumber: string): Promise<OrderDetail | null>
     .select(
       `id, order_number, status, total_centavos, created_at, paid_at,
        order_items(id, title_snapshot, unit_price_centavos, product_id),
-       payments(payment_method, status, failure_reason, created_at)`,
+       payments(payment_method, status, failure_reason, livemode, created_at)`,
     )
     .eq("order_number", orderNumber)
     .maybeSingle();

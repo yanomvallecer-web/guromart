@@ -17,8 +17,10 @@ export async function POST(request: Request) {
 
   const event = parseWebhookEvent(rawBody);
   if (!event) return new NextResponse("Malformed event.", { status: 400 });
-  // Test keys only: a live-mode event is never applied here.
-  if (signature.livemode || event.livemode) return NextResponse.json({ received: true, outcome: "live_ignored" });
+  // Only events from the mode the site is running in are applied: test events never touch a live shop, and live events need the live switch on.
+  if (signature.livemode !== config.live || event.livemode !== config.live) {
+    return NextResponse.json({ received: true, outcome: event.livemode ? "live_ignored" : "test_ignored" });
+  }
 
   const { data, error } = await createAdminClient().rpc("apply_payment_event", {
     p_event_id: event.eventId,

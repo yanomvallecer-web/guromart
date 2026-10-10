@@ -104,7 +104,7 @@ async function Order({ params }: { params: PageProps<"/orders/[number]">["params
         <p><span className="text-muted-foreground">Ordered:</span> {dateFmt.format(new Date(order.created_at))}</p>
         {order.paid_at ? <p><span className="text-muted-foreground">Paid:</span> {dateFmt.format(new Date(order.paid_at))}</p> : null}
         {order.payment?.payment_method ? <p><span className="text-muted-foreground">Paid with:</span> {METHOD_NAME[order.payment.payment_method] ?? order.payment.payment_method}</p> : null}
-        <p className="text-muted-foreground">Payments are processed by PayMongo. Test mode: no real money moves.</p>
+        <p className="text-muted-foreground">Payments are processed by PayMongo.{order.payment && !order.payment.livemode ? " Test mode: no real money moves." : null}</p>
       </Card>
     </div>
   );
