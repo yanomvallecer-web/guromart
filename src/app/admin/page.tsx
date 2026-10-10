@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
 import { Card } from "@/components/ui/card";
 import { requireArea } from "@/lib/auth/dal";
+import { METHOD_NAME, accountPaymentMethods, paymentMethods } from "@/lib/payments/paymongo";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Admin", robots: { index: false } };
@@ -13,6 +14,9 @@ export default function AdminPage() {
     <PageShell title="Admin" description="Marketplace overview. Every number here is a live count from the database.">
       <Suspense fallback={<PanelSkeleton />}>
         <Overview />
+      </Suspense>
+      <Suspense fallback={<PanelSkeleton />}>
+        <PaymentsCheck />
       </Suspense>
     </PageShell>
   );
@@ -97,5 +101,39 @@ async function Overview() {
         )}
       </Card>
     </div>
+  );
+}
+
+/** What payments need, checked live with PayMongo. Keys are never shown, only whether they're set. */
+async function PaymentsCheck() {
+  await requireArea("admin", "/admin");
+  const offered = paymentMethods();
+  const account = await accountPaymentMethods();
+  const webhookSet = Boolean(process.env.PAYMONGO_WEBHOOK_SECRET?.trim());
+  const name = (m: string) => METHOD_NAME[m] ?? m;
+  const missing = account.ok ? offered.filter((m) => !account.methods.includes(m)) : [];
+  return (
+    <Card className="mt-6 flex flex-col gap-2 p-6" data-testid="payments-check">
+      <h2 className="font-display text-xl font-bold">Payments</h2>
+      <p className="text-sm">
+        <span className="text-muted-foreground">GuroMart offers:</span> {offered.map(name).join(", ")}
+      </p>
+      {account.ok ? (
+        <>
+          <p className="text-sm">
+            <span className="text-muted-foreground">PayMongo ({account.mode} mode) allows this account:</span>{" "}
+            {account.methods.length ? account.methods.map(name).join(", ") : "no methods listed"}
+          </p>
+          <p className={`text-sm font-semibold ${missing.length ? "text-danger" : "text-success"}`}>
+            {missing.length
+              ? `Not allowed yet: ${missing.map(name).join(", ")}. Checkout would fail for these.`
+              : "Every method GuroMart offers is allowed."}
+          </p>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">PayMongo check: {account.error}</p>
+      )}
+      <p className="text-sm text-muted-foreground">Webhook secret: {webhookSet ? "set" : "not set yet (checkout stays closed until it is)"}</p>
+    </Card>
   );
 }

@@ -113,6 +113,8 @@ createServer(async (req, res) => {
       res.writeHead(303, { Location: session.success_url });
       return res.end();
     }
+    // Like an individual PayMongo account: QR Ph only.
+    if (req.method === "GET" && url.pathname === "/v1/merchants/capabilities/payment_methods") return send(res, 200, ["qrph"]);
     if (req.method === "GET" && url.pathname === "/last-delivery") return send(res, 200, lastDelivery ?? {});
     send(res, 404, "Not found", "text/plain");
   } catch (e) {

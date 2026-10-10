@@ -265,6 +265,9 @@ test("staff add slide previews to live PowerPoint listings in one click", async 
   await signIn(page, staffEmail, "/account");
   await serviceRest("user_roles", { method: "POST", body: JSON.stringify({ user_id: await userIdFor(staffEmail), role: "admin" }) });
   await page.goto("/admin");
+  // The payments check asks PayMongo (here the stand-in, set up like an individual account) what it allows.
+  await expect(page.getByTestId("payments-check")).toContainText("PayMongo (test mode) allows this account: QR Ph");
+  await expect(page.getByTestId("payments-check")).toContainText("Every method GuroMart offers is allowed.");
   await page.getByRole("link", { name: "Slide previews" }).click();
   const row = page.getByTestId("slide-backfill").locator("div.flex", { has: page.getByRole("link", { name: title }) });
   await expect(row).toContainText("lesson.pptx · 1 of 6 previews · published");

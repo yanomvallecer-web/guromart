@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { paymongoConfig, parseWebhookEvent, verifyWebhookSignature } from "./paymongo";
+import { methodNames, parseWebhookEvent, paymentMethodsSentence, paymentMethodsShort, paymongoConfig, verifyWebhookSignature } from "./paymongo";
 
 const secret = "whsk_test_secret";
 const sign = (body: string, t = "1791580000", key = secret) => createHmac("sha256", key).update(`${t}.${body}`).digest("hex");
@@ -110,13 +110,32 @@ describe("paymongoConfig", () => {
     expect(paymongoConfig({ PAYMONGO_SECRET_KEY: "sk_test_abc" })).toBeNull();
   });
 
-  it("defaults to the PayMongo API with GCash, Maya and cards", () => {
-    expect(paymongoConfig(base)).toEqual({ ...{ secretKey: "sk_test_abc", webhookSecret: "whsk_abc" }, apiBase: "https://api.paymongo.com", methods: ["gcash", "paymaya", "card"] });
+  it("defaults to the PayMongo API with QR Ph, which individual accounts can accept", () => {
+    expect(paymongoConfig(base)).toEqual({ ...{ secretKey: "sk_test_abc", webhookSecret: "whsk_abc" }, apiBase: "https://api.paymongo.com", methods: ["qrph"] });
+    expect(paymongoConfig({ ...base, PAYMONGO_PAYMENT_METHODS: "qrph, gcash,paymaya,card" })?.methods).toEqual(["qrph", "gcash", "paymaya", "card"]);
+  });
+
+  it("names the ways to pay for buyers", () => {
+    expect(paymentMethodsShort(["qrph"])).toBe("GCash · Maya · bank apps (QR Ph)");
+    expect(paymentMethodsShort(["gcash", "paymaya", "card"])).toBe("GCash · Maya · Card");
+    expect(paymentMethodsShort(["qrph", "gcash", "card"])).toBe("GCash · Card · QR Ph");
+    expect(paymentMethodsSentence(["qrph"])).toBe("a QR Ph code you scan with GCash, Maya or your bank app");
+    expect(paymentMethodsSentence(["gcash", "paymaya", "card"])).toBe("GCash, Maya or a card");
+    expect(paymentMethodsSentence(["gcash", "card", "qrph"])).toBe("GCash, a card or a QR Ph code from any bank app");
   });
 
   it("refuses live keys and unknown API hosts", () => {
     expect(() => paymongoConfig({ ...base, PAYMONGO_SECRET_KEY: "sk_live_abc" })).toThrow(/test key/);
     expect(() => paymongoConfig({ ...base, PAYMONGO_API_BASE: "https://evil.example.com" })).toThrow(/API_BASE/);
     expect(paymongoConfig({ ...base, PAYMONGO_API_BASE: "http://127.0.0.1:4010/" })?.apiBase).toBe("http://127.0.0.1:4010");
+  });
+});
+
+describe("methodNames", () => {
+  it("finds method names in the shapes PayMongo might return", () => {
+    expect(methodNames(["qrph", "card"])).toEqual(["qrph", "card"]);
+    expect(methodNames({ data: ["qrph"] })).toEqual(["qrph"]);
+    expect(methodNames({ data: [{ type: "gcash" }, { attributes: { payment_methods: ["paymaya"] } }] })).toEqual(["gcash", "paymaya"]);
+    expect(methodNames(null)).toEqual([]);
   });
 });

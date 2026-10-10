@@ -9,12 +9,12 @@ import { Badge, Card } from "@/components/ui/card";
 import { requireViewer } from "@/lib/auth/dal";
 import { getOrder, orderStatus } from "@/lib/commerce/orders";
 import { formatPrice } from "@/lib/format";
+import { METHOD_NAME } from "@/lib/payments/paymongo";
 import { RefreshWhilePending } from "./refresh-while-pending";
 
 export const metadata: Metadata = { title: "Order" };
 
 const dateFmt = new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" });
-const METHOD: Record<string, string> = { gcash: "GCash", paymaya: "Maya", card: "Card", grab_pay: "GrabPay", qrph: "QR Ph" };
 
 export default function OrderPage({ params }: PageProps<"/orders/[number]">) {
   return (
@@ -103,7 +103,7 @@ async function Order({ params }: { params: PageProps<"/orders/[number]">["params
         <h2 className="font-display text-lg font-bold">Receipt</h2>
         <p><span className="text-muted-foreground">Ordered:</span> {dateFmt.format(new Date(order.created_at))}</p>
         {order.paid_at ? <p><span className="text-muted-foreground">Paid:</span> {dateFmt.format(new Date(order.paid_at))}</p> : null}
-        {order.payment?.payment_method ? <p><span className="text-muted-foreground">Paid with:</span> {METHOD[order.payment.payment_method] ?? order.payment.payment_method}</p> : null}
+        {order.payment?.payment_method ? <p><span className="text-muted-foreground">Paid with:</span> {METHOD_NAME[order.payment.payment_method] ?? order.payment.payment_method}</p> : null}
         <p className="text-muted-foreground">Payments are processed by PayMongo. Test mode: no real money moves.</p>
       </Card>
     </div>

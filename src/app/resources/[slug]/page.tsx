@@ -9,6 +9,7 @@ import { BuyPanel } from "@/components/commerce/buy-panel";
 import { Card, Skeleton } from "@/components/ui/card";
 import { getPublishedProduct } from "@/lib/catalog/product";
 import { formatPrice } from "@/lib/format";
+import { paymentMethodsShort } from "@/lib/payments/paymongo";
 import { publicObjectUrl } from "@/lib/storage";
 
 const LICENSE: Record<string, string> = {
@@ -133,7 +134,7 @@ async function Resource({ params }: { params: PageProps<"/resources/[slug]">["pa
         >
           <div className="shrink-0">
             <p className={`font-display text-2xl font-bold leading-none md:text-3xl ${free ? "text-success" : ""}`}>{formatPrice(product.price_centavos)}</p>
-            {free ? null : <p data-web-checkout className="mt-1 text-xs text-muted-foreground">GCash · Maya · Card</p>}
+            {free ? null : <p data-web-checkout className="mt-1 text-xs text-muted-foreground">{paymentMethodsShort()}</p>}
           </div>
           <div className="min-w-0 flex-1 md:flex-none">
             <Suspense fallback={<Skeleton className="h-12 w-full" />}>

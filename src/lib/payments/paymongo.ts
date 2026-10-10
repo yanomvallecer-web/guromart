@@ -29,11 +29,87 @@ export function paymongoConfig(env: Record<string, string | undefined> = process
   if (host !== "api.paymongo.com" && !LOCAL_HOSTS.has(host)) {
     throw new Error("PAYMONGO_API_BASE may only point to api.paymongo.com or a local test server.");
   }
-  const methods = (env.PAYMONGO_PAYMENT_METHODS?.trim() || "gcash,paymaya,card")
+  return { secretKey, webhookSecret, apiBase, methods: paymentMethods(env) };
+}
+
+/**
+ * How buyers can pay, from PAYMONGO_PAYMENT_METHODS. The default is QR Ph,
+ * the one method an individual (unregistered) PayMongo account can accept;
+ * buyers scan it with GCash, Maya or a bank app. A registered business can
+ * list more, such as "qrph,gcash,paymaya,card".
+ */
+export function paymentMethods(env: Record<string, string | undefined> = process.env): string[] {
+  return (env.PAYMONGO_PAYMENT_METHODS?.trim() || "qrph")
     .split(",")
     .map((m) => m.trim())
     .filter(Boolean);
-  return { secretKey, webhookSecret, apiBase, methods };
+}
+
+/** A short line naming the ways to pay, for price boxes. */
+export function paymentMethodsShort(methods: string[] = paymentMethods()): string {
+  const named = methods.filter((m) => m !== "qrph").map((m) => METHOD_NAME[m] ?? m);
+  return methods.includes("qrph") && !named.length ? "GCash · Maya · bank apps (QR Ph)" : [...named, ...(methods.includes("qrph") ? ["QR Ph"] : [])].join(" · ");
+}
+
+/** The ways to pay in a sentence: "with …". */
+export function paymentMethodsSentence(methods: string[] = paymentMethods()): string {
+  const named = methods.filter((m) => m !== "qrph").map((m) => (m === "card" ? "a card" : (METHOD_NAME[m] ?? m)));
+  if (methods.includes("qrph")) named.push(named.length ? "a QR Ph code from any bank app" : "a QR Ph code you scan with GCash, Maya or your bank app");
+  return named.length > 1 ? `${named.slice(0, -1).join(", ")} or ${named.at(-1)}` : (named[0] ?? "");
+}
+
+export const METHOD_NAME: Record<string, string> = { qrph: "QR Ph", gcash: "GCash", paymaya: "Maya", card: "Card", grab_pay: "GrabPay" };
+
+/**
+ * Asks PayMongo which payment methods this account may use. Only the secret
+ * key is needed, so staff can check before the webhook is set up. The response
+ * shape isn't documented, so any list of method names found in it is returned.
+ */
+export async function accountPaymentMethods(
+  env: Record<string, string | undefined> = process.env,
+): Promise<{ ok: true; methods: string[]; mode: "test" | "live" } | { ok: false; error: string }> {
+  const secretKey = env.PAYMONGO_SECRET_KEY?.trim();
+  if (!secretKey) return { ok: false, error: "PAYMONGO_SECRET_KEY isn't set yet." };
+  if (!/^sk_(test|live)_/.test(secretKey)) return { ok: false, error: "PAYMONGO_SECRET_KEY doesn't look like a PayMongo secret key (sk_test_… or sk_live_…)." };
+  const apiBase = (env.PAYMONGO_API_BASE?.trim() || "https://api.paymongo.com").replace(/\/$/, "");
+  const host = new URL(apiBase).hostname;
+  if (host !== "api.paymongo.com" && !LOCAL_HOSTS.has(host)) return { ok: false, error: "PAYMONGO_API_BASE points somewhere unexpected." };
+  try {
+    const res = await fetch(`${apiBase}/v1/merchants/capabilities/payment_methods`, {
+      headers: { Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(10_000),
+      cache: "no-store",
+    });
+    const body: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      const detail = (body as { errors?: { detail?: string }[] } | null)?.errors?.[0]?.detail;
+      return { ok: false, error: `PayMongo answered ${res.status}${detail ? `: ${detail}` : ""}.` };
+    }
+    return { ok: true, methods: methodNames(body), mode: secretKey.startsWith("sk_live_") ? "live" : "test" };
+  } catch {
+    return { ok: false, error: "Couldn't reach PayMongo." };
+  }
+}
+
+/** Method names from an undocumented response: a list of strings, or objects with a type/name, at any depth. */
+export function methodNames(body: unknown): string[] {
+  const found = new Set<string>();
+  const walk = (v: unknown, depth: number) => {
+    if (depth > 4 || v == null) return;
+    if (Array.isArray(v)) {
+      for (const item of v) {
+        if (typeof item === "string") found.add(item);
+        else if (item && typeof item === "object") {
+          const o = item as Record<string, unknown>;
+          const name = [o.type, o.name, o.payment_method_type, o.id].find((x) => typeof x === "string");
+          if (typeof name === "string") found.add(name);
+          walk(o.attributes, depth + 1);
+        }
+      }
+    } else if (typeof v === "object") for (const x of Object.values(v as Record<string, unknown>)) walk(x, depth + 1);
+  };
+  walk(body, 0);
+  return [...found];
 }
 
 export type CheckoutLine = { name: string; amountCentavos: number };

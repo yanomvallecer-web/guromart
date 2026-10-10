@@ -185,7 +185,7 @@ test("the resource page puts the price and buy button in a bar at the bottom", a
 
   const bar = page.getByTestId("buy-bar");
   await expect(bar).toContainText("₱99.00");
-  await expect(bar).toContainText("GCash · Maya · Card");
+  await expect(bar).toContainText("GCash · Maya · bank apps (QR Ph)");
   await expect(bar.getByRole("link", { name: "Sign in to buy" })).toBeVisible();
   const box = (await bar.boundingBox())!;
   expect(box.y + box.height).toBeCloseTo(844, 0);
