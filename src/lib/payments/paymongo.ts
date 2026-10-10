@@ -83,9 +83,57 @@ export async function accountPaymentMethods(
     const body: unknown = await res.json().catch(() => null);
     if (!res.ok) {
       const detail = (body as { errors?: { detail?: string }[] } | null)?.errors?.[0]?.detail;
-      return { ok: false, error: `PayMongo answered ${res.status}${detail ? `: ${detail}` : ""}.` };
+      return { ok: false, error: `PayMongo answered ${res.status}${detail ? `: ${detail.replace(/\.$/, "")}` : ""}.` };
     }
     return { ok: true, methods: methodNames(body), mode: secretKey.startsWith("sk_live_") ? "live" : "test" };
+  } catch {
+    return { ok: false, error: "Couldn't reach PayMongo." };
+  }
+}
+
+export const WEBHOOK_EVENTS = ["checkout_session.payment.paid", "payment.failed"];
+
+/**
+ * Creates (or finds) the PayMongo webhook that tells GuroMart about payments,
+ * and returns its signing secret for PAYMONGO_WEBHOOK_SECRET. Docs:
+ * https://developers.paymongo.com/docs/creating-webhook
+ */
+export async function setUpWebhook(
+  url: string,
+  env: Record<string, string | undefined> = process.env,
+): Promise<{ ok: true; secret: string; existed: boolean } | { ok: false; error: string }> {
+  const secretKey = env.PAYMONGO_SECRET_KEY?.trim();
+  if (!secretKey?.startsWith("sk_test_")) return { ok: false, error: "Add the PayMongo test secret key (sk_test_…) to Vercel first." };
+  const apiBase = (env.PAYMONGO_API_BASE?.trim() || "https://api.paymongo.com").replace(/\/$/, "");
+  if (!["api.paymongo.com", ...LOCAL_HOSTS].includes(new URL(apiBase).hostname)) return { ok: false, error: "PAYMONGO_API_BASE points somewhere unexpected." };
+  const headers = { Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`, "Content-Type": "application/json", Accept: "application/json" };
+  const hook = z.object({ id: z.string(), attributes: z.object({ url: z.string(), secret_key: z.string().nullish(), events: z.array(z.string()).default([]) }) });
+  const fail = (res: Response, body: unknown) => {
+    const detail = (body as { errors?: { detail?: string }[] } | null)?.errors?.[0]?.detail;
+    return { ok: false as const, error: `PayMongo answered ${res.status}${detail ? `: ${detail.replace(/\.$/, "")}` : ""}.` };
+  };
+  try {
+    const listRes = await fetch(`${apiBase}/v1/webhooks`, { headers, signal: AbortSignal.timeout(10_000), cache: "no-store" });
+    const listBody: unknown = await listRes.json().catch(() => null);
+    if (!listRes.ok) return fail(listRes, listBody);
+    const existing = z.object({ data: z.array(hook) }).safeParse(listBody);
+    const same = existing.success ? existing.data.data.find((h) => h.attributes.url === url) : undefined;
+    if (same) {
+      if (!WEBHOOK_EVENTS.every((e) => same.attributes.events.includes(e))) {
+        return { ok: false, error: "A webhook for this address exists but misses some events. Delete it in PayMongo, then try again." };
+      }
+      return same.attributes.secret_key ? { ok: true, secret: same.attributes.secret_key, existed: true } : { ok: false, error: "A webhook for this address already exists, but PayMongo didn't return its secret." };
+    }
+    const res = await fetch(`${apiBase}/v1/webhooks`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ data: { attributes: { url, events: WEBHOOK_EVENTS } } }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    const body: unknown = await res.json().catch(() => null);
+    const created = z.object({ data: hook }).safeParse(body);
+    if (!res.ok || !created.success || !created.data.data.attributes.secret_key) return fail(res, body);
+    return { ok: true, secret: created.data.data.attributes.secret_key, existed: false };
   } catch {
     return { ok: false, error: "Couldn't reach PayMongo." };
   }

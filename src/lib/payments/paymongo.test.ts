@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
-import { describe, expect, it } from "vitest";
-import { methodNames, parseWebhookEvent, paymentMethodsSentence, paymentMethodsShort, paymongoConfig, verifyWebhookSignature } from "./paymongo";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { methodNames, setUpWebhook, WEBHOOK_EVENTS, parseWebhookEvent, paymentMethodsSentence, paymentMethodsShort, paymongoConfig, verifyWebhookSignature } from "./paymongo";
 
 const secret = "whsk_test_secret";
 const sign = (body: string, t = "1791580000", key = secret) => createHmac("sha256", key).update(`${t}.${body}`).digest("hex");
@@ -137,5 +137,41 @@ describe("methodNames", () => {
     expect(methodNames({ data: ["qrph"] })).toEqual(["qrph"]);
     expect(methodNames({ data: [{ type: "gcash" }, { attributes: { payment_methods: ["paymaya"] } }] })).toEqual(["gcash", "paymaya"]);
     expect(methodNames(null)).toEqual([]);
+  });
+});
+
+describe("setUpWebhook", () => {
+  const env = { PAYMONGO_SECRET_KEY: "sk_test_abc" };
+  const url = "https://guromart.vercel.app/api/webhooks/paymongo";
+  const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("refuses without a test key", async () => {
+    expect(await setUpWebhook(url, {})).toMatchObject({ ok: false });
+    expect(await setUpWebhook(url, { PAYMONGO_SECRET_KEY: "sk_live_x" })).toMatchObject({ ok: false });
+  });
+
+  it("creates the webhook with both events and returns its secret", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json(200, { data: [] }))
+      .mockResolvedValueOnce(json(200, { data: { id: "hook_1", attributes: { url, secret_key: "whsk_new", events: WEBHOOK_EVENTS } } }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await setUpWebhook(url, env)).toEqual({ ok: true, secret: "whsk_new", existed: false });
+    const [, init] = fetchMock.mock.calls[1];
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({ data: { attributes: { url, events: WEBHOOK_EVENTS } } });
+  });
+
+  it("reuses an existing webhook for the same address", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(json(200, { data: [{ id: "hook_1", attributes: { url, secret_key: "whsk_old", events: WEBHOOK_EVENTS } }] }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await setUpWebhook(url, env)).toEqual({ ok: true, secret: "whsk_old", existed: true });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports PayMongo's error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json(401, { errors: [{ detail: "API key is invalid." }] })));
+    expect(await setUpWebhook(url, env)).toEqual({ ok: false, error: "PayMongo answered 401: API key is invalid." });
   });
 });

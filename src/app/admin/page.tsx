@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { requireArea } from "@/lib/auth/dal";
 import { METHOD_NAME, accountPaymentMethods, paymentMethods } from "@/lib/payments/paymongo";
 import { createClient } from "@/lib/supabase/server";
+import { WebhookSetup } from "./webhook-setup";
 
 export const metadata: Metadata = { title: "Admin", robots: { index: false } };
 
@@ -134,6 +135,7 @@ async function PaymentsCheck() {
         <p className="text-sm text-muted-foreground">PayMongo check: {account.error}</p>
       )}
       <p className="text-sm text-muted-foreground">Webhook secret: {webhookSet ? "set" : "not set yet (checkout stays closed until it is)"}</p>
+      {!webhookSet && account.ok ? <WebhookSetup /> : null}
     </Card>
   );
 }
