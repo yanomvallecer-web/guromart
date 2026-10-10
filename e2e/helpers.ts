@@ -132,7 +132,7 @@ async function upload(bucket: string, objectPath: string, body: Buffer, contentT
  * the returned email. The file and preview are real
  * objects in storage and the listing goes live through the database publish check.
  */
-export async function createLiveListing(title: string, priceCentavos: number) {
+export async function createLiveListing(title: string, priceCentavos: number, previewCount = 1) {
   const stamp = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
   const sellerEmail = `listed-${stamp}@example.test`;
   const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
@@ -168,7 +168,12 @@ export async function createLiveListing(title: string, priceCentavos: number) {
       mime_type: "application/pdf", file_format: "pdf", size_bytes: TEST_PDF.length, scan_status: "clean",
     }),
   });
-  await serviceRest("product_previews", { method: "POST", body: JSON.stringify({ product_id: product.id, storage_path: previewPath }) });
+  await serviceRest("product_previews", { method: "POST", body: JSON.stringify({ product_id: product.id, storage_path: previewPath, sort_order: 0 }) });
+  for (let i = 1; i < previewCount; i++) {
+    const extraPath = `${account.id}/${product.id}/${stamp}-${i}.png`;
+    await upload("product-previews", extraPath, TEST_PNG, "image/png");
+    await serviceRest("product_previews", { method: "POST", body: JSON.stringify({ product_id: product.id, storage_path: extraPath, sort_order: i }) });
+  }
   await serviceRest(`products?id=eq.${product.id}`, { method: "PATCH", body: JSON.stringify({ status: "published" }) });
   return { productId: product.id as string, slug, fileId: file.id as string, sellerEmail };
 }

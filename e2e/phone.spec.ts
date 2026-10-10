@@ -305,3 +305,28 @@ test("Buy now charges only that resource, and the rest of the cart waits in a st
   expect(Math.abs(barBox.y + barBox.height - tabsBox.y)).toBeLessThanOrEqual(1);
   await expect(tabs.getByRole("link", { name: "Cart, 1 resource" })).toHaveAttribute("aria-current", "page");
 });
+
+test("previews show one big image with the rest as small slides under it", async ({ page }) => {
+  const listing = await createLiveListing("Phone Slide Gallery Test", 9900, 3);
+  await page.goto(`/resources/${listing.slug}`);
+  const gallery = page.getByTestId("preview-gallery");
+  await expect(gallery.getByText("Preview 1 of 3")).toBeVisible();
+  const slides = gallery.getByRole("list", { name: "All previews" }).getByRole("button");
+  await expect(slides).toHaveCount(3);
+  await expect(slides.nth(0)).toHaveAttribute("aria-current", "true");
+
+  // Tapping a small slide shows it big.
+  await slides.nth(2).click();
+  await expect(gallery.getByText("Preview 3 of 3")).toBeVisible();
+  await expect(slides.nth(2)).toHaveAttribute("aria-current", "true");
+  const big = gallery.getByRole("img", { name: "Preview 3 of Phone Slide Gallery Test" });
+  await expect(big).toBeVisible();
+  // The small slides sit under the big image.
+  expect((await slides.nth(0).boundingBox())!.y).toBeGreaterThan((await big.boundingBox())!.y);
+
+  // The arrows wrap around.
+  await gallery.getByRole("button", { name: "Next preview" }).click();
+  await expect(gallery.getByText("Preview 1 of 3")).toBeVisible();
+  await gallery.getByRole("button", { name: "Previous preview" }).click();
+  await expect(gallery.getByText("Preview 3 of 3")).toBeVisible();
+});

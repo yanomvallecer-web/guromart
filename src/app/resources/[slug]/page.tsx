@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { FileText, Star } from "lucide-react";
+import { PreviewGallery } from "@/components/catalog/preview-gallery";
 import { ShareButton } from "@/components/catalog/share-button";
 import { BuyPanel } from "@/components/commerce/buy-panel";
 import { Card, Skeleton } from "@/components/ui/card";
@@ -75,31 +76,12 @@ async function Resource({ params }: { params: PageProps<"/resources/[slug]">["pa
       <div className="contents lg:flex lg:flex-col lg:gap-6">
         <section aria-label="Previews" className="order-2 flex flex-col gap-2">
           {product.previews.length ? (
-            <ul
-              tabIndex={0}
-              aria-label={`${product.previews.length} preview ${product.previews.length === 1 ? "image" : "images"}, swipe to see more`}
-              className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 pb-1 sm:mx-0 sm:scroll-px-0 sm:px-0 lg:grid lg:grid-cols-2 lg:overflow-visible lg:pb-0"
-            >
-              {product.previews.map((p, i) => (
-                <li
-                  key={p.storage_path}
-                  className={`relative shrink-0 snap-start ${product.previews.length > 1 ? "w-[82%] sm:w-[48%]" : "w-full"} lg:w-auto ${i === 0 ? "lg:col-span-2" : ""}`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={publicObjectUrl("product-previews", p.storage_path)}
-                    alt={p.alt_text ?? `Preview ${i + 1} of ${product.title}`}
-                    loading={i === 0 ? "eager" : "lazy"}
-                    className="aspect-[3/4] max-h-[60dvh] w-full rounded-[12px] border border-border bg-surface object-contain lg:aspect-auto lg:max-h-none"
-                  />
-                  {product.previews.length > 1 ? (
-                    <span className="absolute left-2 top-2 rounded-full bg-surface/95 px-2.5 py-0.5 text-xs font-bold shadow-sm" aria-hidden>
-                      Preview {i + 1} of {product.previews.length}
-                    </span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
+            <PreviewGallery
+              images={product.previews.map((p, i) => ({
+                src: publicObjectUrl("product-previews", p.storage_path),
+                alt: p.alt_text ?? `Preview ${i + 1} of ${product.title}`,
+              }))}
+            />
           ) : (
             <div className="flex aspect-[4/3] items-center justify-center rounded-[12px] border border-border bg-accent-soft text-primary/50">
               <FileText className="size-16" aria-hidden />

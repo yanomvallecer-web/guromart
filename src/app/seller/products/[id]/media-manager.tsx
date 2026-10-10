@@ -60,7 +60,17 @@ export function MediaManager({ listingId, editable, files, previews }: { listing
           <h2 className="font-display text-xl font-bold">Preview images</h2>
           <p className="text-sm text-muted-foreground">
             Public images that show what&apos;s inside, such as a cover and sample pages. PNG, JPG or WebP, up to 5 MB, 6 images at most.
+            The first image is the big one; the rest show as small slides under it.
           </p>
+          <details className="mt-2 text-sm">
+            <summary className="cursor-pointer font-semibold text-primary">How to turn PowerPoint slides into images</summary>
+            <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">
+              <li>In PowerPoint, choose File, then Export (on a Mac, File, then Export).</li>
+              <li>Pick PNG as the file format and choose &quot;All slides&quot;. PowerPoint saves one image per slide in a folder.</li>
+              <li>Upload your cover slide first, then up to 5 sample slides. Keep answer keys and full lessons out of the previews.</li>
+            </ol>
+            <p className="mt-1 text-muted-foreground">In Google Slides, use File, then Download, then PNG image for the current slide.</p>
+          </details>
         </div>
         {previews.length ? (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3" data-testid="preview-list">
