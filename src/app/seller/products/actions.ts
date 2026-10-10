@@ -202,13 +202,19 @@ export async function confirmUpload(id: string, input: { kind: UploadKind; path:
           file_format: checked.type.format,
           size_bytes: checked.size,
         })
-      : await supabase.from("product_previews").insert({ product_id: id, storage_path: input.path, alt_text: null });
+      : await supabase.from("product_previews").insert({ product_id: id, storage_path: input.path, alt_text: null, sort_order: await nextPreviewOrder(supabase, id) });
   if (row.error) {
     await discardObject(kind, input.path);
     return { error: row.error.message.includes("at most") ? row.error.message : "We couldn't attach the file. Please try again." };
   }
   revalidatePath(`/seller/products/${id}`);
   return { ok: true };
+}
+
+/** New previews go after the existing ones, so they show in the order they were added. */
+async function nextPreviewOrder(supabase: Awaited<ReturnType<typeof ownListing>>["supabase"], id: string) {
+  const { data } = await supabase.from("product_previews").select("sort_order").eq("product_id", id).order("sort_order", { ascending: false }).limit(1);
+  return (data?.[0]?.sort_order ?? -1) + 1;
 }
 
 export async function removeMedia(id: string, kind: UploadKind, mediaId: string): Promise<ActionState> {

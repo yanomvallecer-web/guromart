@@ -1,5 +1,8 @@
 /** What sellers may upload. Resource files go to a private bucket; previews to a public one. */
 
+/** Matches the limit in the database (private.limit_product_media). */
+export const MAX_PREVIEWS = 6;
+
 export type UploadKind = "file" | "preview" | "verification" | "shop";
 
 type FileType = { ext: string[]; mime: string; format: string; magic: (b: Uint8Array) => boolean };

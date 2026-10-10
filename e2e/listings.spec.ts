@@ -215,3 +215,31 @@ test("staff check files, reject with a note, then approve a resubmitted listing"
   await page.reload();
   await expect(page.getByTestId("listing-status")).toHaveText("Live");
 });
+
+test("a seller turns PowerPoint slides into preview pictures in the browser", async ({ page }) => {
+  const { createLiveListing } = await import("./helpers");
+  const listing = await createLiveListing("Heat vs Temperature Slides", 9900);
+  await serviceRest(`products?id=eq.${listing.productId}`, { method: "PATCH", body: JSON.stringify({ status: "draft" }) });
+  await signIn(page, listing.sellerEmail, `/seller/products/${listing.productId}`);
+  await openStep(page, "File");
+
+  // A small sample deck (8 slides) kept in e2e/fixtures; the only binary fixture, since a deck can't be built inline.
+  const maker = page.getByTestId("slide-maker");
+  await maker.locator("#slides-from-pptx").setInputFiles("e2e/fixtures/sample-lesson.pptx");
+  const slides = maker.getByRole("list", { name: "Slides from your PowerPoint" }).getByRole("checkbox");
+  await expect(slides).toHaveCount(8, { timeout: 30_000 });
+  // One preview already exists, so 5 of the 6 places are free and the first 5 slides start ticked.
+  await expect(maker.getByText("Tick up to 5 slides")).toBeVisible();
+  for (let i = 0; i < 8; i++) await (i < 5 ? expect(slides.nth(i)).toBeChecked() : expect(slides.nth(i)).not.toBeChecked());
+  await expect(slides.nth(6)).toBeDisabled();
+  // Swap slide 5 for slide 7.
+  await slides.nth(4).uncheck();
+  await slides.nth(6).check();
+
+  await maker.getByRole("button", { name: "Add 5 slides as previews" }).click();
+  await expect(page.getByTestId("preview-list").getByRole("img")).toHaveCount(6, { timeout: 30_000 });
+  const rows = await serviceRest(`product_previews?product_id=eq.${listing.productId}&select=storage_path&order=sort_order`);
+  expect(rows).toHaveLength(6);
+  // All six places are used, so the maker steps aside.
+  await expect(maker).toBeHidden();
+});

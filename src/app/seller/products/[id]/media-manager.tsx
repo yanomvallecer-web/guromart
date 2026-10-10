@@ -5,9 +5,10 @@ import { useRef, useState, useTransition } from "react";
 import { FileText, ImageIcon, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FormAlert } from "@/components/ui/form";
-import { ACCEPT, type UploadKind } from "@/lib/listings/uploads";
-import { createClient } from "@/lib/supabase/browser";
-import { confirmUpload, createUploadTicket, removeMedia } from "../actions";
+import { ACCEPT, MAX_PREVIEWS, type UploadKind } from "@/lib/listings/uploads";
+import { SlideMaker } from "./slide-maker";
+import { removeMedia } from "../actions";
+import { uploadAll } from "./upload-all";
 
 type FileRow = { id: string; original_filename: string; file_format: string; size_bytes: number; scan_status: string };
 type PreviewRow = { id: string; url: string; alt: string | null };
@@ -87,7 +88,14 @@ export function MediaManager({ listingId, editable, files, previews }: { listing
             ))}
           </ul>
         ) : null}
-        {editable ? <Uploader listingId={listingId} kind="preview" label="Add preview images" /> : <LockedNote />}
+        {editable ? (
+          <div className="flex flex-col gap-3">
+            <Uploader listingId={listingId} kind="preview" label="Add preview images" />
+            <SlideMaker listingId={listingId} slotsLeft={MAX_PREVIEWS - previews.length} />
+          </div>
+        ) : (
+          <LockedNote />
+        )}
       </section>
     </>
   );
@@ -104,27 +112,8 @@ function Uploader({ listingId, kind, label }: { listingId: string; kind: UploadK
   const [errors, setErrors] = useState<string[]>([]);
 
   async function upload(list: FileList) {
-    const supabase = createClient();
-    const failed: string[] = [];
-    const all = Array.from(list);
-    for (const [i, file] of all.entries()) {
-      setProgress(`Uploading ${file.name} (${i + 1} of ${all.length})…`);
-      const ticket = await createUploadTicket(listingId, { kind, name: file.name, size: file.size });
-      if (!ticket.ok) {
-        failed.push(`${file.name}: ${ticket.error}`);
-        continue;
-      }
-      const sent = await supabase.storage.from(ticket.bucket).uploadToSignedUrl(ticket.path, ticket.token, file, { contentType: ticket.contentType });
-      if (sent.error) {
-        failed.push(`${file.name}: the upload didn't finish. Check your connection and try again.`);
-        continue;
-      }
-      setProgress(`Checking ${file.name}…`);
-      const confirmed = await confirmUpload(listingId, { kind, path: ticket.path, name: file.name });
-      if (confirmed.error) failed.push(`${file.name}: ${confirmed.error}`);
-    }
+    setErrors(await uploadAll(listingId, kind, Array.from(list), setProgress));
     setProgress(null);
-    setErrors(failed);
     if (input.current) input.current.value = "";
     router.refresh();
   }
