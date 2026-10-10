@@ -51,7 +51,7 @@ async function CartContents() {
               <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-[8px] border border-border bg-accent-soft text-primary/50">
                 {line.product?.previewPath ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={publicObjectUrl("product-previews", line.product.previewPath)} alt="" className="size-full object-cover" />
+                  <img src={publicObjectUrl("product-previews", line.product.previewPath)} alt="" className="size-full bg-surface object-contain" />
                 ) : (
                   <FileText aria-hidden />
                 )}

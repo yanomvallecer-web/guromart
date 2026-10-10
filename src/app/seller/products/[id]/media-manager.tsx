@@ -72,7 +72,7 @@ export function MediaManager({ listingId, editable, files, previews }: { listing
             {previews.map((p) => (
               <li key={p.id} className="relative overflow-hidden rounded-[10px] border border-border bg-surface-muted">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.url} alt={p.alt ?? "Preview image"} className="aspect-[4/3] w-full object-cover" />
+                <img src={p.url} alt={p.alt ?? "Preview image"} className="aspect-[4/3] w-full bg-surface object-contain" />
                 {editable ? (
                   <div className="absolute right-1 top-1">
                     <RemoveButton listingId={listingId} kind="preview" mediaId={p.id} label="preview image" />
@@ -85,7 +85,7 @@ export function MediaManager({ listingId, editable, files, previews }: { listing
         {editable ? (
           <div className="flex flex-col gap-3">
             <Uploader listingId={listingId} kind="preview" label="Add preview images" />
-            <SlideMaker listingId={listingId} slotsLeft={slotsLeft} decks={decks} />
+            <SlideMaker listingId={listingId} slotsLeft={slotsLeft} decks={decks} hasCover={previews.length > 0} />
           </div>
         ) : (
           <LockedNote />
@@ -110,7 +110,7 @@ function Uploader({ listingId, kind, label, previewSlots = 0 }: { listingId: str
     const failed = await uploadAll(listingId, kind, all, setProgress);
     // A PowerPoint that uploaded fine also fills the free preview places with its first slides.
     const deck = kind === "file" ? all.find((f) => f.name.toLowerCase().endsWith(".pptx") && !failed.some((e) => e.startsWith(`${f.name}:`))) : undefined;
-    if (deck) failed.push(...(await addSlidePreviews(listingId, deck, deck.name, previewSlots, setProgress)));
+    if (deck) failed.push(...(await addSlidePreviews(listingId, deck, deck.name, previewSlots, setProgress, previewSlots < MAX_PREVIEWS)));
     setErrors(failed);
     setProgress(null);
     if (input.current) input.current.value = "";

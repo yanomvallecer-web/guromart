@@ -9,14 +9,21 @@ const WATERMARK = "Preview · GuroMart";
 
 export type SlideImage = { index: number; blob: Blob; url: string };
 
-export async function renderSlideImages(file: Blob, max: number, onProgress?: (done: number, total: number) => void): Promise<{ total: number; images: SlideImage[] }> {
+/** Draws up to `max` slides starting at slide `from` (0-based). */
+export async function renderSlideImages(
+  file: Blob,
+  max: number,
+  onProgress?: (done: number, total: number) => void,
+  from = 0,
+): Promise<{ total: number; images: SlideImage[] }> {
   const [{ parseZip, buildPresentation, renderSlide, RECOMMENDED_ZIP_LIMITS }, { toCanvas }] = await Promise.all([
     import("@aiden0z/pptx-renderer"),
     import("html-to-image"),
   ]);
   const presentation = buildPresentation(await parseZip(await file.arrayBuffer(), RECOMMENDED_ZIP_LIMITS));
   const total = presentation.slides.length;
-  const count = Math.min(max, total);
+  const first = Math.min(from, Math.max(total - 1, 0));
+  const count = Math.min(max, total - first);
 
   // The slide is drawn at its own size off screen, then photographed.
   const stage = document.createElement("div");
@@ -28,7 +35,7 @@ export async function renderSlideImages(file: Blob, max: number, onProgress?: (d
   try {
     for (let i = 0; i < count; i++) {
       onProgress?.(i, count);
-      const handle = renderSlide(presentation, presentation.slides[i], { pdfjs: false });
+      const handle = renderSlide(presentation, presentation.slides[first + i], { pdfjs: false });
       try {
         stage.replaceChildren(handle.element);
         await handle.ready;
@@ -45,7 +52,7 @@ export async function renderSlideImages(file: Blob, max: number, onProgress?: (d
         const shot = onWhite(drawn);
         watermark(shot);
         const blob = await new Promise<Blob | null>((resolve) => shot.toBlob(resolve, "image/jpeg", 0.85));
-        if (blob) images.push({ index: i, blob, url: URL.createObjectURL(blob) });
+        if (blob) images.push({ index: first + i, blob, url: URL.createObjectURL(blob) });
       } finally {
         handle.dispose();
       }

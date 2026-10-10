@@ -10,16 +10,27 @@ export function ProductCard({ product }: { product: Card }) {
   const type = shortTypeLabel(product.category_code, product.category);
   return (
     <Link href={`/resources/${product.slug}`} className="group flex flex-col gap-2 text-foreground no-underline">
-      {/* Portrait, like the page of a lesson plan or worksheet. */}
+      {/* Portrait, like the page of a lesson plan or worksheet; landscape slides sit whole inside it. */}
       <div className="relative aspect-[3/4] overflow-hidden rounded-[12px] border border-border bg-accent-soft">
         {product.preview_path ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={publicObjectUrl("product-previews", product.preview_path)}
-            alt=""
-            loading="lazy"
-            className="size-full object-cover object-top transition-transform motion-safe:group-hover:scale-[1.02]"
-          />
+          <>
+            {/* The whole cover shows, slides and pages alike; a soft blur of it fills the space around. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={publicObjectUrl("product-previews", product.preview_path)}
+              alt=""
+              aria-hidden
+              loading="lazy"
+              className="absolute inset-0 size-full scale-110 object-cover opacity-60 blur-xl"
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={publicObjectUrl("product-previews", product.preview_path)}
+              alt=""
+              loading="lazy"
+              className="relative size-full object-contain transition-transform motion-safe:group-hover:scale-[1.02]"
+            />
+          </>
         ) : (
           <div className="flex size-full items-center justify-center text-primary/50">
             <FileText className="size-10" aria-hidden />

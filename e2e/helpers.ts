@@ -117,7 +117,7 @@ const TEST_PNG = Buffer.from(
   "base64",
 );
 
-async function upload(bucket: string, objectPath: string, body: Buffer, contentType: string) {
+export async function upload(bucket: string, objectPath: string, body: Buffer, contentType: string) {
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${objectPath}`, {
     method: "POST",
     headers: { ...authHeaders(), "Content-Type": contentType },
@@ -175,5 +175,5 @@ export async function createLiveListing(title: string, priceCentavos: number, pr
     await serviceRest("product_previews", { method: "POST", body: JSON.stringify({ product_id: product.id, storage_path: extraPath, sort_order: i }) });
   }
   await serviceRest(`products?id=eq.${product.id}`, { method: "PATCH", body: JSON.stringify({ status: "published" }) });
-  return { productId: product.id as string, slug, fileId: file.id as string, sellerEmail };
+  return { productId: product.id as string, slug, fileId: file.id as string, sellerEmail, folder: `${account.id}/${product.id}` };
 }

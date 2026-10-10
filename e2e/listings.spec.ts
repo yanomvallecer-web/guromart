@@ -224,7 +224,7 @@ test("uploading a PowerPoint adds its first slides as previews automatically", a
   await openStep(page, "File");
 
   // A small sample deck (8 slides) kept in e2e/fixtures; the only binary fixture, since a deck can't be built inline.
-  // One preview already exists, so the deck's first 5 slides fill the other 5 places, in order.
+  // One preview (the cover) already exists, so slides 2 to 6 fill the other 5 places, in order.
   await page.locator("#upload-file").setInputFiles("e2e/fixtures/sample-lesson.pptx");
   await expect(page.getByTestId("file-list").getByText("sample-lesson.pptx")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("preview-list").getByRole("img")).toHaveCount(6, { timeout: 30_000 });
@@ -238,7 +238,43 @@ test("uploading a PowerPoint adds its first slides as previews automatically", a
     await expect(page.getByTestId("preview-list").getByRole("img")).toHaveCount(5 - i);
   }
   const maker = page.getByTestId("slide-maker");
-  await expect(maker).toContainText("Add the first 2 slides");
+  await expect(maker).toContainText("Add 2 slides from your PowerPoint");
   await maker.getByRole("button", { name: "Add slides from sample-lesson.pptx" }).click();
   await expect(page.getByTestId("preview-list").getByRole("img")).toHaveCount(6, { timeout: 30_000 });
+});
+
+test("staff add slide previews to live PowerPoint listings in one click", async ({ page }) => {
+  // Other PowerPoint listings left by earlier runs are processed too, oldest first.
+  test.setTimeout(180_000);
+  const { createLiveListing, upload } = await import("./helpers");
+  const fs = await import("node:fs");
+  const title = `Live Slides ${Date.now()}`;
+  const listing = await createLiveListing(title, 4900);
+  const deckPath = `${listing.folder}/deck-${Date.now()}.pptx`;
+  const deck = fs.readFileSync("e2e/fixtures/sample-lesson.pptx");
+  await upload("product-files", deckPath, deck, "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+  await serviceRest("product_files", {
+    method: "POST",
+    body: JSON.stringify({
+      product_id: listing.productId, storage_path: deckPath, original_filename: "lesson.pptx",
+      mime_type: "application/vnd.openxmlformats-officedocument.presentationml.presentation", file_format: "pptx", size_bytes: deck.length, scan_status: "clean",
+    }),
+  });
+
+  const staffEmail = uniqueEmail("slides-staff");
+  await signIn(page, staffEmail, "/account");
+  await serviceRest("user_roles", { method: "POST", body: JSON.stringify({ user_id: await userIdFor(staffEmail), role: "admin" }) });
+  await page.goto("/admin");
+  await page.getByRole("link", { name: "Slide previews" }).click();
+  const row = page.getByTestId("slide-backfill").locator("div.flex", { has: page.getByRole("link", { name: title }) });
+  await expect(row).toContainText("lesson.pptx · 1 of 6 previews · published");
+  await page.getByRole("button", { name: /Make slide previews for/ }).click();
+  await expect(row.getByRole("status")).toHaveText("Added 5 slides.", { timeout: 150_000 });
+
+  // The live page now shows the cover plus slides 2 to 6, in order, without the listing leaving the shop.
+  const rows = await serviceRest(`product_previews?product_id=eq.${listing.productId}&select=sort_order&order=sort_order`);
+  expect(rows.map((r: { sort_order: number }) => r.sort_order)).toEqual([0, 1, 2, 3, 4, 5]);
+  await page.goto(`/resources/${listing.slug}`);
+  await expect(page.getByTestId("preview-gallery").getByText("Preview 1 of 6")).toBeVisible();
+  await expect(page.getByRole("list", { name: "All previews" }).getByRole("button")).toHaveCount(6);
 });

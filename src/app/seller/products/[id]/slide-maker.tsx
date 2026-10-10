@@ -10,15 +10,28 @@ import { uploadAll } from "./upload-all";
 
 /**
  * Draws the first slides of a PowerPoint as pictures in this browser and adds
- * them as ordinary preview images, filling the free preview places. Returns one
- * message per problem; the seller removes any slide they don't want shown.
+ * them as ordinary preview images, filling the free preview places. When the
+ * listing already has a cover, slide 1 is skipped since it's usually that cover.
+ * Returns one message per problem; the seller removes any slide they don't want shown.
  */
-export async function addSlidePreviews(listingId: string, deck: Blob, name: string, slots: number, setProgress: (p: string) => void): Promise<string[]> {
+export async function addSlidePreviews(
+  listingId: string,
+  deck: Blob,
+  name: string,
+  slots: number,
+  setProgress: (p: string) => void,
+  hasCover: boolean,
+): Promise<string[]> {
   if (slots <= 0) return [];
   setProgress("Making slide previews…");
   try {
     const { renderSlideImages } = await import("@/lib/listings/slide-images");
-    const { images } = await renderSlideImages(deck, slots, (done, total) => setProgress(`Making slide previews (${Math.min(done + 1, total)} of ${total})…`));
+    const { images } = await renderSlideImages(
+      deck,
+      slots,
+      (done, total) => setProgress(`Making slide previews (${Math.min(done + 1, total)} of ${total})…`),
+      hasCover ? 1 : 0,
+    );
     const base = name.replace(/\.pptx$/i, "");
     const files = images.map((img) => new File([img.blob], `${base}-slide-${img.index + 1}.jpg`, { type: "image/jpeg" }));
     images.forEach((img) => URL.revokeObjectURL(img.url));
@@ -30,7 +43,7 @@ export async function addSlidePreviews(listingId: string, deck: Blob, name: stri
 }
 
 /** For PowerPoints already on the listing: one click adds their first slides as previews. */
-export function SlideMaker({ listingId, slotsLeft, decks }: { listingId: string; slotsLeft: number; decks: { id: string; name: string }[] }) {
+export function SlideMaker({ listingId, slotsLeft, decks, hasCover }: { listingId: string; slotsLeft: number; decks: { id: string; name: string }[]; hasCover: boolean }) {
   const router = useRouter();
   const [status, setStatus] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
@@ -47,7 +60,7 @@ export function SlideMaker({ listingId, slotsLeft, decks }: { listingId: string;
       try {
         const res = await fetch(link.url);
         if (!res.ok) throw new Error(String(res.status));
-        failed = await addSlidePreviews(listingId, await res.blob(), deck.name, slotsLeft, setStatus);
+        failed = await addSlidePreviews(listingId, await res.blob(), deck.name, slotsLeft, setStatus, hasCover);
       } catch {
         failed = [`${deck.name}: we couldn't open it. Check your connection and try again.`];
       }
@@ -60,7 +73,7 @@ export function SlideMaker({ listingId, slotsLeft, decks }: { listingId: string;
   return (
     <div className="flex flex-col gap-3 rounded-[12px] border border-dashed border-border p-4" data-testid="slide-maker">
       <p className="text-sm text-muted-foreground">
-        Add the first {slotsLeft === 1 ? "slide" : `${slotsLeft} slides`} of your PowerPoint as previews. They&apos;re drawn in your browser, so fonts can look a
+        Add {slotsLeft === 1 ? "a slide" : `${slotsLeft} slides`} from your PowerPoint as previews. They&apos;re drawn in your browser, so fonts can look a
         little different; remove any slide you don&apos;t want buyers to see.
       </p>
       {errors.length ? (

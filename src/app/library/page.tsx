@@ -118,7 +118,7 @@ async function Library({ searchParams }: { searchParams: PageProps<"/library">["
                   <div className="flex aspect-[3/4] w-16 shrink-0 items-center justify-center self-start overflow-hidden rounded-[8px] border border-border bg-accent-soft text-primary/50 sm:w-20">
                     {d?.previewPath ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={publicObjectUrl("product-previews", d.previewPath)} alt="" loading="lazy" className="size-full object-cover object-top" />
+                      <img src={publicObjectUrl("product-previews", d.previewPath)} alt="" loading="lazy" className="size-full bg-surface object-contain" />
                     ) : (
                       <FileText aria-hidden />
                     )}

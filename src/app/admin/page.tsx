@@ -50,6 +50,7 @@ async function Overview() {
     { label: "Open copyright reports", value: reports.count },
   ];
 
+
   return (
     <div className="flex flex-col gap-6">
       <dl className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -62,6 +63,12 @@ async function Overview() {
           </Card>
         ))}
       </dl>
+      <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <p className="text-sm">Add slide previews to PowerPoint listings that only have a cover.</p>
+        <Link href="/admin/slide-previews" className="text-sm font-semibold text-primary hover:underline">
+          Slide previews
+        </Link>
+      </Card>
       <Card className="p-6">
         <h2 className="mb-4 font-display text-xl font-bold">Recent activity</h2>
         {audit.data?.length ? (
