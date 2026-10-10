@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { ProductGrid, ProductGridSkeleton } from "@/components/catalog/product-card";
 import { SearchForm } from "@/components/site/search-form";
 import { buttonVariants } from "@/components/ui/button";
 import { type CatalogFacets, type Facet, type HomeShelf, getCatalogFacets, getFeaturedStorefronts, getShelf, getTaxonomy } from "@/lib/catalog/queries";
 import { shopSummary } from "@/lib/catalog/labels";
 
-/** Below this many live resources, extra shelves would only repeat the featured ones. */
+/** Below this many live resources, a one-line note says the catalog is new, and extra shelves would only repeat the featured ones. */
 const LAUNCH_THRESHOLD = 8;
 
 export default function HomePage() {
@@ -77,14 +77,26 @@ async function QuickCategories() {
 
 /**
  * Resources first, then the grades and subjects that have some. While the
- * catalog is small, the extra shelves wait until they wouldn't repeat the
- * same few resources.
+ * catalog is small, a one-line note says so, and the extra shelves wait
+ * until they wouldn't repeat the same few resources.
  */
 async function Resources() {
   const facets = await getCatalogFacets();
   const small = facets.total < LAUNCH_THRESHOLD;
+  const shops = Object.keys(facets.shops).length;
   return (
     <>
+      {small ? (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-[12px] border border-border bg-surface px-4 py-3 text-sm" data-testid="launch-note">
+          <Sparkles className="size-4 shrink-0 text-accent" aria-hidden />
+          <span>
+            <strong className="font-semibold">GuroMart is new.</strong> {facets.total} {facets.total === 1 ? "resource" : "resources"} from {shops}{" "}
+            {shops === 1 ? "teacher shop" : "teacher shops"} so far. More appear as each one passes review.
+          </span>
+          <Link href="/sell" className="font-semibold text-primary hover:underline">Sell yours</Link>
+        </p>
+      ) : null}
+
       <ShelfSection
         shelf="popular"
         id="featured-h"
