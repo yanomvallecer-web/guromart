@@ -75,7 +75,14 @@ body {
 /* A page with a second bar stacked above the phone tab bar (the cart's total and Pay
    button) gets room for both, so neither covers the end of the page. */
 @media (width < 48rem) {
-  body:has([data-stacked-bar]) {
+  html:not([data-app="android"]) body:has([data-stacked-bar]) {
     padding-bottom: calc(2 * var(--bottom-bar) + env(safe-area-inset-bottom));
   }
+}
+
+/* Inside the Android app, paid checkout is hidden and app-only notes show instead
+   (see components/site/android-app.tsx for why). */
+html[data-app="android"] [data-web-checkout],
+html:not([data-app="android"]) [data-app-only] {
+  display: none !important;
 }

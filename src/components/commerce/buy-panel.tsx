@@ -6,17 +6,20 @@ import { buyNowReady } from "@/lib/commerce/buy-now";
 import { getProductAccess } from "@/lib/commerce/cart";
 import { paymongoConfig } from "@/lib/payments/paymongo";
 import { cn } from "@/lib/utils";
+import { WebCheckoutOnly } from "@/components/site/android-app";
 import { BuyButton } from "./buy-button";
 
 /** What the viewer can do with a resource: sign in, get it free, add to cart, or open it in their library. */
 export async function BuyPanel({ productId, slug, free }: { productId: string; slug: string; free: boolean }) {
   const path = `/resources/${slug}`;
+  // Paid buying is hidden inside the Android app; free resources and the library stay.
+  const webOnly = (node: React.ReactNode) => (free ? node : <WebCheckoutOnly>{node}</WebCheckoutOnly>);
   const viewer = await getViewer();
   if (!viewer) {
-    return (
+    return webOnly(
       <Link href={`/sign-in?next=${encodeURIComponent(path)}`} className={cn(buttonVariants({ size: "lg" }), "w-full")}>
         {free ? "Sign in to get it free" : "Sign in to buy"}
-      </Link>
+      </Link>,
     );
   }
 
@@ -34,12 +37,12 @@ export async function BuyPanel({ productId, slug, free }: { productId: string; s
   // Buy now needs online payment and its database function (see lib/commerce/buy-now.ts).
   const offerBuyNow = !free && Boolean(paymongoConfig()) && (await buyNowReady());
   if (access === "in_cart") {
-    if (offerBuyNow) return <BuyButton productId={productId} path={path} free={false} offerBuyNow inCart />;
-    return (
+    if (offerBuyNow) return webOnly(<BuyButton productId={productId} path={path} free={false} offerBuyNow inCart />);
+    return webOnly(
       <Link href="/cart" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full")}>
         <ShoppingCart aria-hidden /> In your cart
-      </Link>
+      </Link>,
     );
   }
-  return <BuyButton productId={productId} path={path} free={free} offerBuyNow={offerBuyNow} />;
+  return webOnly(<BuyButton productId={productId} path={path} free={free} offerBuyNow={offerBuyNow} />);
 }
