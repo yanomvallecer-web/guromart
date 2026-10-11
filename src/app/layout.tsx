@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Plus_Jakarta_Sans } from "next/font/google";
 import { AndroidAppDetect } from "@/components/site/android-app";
+import { ChatLauncher } from "@/components/site/chat-launcher";
 import { ServiceWorkerRegister } from "@/components/site/service-worker-register";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </main>
         <SiteFooter />
         <TabBar />
+        <ChatLauncher />
         <ServiceWorkerRegister />
       </body>
     </html>

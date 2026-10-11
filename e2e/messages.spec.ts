@@ -135,3 +135,27 @@ test("the GuroMart helper answers, suggests real resources and stops at the dail
     await serviceRest("platform_settings?key=eq.assistant.daily_limit", { method: "PATCH", body: JSON.stringify({ value: 30 }) });
   }
 });
+
+test("the floating Ask GuroMart button opens the helper on any page", async ({ page }) => {
+  // Visitors are asked to sign in before asking the helper.
+  await page.goto("/browse");
+  await page.getByTestId("chat-launcher").click();
+  const panel = page.getByRole("dialog", { name: "Ask GuroMart" });
+  await expect(panel.getByText("Sign in to ask the GuroMart helper your own question.")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+
+  await signIn(page, uniqueEmail("launcher"), "/browse");
+  await page.getByTestId("chat-launcher").click();
+  await panel.getByRole("button", { name: "How do refunds work?" }).click();
+  await expect(panel.locator('[data-role="assistant"]')).toContainText('Stand-in answer to "How do refunds work?"');
+  // A link in the answer goes to the page and closes the panel.
+  await panel.getByRole("link", { name: "Refund policy" }).click();
+  await page.waitForURL("**/refunds");
+  await expect(panel).toHaveCount(0);
+
+  // The full helper page has its own chat box, so the button stays out of the way there.
+  await page.goto("/help");
+  await expect(page.getByTestId("helper-chat")).toBeVisible();
+  await expect(page.getByTestId("chat-launcher")).toHaveCount(0);
+});

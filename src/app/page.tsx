@@ -145,14 +145,12 @@ function GradesAndSubjects({ facets }: { facets: CatalogFacets }) {
   );
   return (
     <section aria-labelledby="grades-h" className="flex flex-col gap-4">
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 id="grades-h" className="font-display text-2xl font-bold">Available grades and subjects</h2>
-        <Link href="/browse" className="flex min-h-11 shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:underline">
-          See all <ArrowRight className="size-4" aria-hidden />
-        </Link>
-      </div>
+      <h2 id="grades-h" className="font-display text-2xl font-bold">Available grades and subjects</h2>
       {grades.length ? row("Grades", grades, "grade") : null}
       {subjects.length ? row("Subjects", subjects, "subject") : null}
+      <Link href="/browse" className="flex min-h-11 w-fit items-center gap-1 text-sm font-semibold text-primary hover:underline">
+        Browse all resources <ArrowRight className="size-4" aria-hidden />
+      </Link>
     </section>
   );
 }

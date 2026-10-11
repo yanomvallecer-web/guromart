@@ -9,7 +9,7 @@ test("homepage leads with real resources, then grades and subjects that have som
   expect(await featured.getByRole("listitem").count()).toBeGreaterThan(0);
   // Grades and subjects only appear with a live count, and lead to matching results.
   const grades = page.getByRole("region", { name: "Available grades and subjects" });
-  await expect(grades.getByRole("link", { name: "See all" })).toHaveAttribute("href", "/browse");
+  await expect(grades.getByRole("link", { name: "Browse all resources" })).toHaveAttribute("href", "/browse");
   const first = grades.getByRole("listitem").getByRole("link").first();
   const label = (await first.textContent())!;
   const shown = Number(label.match(/(\d+)\D*$/)![1]);
