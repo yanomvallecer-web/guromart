@@ -2,8 +2,10 @@
  * The Android app opens the site with ?app=android (and an android-app:// referrer).
  * The flag is kept in sessionStorage, which belongs to the app's own tab, so it never
  * leaks into the same phone's Chrome. Runs before the page paints to avoid a flash.
+ * It also notes whether the site runs as an installed app (gm_display), so a lost
+ * sign-in can be traced to the home-screen app or the browser.
  */
-const DETECT_ANDROID_APP = `try{var s=sessionStorage,q=new URLSearchParams(location.search);if(q.get("app")==="android"||document.referrer.indexOf("android-app://")===0)s.setItem("gm-app","android");if(s.getItem("gm-app")==="android")document.documentElement.dataset.app="android"}catch(e){}`;
+const DETECT_ANDROID_APP = `try{var s=sessionStorage,q=new URLSearchParams(location.search);if(q.get("app")==="android"||document.referrer.indexOf("android-app://")===0)s.setItem("gm-app","android");if(s.getItem("gm-app")==="android")document.documentElement.dataset.app="android";document.cookie="gm_display="+(matchMedia("(display-mode: standalone)").matches||navigator.standalone?"standalone":"browser")+";path=/;max-age=31536000;samesite=lax"}catch(e){}`;
 
 export function AndroidAppDetect() {
   return <script dangerouslySetInnerHTML={{ __html: DETECT_ANDROID_APP }} />;
