@@ -1,4 +1,4 @@
-import { Bell, BookOpen, FileText, Layers, type LucideIcon, Receipt, ShieldCheck, Store, User, Wallet } from "lucide-react";
+import { Bell, BookOpen, Bot, FileText, Layers, type LucideIcon, MessageCircle, Receipt, ShieldCheck, Store, User, Wallet } from "lucide-react";
 import type { Viewer } from "@/lib/auth/dal";
 
 export type AccountLink = { href: string; label: string; icon: LucideIcon };
@@ -10,6 +10,8 @@ export function accountLinks(viewer: Viewer): AccountLink[] {
   return [
     { href: "/account", label: "My account", icon: User },
     { href: "/library", label: "My library", icon: BookOpen },
+    { href: "/messages", label: "Messages", icon: MessageCircle },
+    { href: "/help", label: "Ask GuroMart", icon: Bot },
     { href: "/notifications", label: "Notifications", icon: Bell },
     { href: "/orders", label: "Orders", icon: Receipt },
     ...(isSeller

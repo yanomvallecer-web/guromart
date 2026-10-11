@@ -185,10 +185,10 @@ async function Resource({ params }: { params: PageProps<"/resources/[slug]">["pa
         {product.storefront ? (
           <Card className="order-6 flex flex-col gap-3 p-5 text-sm">
             <p>
-              Sold by <Link href={`/shop/${product.storefront.slug}`} className="font-semibold text-primary hover:underline">{product.storefront.name}</Link>. Follow the shop to hear when it adds something new.
+              Sold by <Link href={`/shop/${product.storefront.slug}`} className="font-semibold text-primary hover:underline">{product.storefront.name}</Link>. Follow the shop to hear when it adds something new, or message the seller with a question.
             </p>
             <Suspense fallback={<Skeleton className="h-11 w-32" />}>
-              <FollowControl storefrontId={product.storefront.id} path={`/resources/${product.slug}`} />
+              <FollowControl storefrontId={product.storefront.id} path={`/resources/${product.slug}`} productId={product.id} />
             </Suspense>
           </Card>
         ) : null}

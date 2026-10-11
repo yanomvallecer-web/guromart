@@ -75,6 +75,12 @@ async function Overview() {
         </Link>
       </Card>
       <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <p className="text-sm">Read chats that a teacher or seller reported.</p>
+        <Link href="/admin/messages" className="text-sm font-semibold text-primary hover:underline">
+          Reported chats
+        </Link>
+      </Card>
+      <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
         <p className="text-sm">Check new reviews and hide any that break the rules.</p>
         <Link href="/admin/reviews" className="text-sm font-semibold text-primary hover:underline">
           Reviews

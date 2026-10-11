@@ -14,6 +14,7 @@ export function SiteFooter() {
           <Link href="/refunds" className="hover:text-foreground">Refunds</Link>
           <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
           <Link href="/data-deletion" className="hover:text-foreground">Delete your data</Link>
+          <Link href="/help" className="hover:text-foreground">Ask GuroMart</Link>
           <Link href="/contact" className="hover:text-foreground">Contact</Link>
         </nav>
       </div>

@@ -1070,3 +1070,98 @@ describe("following shops and teaching preferences", () => {
     await expectError(user(b), "insert into public.teaching_preferences (user_id) values ($1)", [a], /row-level security/);
   });
 });
+
+describe("buyer and seller messages", () => {
+  async function chat() {
+    const s = await createSeller("seller@example.test", "chat-shop");
+    await q(admin, "update public.storefronts set is_published = true where id = $1", [s.storefrontId]);
+    const buyer = await createUser("buyer@example.test", "Maria Santos");
+    const id = (await q(user(buyer), "select public.start_conversation($1) as id", [s.storefrontId])).rows[0].id as string;
+    return { s, buyer, id };
+  }
+
+  it("keeps a conversation between the teacher and the shop", async () => {
+    const { s, buyer, id } = await chat();
+    // Starting again reuses the same conversation.
+    expect((await q(user(buyer), "select public.start_conversation($1) as id", [s.storefrontId])).rows[0].id).toBe(id);
+    await q(user(buyer), "insert into public.messages (conversation_id, sender_id, body) values ($1, $2, '  Hello po  ')", [id, buyer]);
+    await q(user(s.userId), "insert into public.messages (conversation_id, sender_id, body) values ($1, $2, 'Hi! How can I help?')", [id, s.userId]);
+
+    const outsider = await createUser("outsider@example.test");
+    expect((await q(user(outsider), "select * from public.messages")).rows).toHaveLength(0);
+    expect((await q(user(outsider), "select * from public.conversation_header($1)", [id])).rows).toHaveLength(0);
+    await expectError(user(outsider), "insert into public.messages (conversation_id, sender_id, body) values ($1, $2, 'x')", [id, outsider], /row-level security/);
+    // Nobody can send as someone else.
+    await expectError(user(s.userId), "insert into public.messages (conversation_id, sender_id, body) values ($1, $2, 'x')", [id, buyer], /row-level security/);
+    // Even staff can't read a conversation nobody reported.
+    const staff = await createUser("staff@example.test");
+    await q(admin, "insert into public.user_roles (user_id, role) values ($1, 'admin')", [staff]);
+    expect((await q(user(staff), "select * from public.messages where conversation_id = $1", [id])).rows).toHaveLength(0);
+
+    const bodies = (await q(user(buyer), "select body from public.messages order by created_at")).rows.map((r) => r.body);
+    expect(bodies).toEqual(["Hello po", "Hi! How can I help?"]);
+    // Sellers see the teacher's first name only; teachers see the shop name.
+    expect((await q(user(s.userId), "select other_name, role from public.my_conversations()")).rows).toEqual([{ other_name: "Maria", role: "seller" }]);
+    expect((await q(user(buyer), "select role from public.my_conversations()")).rows).toEqual([{ role: "buyer" }]);
+  });
+
+  it("notifies the other side once until they read it", async () => {
+    const { s, buyer, id } = await chat();
+    for (const body of ["One", "Two"]) {
+      await q(user(buyer), "insert into public.messages (conversation_id, sender_id, body) values ($1, $2, $3)", [id, buyer, body]);
+    }
+    const notes = await q(user(s.userId), "select type, link_path from public.notifications where type = 'message.new'");
+    expect(notes.rows).toEqual([{ type: "message.new", link_path: `/messages/${id}` }]);
+    expect((await q(user(s.userId), "select unread from public.my_conversations()")).rows[0].unread).toBe(true);
+    expect((await q(user(buyer), "select unread from public.my_conversations()")).rows[0].unread).toBe(false);
+    await q(user(s.userId), "select public.mark_conversation_read($1)", [id]);
+    expect((await q(user(s.userId), "select unread from public.my_conversations()")).rows[0].unread).toBe(false);
+    expect((await q(user(s.userId), "select count(*)::int as n from public.notifications where read_at is null")).rows[0].n).toBe(0);
+  });
+
+  it("refuses messaging your own shop and limits floods", async () => {
+    const { s, buyer, id } = await chat();
+    await expectError(user(s.userId), "select public.start_conversation($1)", [s.storefrontId], /your own shop/);
+    await expectError(anon, "select public.start_conversation($1)", [s.storefrontId], /permission denied/);
+    for (let i = 0; i < 20; i++) {
+      await q(user(buyer), "insert into public.messages (conversation_id, sender_id, body) values ($1, $2, $3)", [id, buyer, `m${i}`]);
+    }
+    await expectError(user(buyer), "insert into public.messages (conversation_id, sender_id, body) values ($1, $2, 'again')", [id, buyer], /too quickly/);
+  });
+
+  it("lets staff read a conversation only after it is reported", async () => {
+    const { s, buyer, id } = await chat();
+    await q(user(s.userId), "insert into public.messages (conversation_id, sender_id, body) values ($1, $2, 'Pay me on GCash directly')", [id, s.userId]);
+    const staff = await createUser("staff@example.test");
+    await q(admin, "insert into public.user_roles (user_id, role) values ($1, 'admin')", [staff]);
+    await expectError(user(buyer), "select public.report_conversation($1, 'bad')", [id], /at least 10/);
+    await q(user(buyer), "select public.report_conversation($1, 'Asked me to pay outside GuroMart')", [id]);
+    expect((await q(user(staff), "select body from public.messages where conversation_id = $1", [id])).rows).toEqual([{ body: "Pay me on GCash directly" }]);
+    expect((await q(user(staff), "select role, report_reason from public.conversation_header($1)", [id])).rows[0]).toEqual({
+      role: "staff",
+      report_reason: "Asked me to pay outside GuroMart",
+    });
+    await expectError(user(buyer), "select public.clear_conversation_report($1)", [id], /staff/);
+    await q(user(staff), "select public.clear_conversation_report($1)", [id]);
+    expect((await q(user(staff), "select * from public.messages where conversation_id = $1", [id])).rows).toHaveLength(0);
+  });
+});
+
+describe("GuroMart helper limit", () => {
+  it("counts questions per person per day and stops at the limit", async () => {
+    await expectError(anon, "select public.take_assistant_question()", [], /permission denied/);
+    await q(admin, "update public.platform_settings set value = '2' where key = 'assistant.daily_limit'");
+    const teacher = await createUser("teacher@example.test");
+    const other = await createUser("other@example.test");
+    expect((await q(user(teacher), "select public.assistant_questions_left() as n")).rows[0].n).toBe(2);
+    expect((await q(user(teacher), "select public.take_assistant_question() as n")).rows[0].n).toBe(1);
+    expect((await q(user(teacher), "select public.take_assistant_question() as n")).rows[0].n).toBe(0);
+    await expectError(user(teacher), "select public.take_assistant_question()", [], /today's limit of 2 questions/);
+    expect((await q(user(teacher), "select public.assistant_questions_left() as n")).rows[0].n).toBe(0);
+    // Each person has their own count, and nobody can read or change the counts directly.
+    expect((await q(user(other), "select public.assistant_questions_left() as n")).rows[0].n).toBe(2);
+    expect((await q(user(teacher), "select * from public.assistant_usage")).rows).toHaveLength(0);
+    await q(user(teacher), "delete from public.assistant_usage");
+    expect((await q(user(teacher), "select public.assistant_questions_left() as n")).rows[0].n).toBe(0);
+  });
+});
