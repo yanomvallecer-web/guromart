@@ -129,6 +129,8 @@ test("a failed attempt and an expired order are explained, and a late payment st
   const sale = seller.getByTestId("earnings-sale");
   await expect(sale).toHaveCount(1);
   await expect(sale).toContainText("Late Payment Test Reading Passage");
+  // Each sale shows the resource's own preview image.
+  await expect(sale.locator("img")).toHaveAttribute("src", /\/product-previews\//);
   await expect(sale).toContainText("₱120.00");
   await expect(sale).toContainText("GuroMart fee (10%)");
   await expect(sale).toContainText("-₱12.00");

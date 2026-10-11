@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { FileText, Plus } from "lucide-react";
 import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
+import { ListingThumb } from "@/components/seller/listing-thumb";
 import { Badge, Card, EmptyState } from "@/components/ui/card";
 import { requireArea } from "@/lib/auth/dal";
 import { formatPrice } from "@/lib/format";
@@ -65,15 +66,19 @@ async function Listings() {
           <Link
             key={l.id}
             href={`/seller/products/${l.id}`}
-            className="flex flex-wrap items-center justify-between gap-3 p-4 hover:bg-surface-muted sm:px-6"
+            className="flex items-center gap-3 p-3 hover:bg-surface-muted sm:gap-4 sm:px-6 sm:py-4"
           >
+            <ListingThumb path={l.preview_path} className="w-20 sm:w-24" />
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <div className="min-w-0">
-              <p className="truncate font-semibold">{l.title}</p>
+              <p className="line-clamp-2 font-semibold leading-snug">{l.topic || l.title}</p>
+              {l.topic ? <p className="truncate text-sm text-muted-foreground">{l.title}</p> : null}
               <p className="text-sm text-muted-foreground">Updated {dateFmt.format(new Date(l.updated_at))}</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex shrink-0 items-center gap-3">
               <span className="text-sm font-semibold">{formatPrice(l.price_centavos)}</span>
               <Badge className={status.tone}>{status.label}</Badge>
+            </div>
             </div>
           </Link>
         );

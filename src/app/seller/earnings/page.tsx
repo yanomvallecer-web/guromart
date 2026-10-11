@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Wallet } from "lucide-react";
 import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
 import { buttonVariants } from "@/components/ui/button";
+import { ListingThumb } from "@/components/seller/listing-thumb";
 import { Badge, Card, EmptyState } from "@/components/ui/card";
 import { requireArea } from "@/lib/auth/dal";
 import { getEarnings } from "@/lib/commerce/earnings";
@@ -77,7 +78,9 @@ async function EarningsView() {
           <h2 className="mb-3 font-display text-xl font-bold">Recent sales</h2>
           <ul className="divide-y divide-border" aria-label="Recent sales">
             {earnings.recentSales.map((s) => (
-              <li key={s.id} className="flex flex-col gap-1 py-3 text-sm" data-testid="earnings-sale">
+              <li key={s.id} className="flex gap-3 py-3 text-sm" data-testid="earnings-sale">
+                <ListingThumb path={s.previewPath} className="w-16 self-start sm:w-20" />
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-semibold">{s.title}</span>
                   <span className="text-muted-foreground">{timeFmt.format(new Date(s.createdAt))}</span>
@@ -102,6 +105,7 @@ async function EarningsView() {
                   ) : (
                     <Badge className="bg-success-soft text-success">Available</Badge>
                   )}
+                </div>
                 </div>
               </li>
             ))}

@@ -6,6 +6,10 @@ import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
 import { Badge, Card } from "@/components/ui/card";
 import { requireArea } from "@/lib/auth/dal";
 import { CopyButton } from "@/components/site/copy-button";
+import { ListingThumb } from "@/components/seller/listing-thumb";
+import { formatPrice } from "@/lib/format";
+import { listOwnListings } from "@/lib/listings/seller";
+import { LISTING_STATUS } from "@/lib/listings/status";
 import { publicEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -47,10 +51,13 @@ async function Dashboard() {
   }
 
   const store = Array.isArray(account.storefronts) ? account.storefronts[0] : account.storefronts;
-  const [payout, products] = await Promise.all([
+  const [payout, products, listings] = await Promise.all([
     supabase.from("seller_payout_methods").select("id", { count: "exact", head: true }).eq("seller_account_id", account.id),
     supabase.from("products").select("status").eq("storefront_id", store?.id ?? ""),
+    store ? listOwnListings(store.id) : Promise.resolve([]),
   ]);
+  const recent = listings.slice(0, 6);
+  const missingPreview = listings.filter((l) => !l.preview_path).length;
   const counts = (products.data ?? []).reduce<Record<string, number>>((acc, p) => {
     acc[p.status] = (acc[p.status] ?? 0) + 1;
     return acc;
@@ -115,6 +122,32 @@ async function Dashboard() {
               ))}
             </dl>
           )}
+          {recent.length ? (
+            <>
+              {missingPreview ? (
+                <p className="mt-5 rounded-[10px] bg-accent-soft px-4 py-3 text-sm">
+                  {missingPreview} of your resources {missingPreview === 1 ? "has" : "have"} no preview image yet. Teachers see a plain cover until you add one; open the resource and add at least 2 previews.
+                </p>
+              ) : null}
+              <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3" data-testid="recent-resources">
+                {recent.map((l) => {
+                  const status = LISTING_STATUS[l.status] ?? LISTING_STATUS.draft;
+                  return (
+                    <li key={l.id} className="min-w-0">
+                      <Link href={`/seller/products/${l.id}`} className="group flex flex-col gap-1.5">
+                        <ListingThumb path={l.preview_path} className="w-full" />
+                        <span className="line-clamp-2 text-sm font-semibold leading-snug group-hover:text-primary group-hover:underline">{l.topic || l.title}</span>
+                        <span className="flex flex-wrap items-center gap-2 text-xs">
+                          <Badge className={status.tone}>{status.label}</Badge>
+                          <span className="font-semibold">{formatPrice(l.price_centavos)}</span>
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          ) : null}
         </Card>
       </div>
       <Card className="p-6">

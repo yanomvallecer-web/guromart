@@ -80,6 +80,15 @@ test("following a shop brings an in-app notice when it publishes", async ({ page
   await expect(page.getByRole("button", { name: /New from Buying Test Shop.*Follow Test New Assessment/ })).toBeVisible();
   await page.locator("header details > summary").click();
   await expect(page.getByTestId("unread-count")).toHaveText("1");
+  // The menu closes on its own after a choice, and on a tap outside it.
+  await page.locator("header details").getByRole("link", { name: /My library/ }).click();
+  await page.waitForURL("**/library");
+  await expect(page.locator("header details")).not.toHaveAttribute("open", "");
+  await page.locator("header details > summary").click();
+  await expect(page.locator("header details")).toHaveAttribute("open", "");
+  await page.locator("main").click({ position: { x: 5, y: 5 } });
+  await expect(page.locator("header details")).not.toHaveAttribute("open", "");
+  await page.goto("/notifications");
 
   await page.getByRole("button", { name: /New from Buying Test Shop/ }).click();
   await page.waitForURL(`**/resources/${next.slug}`);

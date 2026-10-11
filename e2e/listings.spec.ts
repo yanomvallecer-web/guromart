@@ -124,6 +124,11 @@ test("a seller drafts a resource, uploads files securely and submits it for revi
   await expect(page.getByTestId("listing-status")).toHaveText("Draft");
   await page.goto("/seller/products");
   await expect(page.getByRole("link", { name: /Grade 4 Science Quarter 1 Worksheets/ })).toContainText("₱75.00");
+  // The list and the dashboard show each resource's first preview image.
+  await expect(page.getByRole("link", { name: /Grade 4 Science Quarter 1 Worksheets/ }).locator("img")).toHaveAttribute("src", /\/product-previews\//);
+  await page.goto("/seller");
+  await expect(page.getByTestId("recent-resources").locator("img").first()).toHaveAttribute("src", /\/product-previews\//);
+  await page.goto("/seller/products");
 
   // Removing a file deletes it from the listing.
   await page.getByRole("link", { name: /Grade 4 Science Quarter 1 Worksheets/ }).click();

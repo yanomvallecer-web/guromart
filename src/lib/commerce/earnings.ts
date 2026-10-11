@@ -7,6 +7,8 @@ export type EarningsSale = {
   availableAt: string;
   onHold: boolean;
   title: string;
+  /** First preview image of the resource sold, when it still has one. */
+  previewPath: string | null;
   priceCentavos: number;
   commissionBps: number;
   platformFeeCentavos: number;
@@ -45,7 +47,8 @@ export async function getEarnings(sellerAccountId: string): Promise<Earnings> {
       .from("seller_ledger_entries")
       .select(
         `id, created_at, available_at,
-         order_items(title_snapshot, unit_price_centavos, commission_bps, platform_fee_centavos, seller_earnings_centavos)`,
+         order_items(title_snapshot, unit_price_centavos, commission_bps, platform_fee_centavos, seller_earnings_centavos,
+           products(product_previews(storage_path, sort_order)))`,
         { count: "exact" },
       )
       .eq("seller_account_id", sellerAccountId)
@@ -69,6 +72,7 @@ export async function getEarnings(sellerAccountId: string): Promise<Earnings> {
       commission_bps: number;
       platform_fee_centavos: number;
       seller_earnings_centavos: number;
+      products: { product_previews: { storage_path: string; sort_order: number }[] } | null;
     };
   };
   return {
@@ -83,6 +87,7 @@ export async function getEarnings(sellerAccountId: string): Promise<Earnings> {
       availableAt: s.available_at,
       onHold: new Date(s.available_at).getTime() > now,
       title: s.order_items.title_snapshot,
+      previewPath: [...(s.order_items.products?.product_previews ?? [])].sort((a, b) => a.sort_order - b.sort_order)[0]?.storage_path ?? null,
       priceCentavos: s.order_items.unit_price_centavos,
       commissionBps: s.order_items.commission_bps,
       platformFeeCentavos: s.order_items.platform_fee_centavos,
