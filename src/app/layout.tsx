@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Bricolage_Grotesque, Plus_Jakarta_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import { AndroidAppDetect } from "@/components/site/android-app";
 import { ChatLauncher } from "@/components/site/chat-launcher";
 import { ServiceWorkerRegister } from "@/components/site/service-worker-register";
@@ -8,8 +8,9 @@ import { SiteHeader } from "@/components/site/site-header";
 import { TabBar } from "@/components/site/tab-bar";
 import "./globals.css";
 
-const body = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-body", display: "swap" });
-const display = Bricolage_Grotesque({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-display-face", display: "swap" });
+// Both fonts (SIL Open Font License) are kept in the repo, so builds never depend on downloading them from Google Fonts.
+const body = localFont({ src: "./fonts/plus-jakarta-sans-latin.woff2", weight: "200 800", variable: "--font-body", display: "swap" });
+const display = localFont({ src: "./fonts/bricolage-grotesque-latin.woff2", weight: "600 800", variable: "--font-display-face", display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
