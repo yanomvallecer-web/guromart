@@ -8,7 +8,7 @@ import { getTaxonomy } from "@/lib/catalog/queries";
 import { slugify } from "@/lib/format";
 import { listingFromForm, reviewProblems } from "@/lib/listings/schema";
 import { getSellerContext } from "@/lib/listings/seller";
-import { BUCKET, type UploadKind, checkUpload, cleanFileName, objectPath } from "@/lib/listings/uploads";
+import { BUCKET, PAGE_PREVIEW_FORMATS, type UploadKind, checkUpload, cleanFileName, objectPath } from "@/lib/listings/uploads";
 import { discardObject, verifyStoredObject } from "@/lib/listings/verify-object";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -212,12 +212,12 @@ export async function confirmUpload(id: string, input: { kind: UploadKind; path:
   return { ok: true };
 }
 
-/** A short-lived link to one of the seller's own uploaded PowerPoints, so their browser can draw slide previews from it. */
-export async function ownPowerPointUrl(id: string, fileId: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+/** A short-lived link to the seller's own resource file, so their browser can draw its first pages as previews. */
+export async function ownFileUrl(id: string, fileId: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
   const { supabase } = await ownListing(id);
   if (!idSchema.safeParse(fileId).success) return { ok: false, error: "Unknown file." };
   const { data: file } = await supabase.from("product_files").select("storage_path, file_format").eq("id", fileId).eq("product_id", id).maybeSingle();
-  if (!file || file.file_format !== "pptx") return { ok: false, error: "That file isn't a PowerPoint on this listing." };
+  if (!file || !PAGE_PREVIEW_FORMATS.has(file.file_format)) return { ok: false, error: "We can't make previews from that file." };
   const { data, error } = await createAdminClient().storage.from(BUCKET.file).createSignedUrl(file.storage_path, 120);
   if (error || !data) return { ok: false, error: "We couldn't open the file. Please try again." };
   return { ok: true, url: data.signedUrl };

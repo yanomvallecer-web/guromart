@@ -80,8 +80,8 @@ test("a seller drafts a resource, uploads files securely and submits it for revi
   await expect(page.getByTestId("file-list").getByText("Science Q1 Worksheets.pdf")).toBeVisible();
   await expect(page.getByTestId("file-list").getByText(/PDF · 1 KB · Waiting for safety check/)).toBeVisible();
 
-  await page.locator("#upload-preview").setInputFiles({ name: "cover.png", mimeType: "image/png", buffer: PNG });
-  await expect(page.getByTestId("preview-list").getByRole("img")).toBeVisible();
+  // The PDF's only page becomes the first preview by itself.
+  await expect(page.getByTestId("preview-list").getByRole("img")).toHaveCount(1);
   // One preview isn't enough: teachers need to see a page from inside too.
   await expect(page.getByRole("button", { name: "Submit for review" })).toBeDisabled();
   await page.locator("#upload-preview").setInputFiles({ name: "inside.png", mimeType: "image/png", buffer: PNG });
@@ -167,8 +167,8 @@ async function submitListing(page: import("@playwright/test").Page, email: strin
   await openStep(page, "File");
   await page.locator("#upload-file").setInputFiles({ name: "Fractions.pdf", mimeType: "application/pdf", buffer: PDF });
   await expect(page.getByTestId("file-list").getByText("Fractions.pdf")).toBeVisible();
-  await page.locator("#upload-preview").setInputFiles({ name: "cover.png", mimeType: "image/png", buffer: PNG });
-  await expect(page.getByTestId("preview-list").getByRole("img")).toBeVisible();
+  // The PDF's page becomes the cover; one more image makes two.
+  await expect(page.getByTestId("preview-list").getByRole("img")).toHaveCount(1);
   await page.locator("#upload-preview").setInputFiles({ name: "inside.png", mimeType: "image/png", buffer: PNG });
   await expect(page.getByTestId("preview-list").getByRole("img")).toHaveCount(2);
   await page.getByRole("button", { name: "Submit for review" }).click();
@@ -251,17 +251,87 @@ test("uploading a PowerPoint adds its first slides as previews automatically", a
   await expect(page.getByTestId("preview-list").getByRole("img")).toHaveCount(6, { timeout: 30_000 });
   const rows = await serviceRest(`product_previews?product_id=eq.${listing.productId}&select=id,storage_path,sort_order&order=sort_order`);
   expect(rows.map((r: { sort_order: number }) => r.sort_order)).toEqual([0, 1, 2, 3, 4, 5]);
-  await expect(page.getByTestId("slide-maker")).toBeHidden();
+  await expect(page.getByTestId("preview-maker")).toBeHidden();
 
   // After removing two, one click refills them from the PowerPoint already on the listing.
   for (let i = 0; i < 2; i++) {
     await page.getByTestId("preview-list").getByRole("button", { name: "Remove preview image" }).last().click();
     await expect(page.getByTestId("preview-list").getByRole("img")).toHaveCount(5 - i);
   }
-  const maker = page.getByTestId("slide-maker");
-  await expect(maker).toContainText("Add 2 slides from your PowerPoint");
-  await maker.getByRole("button", { name: "Add slides from sample-lesson.pptx" }).click();
+  const maker = page.getByTestId("preview-maker");
+  await maker.getByRole("button", { name: "Add 2 slides from sample-lesson.pptx" }).click();
   await expect(page.getByTestId("preview-list").getByRole("img")).toHaveCount(6, { timeout: 30_000 });
+});
+
+/** A Word file with one page per entry, built here so no binary fixture is needed. */
+async function wordFile(pages: string[]) {
+  const { default: JSZip } = await import("jszip");
+  const zip = new JSZip();
+  const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+  const para = (t: string) => `<w:p><w:r><w:rPr><w:sz w:val="56"/></w:rPr><w:t>${t}</w:t></w:r></w:p>`;
+  const pageBreak = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+  zip.file("[Content_Types].xml", '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+  zip.file("_rels/.rels", '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+  zip.file("word/_rels/document.xml.rels", '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');
+  zip.file(
+    "word/document.xml",
+    `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="${W}"><w:body>${pages.map(para).join(pageBreak)}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>`,
+  );
+  return zip.generateAsync({ type: "nodebuffer" });
+}
+
+/** A PDF with one page per entry, each showing its text. */
+function pdfFile(pages: string[]) {
+  const objects: string[] = ["<</Type/Catalog/Pages 2 0 R>>", "", "<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>"];
+  const kids: string[] = [];
+  for (const text of pages) {
+    const stream = `BT /F1 36 Tf 60 700 Td (${text}) Tj ET`;
+    objects.push(`<</Length ${stream.length}>>stream\n${stream}\nendstream`);
+    objects.push(`<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Resources<</Font<</F1 3 0 R>>>>/Contents ${objects.length} 0 R>>`);
+    kids.push(`${objects.length} 0 R`);
+  }
+  objects[1] = `<</Type/Pages/Kids[${kids.join(" ")}]/Count ${pages.length}>>`;
+  let body = "%PDF-1.4\n";
+  const offsets = objects.map((o, i) => {
+    const at = body.length;
+    body += `${i + 1} 0 obj${o}endobj\n`;
+    return at;
+  });
+  const xref = body.length;
+  body += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, "0")} 00000 n \n`).join("")}`;
+  body += `trailer<</Size ${objects.length + 1}/Root 1 0 R>>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(body, "latin1");
+}
+
+test("uploading a Word file or a PDF adds its first pages as previews automatically", async ({ page }) => {
+  const { createLiveListing } = await import("./helpers");
+  const listing = await createLiveListing("Pang-uri Lesson Plan", 5000);
+  await serviceRest(`products?id=eq.${listing.productId}`, { method: "PATCH", body: JSON.stringify({ status: "draft" }) });
+  await signIn(page, listing.sellerEmail, `/seller/products/${listing.productId}`);
+  await openStep(page, "File");
+  const previews = page.getByTestId("preview-list").getByRole("img");
+
+  // The listing has a cover already, so page 1 (usually that cover) is skipped: pages 2 to 4 are added.
+  await page.locator("#upload-file").setInputFiles({
+    name: "Pang-uri Lesson Plan.docx",
+    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    buffer: await wordFile(["Cover", "Layunin", "Gawain", "Pagtataya"]),
+  });
+  await expect(page.getByTestId("file-list").getByText("Pang-uri Lesson Plan.docx")).toBeVisible({ timeout: 30_000 });
+  await expect(previews).toHaveCount(4, { timeout: 30_000 });
+  // Each page is a real picture, not a blank square.
+  const sizes = await previews.evaluateAll((imgs) => imgs.map((i) => (i as HTMLImageElement).naturalWidth));
+  expect(sizes.slice(1).every((w) => w === 1280)).toBe(true);
+
+  // A PDF added later fills the two places left.
+  await page.locator("#upload-file").setInputFiles({ name: "Pagsasanay.pdf", mimeType: "application/pdf", buffer: pdfFile(["Pahina 1", "Pahina 2", "Pahina 3", "Pahina 4"]) });
+  await expect(previews).toHaveCount(6, { timeout: 30_000 });
+
+  // After removing one, one click refills it from a file already on the listing.
+  await page.getByTestId("preview-list").getByRole("button", { name: "Remove preview image" }).last().click();
+  await expect(previews).toHaveCount(5);
+  await page.getByTestId("preview-maker").getByRole("button", { name: "Add a page from Pang-uri Lesson Plan.docx" }).click();
+  await expect(previews).toHaveCount(6, { timeout: 30_000 });
 });
 
 test("staff add slide previews to live PowerPoint listings in one click", async ({ page }) => {

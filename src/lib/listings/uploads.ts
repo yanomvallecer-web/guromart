@@ -3,6 +3,9 @@
 /** Matches the limit in the database (private.limit_product_media). */
 export const MAX_PREVIEWS = 6;
 
+/** Resource file formats whose first pages the seller's browser can turn into preview images. */
+export const PAGE_PREVIEW_FORMATS: ReadonlySet<string> = new Set(["pptx", "pdf", "docx", "png", "jpg", "webp"]);
+
 export type UploadKind = "file" | "preview" | "verification" | "shop";
 
 type FileType = { ext: string[]; mime: string; format: string; magic: (b: Uint8Array) => boolean };

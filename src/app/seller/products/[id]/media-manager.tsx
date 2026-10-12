@@ -5,8 +5,9 @@ import { useRef, useState, useTransition } from "react";
 import { FileText, ImageIcon, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FormAlert } from "@/components/ui/form";
-import { ACCEPT, MAX_PREVIEWS, type UploadKind } from "@/lib/listings/uploads";
-import { SlideMaker, addSlidePreviews } from "./slide-maker";
+import { ACCEPT, MAX_PREVIEWS, PAGE_PREVIEW_FORMATS, type UploadKind } from "@/lib/listings/uploads";
+import { formatOfName, type PreviewableFormat } from "@/lib/listings/page-images";
+import { PreviewMaker, addPagePreviews } from "./preview-maker";
 import { removeMedia } from "../actions";
 import { uploadAll } from "./upload-all";
 
@@ -20,13 +21,17 @@ const SCAN_LABEL: Record<string, string> = {
   failed: "Safety check failed, will retry",
 };
 
+const IS_PICTURE = /\.(png|jpe?g|webp)$/i;
+
 function size(bytes: number) {
   return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
 export function MediaManager({ listingId, editable, files, previews }: { listingId: string; editable: boolean; files: FileRow[]; previews: PreviewRow[] }) {
   const slotsLeft = MAX_PREVIEWS - previews.length;
-  const decks = files.filter((f) => f.file_format === "pptx").map((f) => ({ id: f.id, name: f.original_filename }));
+  const sources = files
+    .filter((f) => PAGE_PREVIEW_FORMATS.has(f.file_format) && f.scan_status !== "infected")
+    .map((f) => ({ id: f.id, name: f.original_filename, format: f.file_format as PreviewableFormat }));
   return (
     <>
       <section className="flex flex-col gap-4">
@@ -63,8 +68,8 @@ export function MediaManager({ listingId, editable, files, previews }: { listing
           <h2 className="font-display text-xl font-bold">Preview images</h2>
           <p className="text-sm text-muted-foreground">
             Public images that show what&apos;s inside: at least 2, the cover and a page from inside. PNG, JPG or WebP, up to 5 MB, 6 images at most.
-            The first image is the big one; the rest show as small slides under it. When you upload a PowerPoint, its first slides are added
-            here automatically.
+            The first image is the big one; the rest show as small slides under it. When you upload a PDF, Word, PowerPoint or image file, its
+            first pages are added here automatically.
           </p>
         </div>
         {previews.length ? (
@@ -85,7 +90,7 @@ export function MediaManager({ listingId, editable, files, previews }: { listing
         {editable ? (
           <div className="flex flex-col gap-3">
             <Uploader listingId={listingId} kind="preview" label="Add preview images" />
-            <SlideMaker listingId={listingId} slotsLeft={slotsLeft} decks={decks} hasCover={previews.length > 0} />
+            <PreviewMaker listingId={listingId} slotsLeft={slotsLeft} sources={sources} hasCover={previews.length > 0} />
           </div>
         ) : (
           <LockedNote />
@@ -108,9 +113,18 @@ function Uploader({ listingId, kind, label, previewSlots = 0 }: { listingId: str
   async function upload(list: FileList) {
     const all = Array.from(list);
     const failed = await uploadAll(listingId, kind, all, setProgress);
-    // A PowerPoint that uploaded fine also fills the free preview places with its first slides.
-    const deck = kind === "file" ? all.find((f) => f.name.toLowerCase().endsWith(".pptx") && !failed.some((e) => e.startsWith(`${f.name}:`))) : undefined;
-    if (deck) failed.push(...(await addSlidePreviews(listingId, deck, deck.name, previewSlots, setProgress, previewSlots < MAX_PREVIEWS)));
+    // A document that uploaded fine also fills the free preview places with its first pages.
+    // Documents come before pictures, since a page from inside says more than one image.
+    const source =
+      kind === "file"
+        ? all
+            .filter((f) => PAGE_PREVIEW_FORMATS.has(formatOfName(f.name)) && !failed.some((e) => e.startsWith(`${f.name}:`)))
+            .sort((a, b) => Number(IS_PICTURE.test(a.name)) - Number(IS_PICTURE.test(b.name)))[0]
+        : undefined;
+    if (source) {
+      const format = formatOfName(source.name) as PreviewableFormat;
+      failed.push(...(await addPagePreviews(listingId, source, source.name, format, previewSlots, setProgress, previewSlots < MAX_PREVIEWS)));
+    }
     setErrors(failed);
     setProgress(null);
     if (input.current) input.current.value = "";

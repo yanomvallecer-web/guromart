@@ -49,9 +49,7 @@ export async function renderSlideImages(
           pixelRatio: 1,
           skipFonts: true,
         });
-        const shot = onWhite(drawn);
-        watermark(shot);
-        const blob = await new Promise<Blob | null>((resolve) => shot.toBlob(resolve, "image/jpeg", 0.85));
+        const blob = await toPreviewJpeg(drawn);
         if (blob) images.push({ index: first + i, blob, url: URL.createObjectURL(blob) });
       } finally {
         handle.dispose();
@@ -62,6 +60,13 @@ export async function renderSlideImages(
   }
   onProgress?.(count, count);
   return { total, images };
+}
+
+/** Puts a drawn page on white, stamps the watermark and saves it as a JPEG. */
+export async function toPreviewJpeg(drawn: HTMLCanvasElement): Promise<Blob | null> {
+  const shot = onWhite(drawn);
+  watermark(shot);
+  return new Promise<Blob | null>((resolve) => shot.toBlob(resolve, "image/jpeg", 0.85));
 }
 
 /** JPEG has no transparency, so slides without a background sit on white instead of black. */
