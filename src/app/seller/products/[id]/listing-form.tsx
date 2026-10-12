@@ -7,6 +7,7 @@ import { ChipGroup, ChoiceChip } from "@/components/ui/chip";
 import { FieldError, FormAlert, Input, Label, NativeSelect, Textarea } from "@/components/ui/form";
 import { shortGradeLabel } from "@/lib/catalog/labels";
 import { useHydrated } from "@/lib/hooks/use-hydrated";
+import { ALLOWED, NOT_ALLOWED } from "@/lib/listings/deped-rules";
 import { LICENSE_TYPES } from "@/lib/listings/schema";
 import { cn } from "@/lib/utils";
 import type { ActionState } from "../actions";
@@ -240,12 +241,23 @@ export function ListingForm({
             <Textarea {...field("license_terms")} maxLength={4000} rows={3} defaultValue={values.license_terms} />
             <FieldError id="license_terms-error" messages={fe.license_terms} />
           </div>
-          <div className="flex flex-col gap-2 rounded-[10px] border border-border bg-surface-muted p-4">
+          <div className="flex flex-col gap-3 rounded-[10px] border border-border bg-surface-muted p-4">
+          <div className="text-sm" data-testid="listing-rules">
+            <p className="font-semibold">What you can sell</p>
+            <p className="text-muted-foreground">{ALLOWED}</p>
+            <p className="mt-2 font-semibold">Not allowed on GuroMart</p>
+            <ul className="list-disc pl-5 text-muted-foreground">
+              {NOT_ALLOWED.map((rule) => (
+                <li key={rule}>{rule}</li>
+              ))}
+            </ul>
+          </div>
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" name="copyright_declared" defaultChecked={values.copyright_declared} className="mt-0.5 size-4 accent-primary" />
             <span>
-              I made this resource or have written permission to sell it. It does not copy DepEd modules, textbooks or other people&apos;s work
-              beyond what the law allows, and I understand GuroMart removes listings that infringe copyright.
+              I made this resource myself or have written permission to sell it. It is not a DepEd module, textbook, teacher&apos;s guide or
+              curriculum guide, or a blank DepEd template sold for a price, and it doesn&apos;t copy other people&apos;s work beyond what the law
+              allows. I understand GuroMart removes listings that break these rules.
             </span>
           </label>
           <FieldError id="copyright_declared-error" messages={fe.copyright_declared} />

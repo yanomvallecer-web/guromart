@@ -6,6 +6,7 @@ import { Badge, Card } from "@/components/ui/card";
 import { getListingForReview } from "@/lib/admin/review";
 import { requireArea } from "@/lib/auth/dal";
 import { formatPrice } from "@/lib/format";
+import { NOT_ALLOWED, depedFlags } from "@/lib/listings/deped-rules";
 import { LICENSE_TYPES } from "@/lib/listings/schema";
 import { LISTING_STATUS } from "@/lib/listings/status";
 import { publicObjectUrl } from "@/lib/storage";
@@ -38,6 +39,7 @@ async function Review({ params }: { params: Promise<{ id: string }> }) {
   const status = LISTING_STATUS[l.status] ?? LISTING_STATUS.draft;
   const license = LICENSE_TYPES.find((t) => t.value === l.license_type)?.label ?? l.license_type;
   const unchecked = l.files.filter((f) => f.scan_status !== "clean").length;
+  const flags = depedFlags(l);
   const shopOpens = !l.shop.is_published || l.shop.seller_status === "onboarding";
 
   return (
@@ -72,6 +74,25 @@ async function Review({ params }: { params: Promise<{ id: string }> }) {
               <p className="whitespace-pre-line text-sm">{l.license_terms}</p>
             </div>
           ) : null}
+        </Card>
+
+        <Card className="flex flex-col gap-3 p-6" data-testid="deped-check">
+          <h2 className="font-display text-xl font-bold">DepEd rules</h2>
+          {flags.length ? (
+            <ul className="list-disc rounded-[10px] bg-danger-soft p-3 pl-8 text-sm text-danger">
+              {flags.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">No warning words found in the text. Still check the files.</p>
+          )}
+          <p className="text-sm">Reject the listing if it is any of these:</p>
+          <ul className="list-disc pl-5 text-sm text-muted-foreground">
+            {NOT_ALLOWED.map((rule) => (
+              <li key={rule}>{rule}</li>
+            ))}
+          </ul>
         </Card>
 
         <Card className="flex flex-col gap-4 p-6">
