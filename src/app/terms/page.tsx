@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageShell } from "@/components/layout/page-shell";
 import { Prose } from "@/components/layout/prose";
-import { CONTACT_EMAIL, POLICY_UPDATED } from "@/lib/site";
+import { ALLOWED, NOT_ALLOWED } from "@/lib/listings/deped-rules";
+import { CONTACT_EMAIL, TERMS_UPDATED } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Terms and conditions",
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <PageShell title="Terms and conditions" description={`Last updated ${POLICY_UPDATED}`}>
+    <PageShell title="Terms and conditions" description={`Last updated ${TERMS_UPDATED}`}>
       <Prose>
         <p>
           GuroMart is an online marketplace where Filipino teachers buy and sell digital teaching resources such as lesson plans, worksheets
@@ -22,6 +23,7 @@ export default function TermsPage() {
         <h2>Your account</h2>
         <ul>
           <li>You must be at least 18 years old to create an account.</li>
+          <li>GuroMart is for teachers and school staff. Learners should not buy here, and no teacher may require learners to buy.</li>
           <li>Give accurate information and keep your sign-in details to yourself. You are responsible for what happens under your account.</li>
           <li>We may suspend accounts that break these terms, for example by sharing paid files, uploading copied content or committing fraud.</li>
         </ul>
@@ -44,6 +46,7 @@ export default function TermsPage() {
         <h2>Selling</h2>
         <ul>
           <li>You may only sell resources you made yourself or have the right to sell. Do not upload copied textbooks or other people&apos;s work.</li>
+          <li>Never ask your own learners or their parents to buy from your shop. DepEd prohibits school staff from selling materials to learners.</li>
           <li>Listings are reviewed before they are shown to buyers, and we may remove any listing that breaks these terms.</li>
           <li>
             GuroMart keeps a share of each sale, shown on the <Link href="/sell">Sell on GuroMart</Link> page for your plan. Your share is held
@@ -52,6 +55,22 @@ export default function TermsPage() {
           <li>You must verify your identity and add payout details before you can be paid.</li>
           <li>When a sale is refunded, your share of that sale is taken back.</li>
         </ul>
+
+        <h2>DepEd materials</h2>
+        <p>{ALLOWED} These are not allowed:</p>
+        <ul>
+          {NOT_ALLOWED.map((rule) => (
+            <li key={rule}>{rule}</li>
+          ))}
+        </ul>
+        <p>
+          DepEd&apos;s learning materials are free for everyone, and the law requires DepEd&apos;s approval before anyone earns from them. We
+          reject or remove listings that break these rules, and repeated breaks can close a shop.
+        </p>
+        <p>
+          If you teach in a public school, DepEd and Civil Service rules may require written permission from your Schools Division Office
+          before you earn from outside work. Getting that permission is your responsibility.
+        </p>
 
         <h2>Refunds</h2>
         <p>

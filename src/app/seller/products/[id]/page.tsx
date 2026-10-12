@@ -7,6 +7,7 @@ import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
 import { Badge, Card } from "@/components/ui/card";
 import { requireArea } from "@/lib/auth/dal";
 import { getTaxonomy } from "@/lib/catalog/queries";
+import { depedFlags } from "@/lib/listings/deped-rules";
 import { completeness, reviewProblems } from "@/lib/listings/schema";
 import { ProductCard } from "@/components/catalog/product-card";
 import type { ProductCard as ProductCardData } from "@/lib/catalog/queries";
@@ -69,6 +70,7 @@ async function EditListing({ params }: { params: Promise<{ id: string }> }) {
     academic_period_id: listing.academic_period_id,
     language_code: listing.language_code,
   });
+  const flags = depedFlags(listing);
   const category = taxonomy.categories.find((c) => c.id === listing.category_id);
   const card: ProductCardData = {
     id: listing.id,
@@ -166,6 +168,17 @@ async function EditListing({ params }: { params: Promise<{ id: string }> }) {
             ) : (
               <p className="text-sm text-success">Ready to submit for review.</p>
             )
+          ) : null}
+          {flags.length ? (
+            <div className="rounded-[10px] bg-accent-soft p-3 text-sm" data-testid="deped-flags">
+              <p className="font-semibold">Please check before you submit</p>
+              <ul className="mt-1 list-disc pl-5">
+                {flags.map((f) => (
+                  <li key={f}>{f}</li>
+                ))}
+              </ul>
+              <p className="mt-1 text-muted-foreground">Our reviewers look closely at listings like this. If the resource is your own work, you can still submit it.</p>
+            </div>
           ) : null}
           {listing.status === "published" ? (
             <Link href={`/resources/${listing.slug}`} className="text-sm font-semibold text-primary hover:underline">

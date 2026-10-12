@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FieldError, FormAlert, Input, Label } from "@/components/ui/form";
@@ -73,11 +74,18 @@ export function StartSellingForm() {
         <FieldError id="store_slug-error" messages={fe.store_slug} />
       </div>
 
+      <p className="rounded-[10px] bg-accent-soft p-3 text-sm" data-testid="public-school-note">
+        <span className="font-semibold">Teaching in a public school?</span> DepEd and Civil Service rules may require written permission from
+        your Schools Division Office before you earn from outside work. Ask your principal or division office. GuroMart doesn&apos;t check
+        this for you.
+      </p>
+
       <label className="flex gap-3 text-sm">
         <input type="checkbox" name="agree" required className="mt-0.5 size-4 accent-[var(--primary)]" />
         <span>
-          I will only sell materials I created or have the right to sell, and I will not upload DepEd self-learning modules or other copyrighted
-          works I don&apos;t own. I accept the GuroMart seller terms (being finalized before launch).
+          I will only sell materials I created or have the right to sell. I will not upload DepEd modules, textbooks, teacher&apos;s guides or
+          curriculum guides, or sell blank DepEd templates, and I will not ask my own learners or their parents to buy from my shop. I accept
+          the <Link href="/terms" className="font-semibold text-primary hover:underline">GuroMart terms</Link>.
         </span>
       </label>
       <FieldError id="agree-error" messages={fe.agree} />
