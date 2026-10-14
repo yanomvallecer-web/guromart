@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { Wallet } from "lucide-react";
+import { CircleCheck, Hourglass, type LucideIcon, Wallet } from "lucide-react";
+import { StatTile } from "@/components/ui/stat-tile";
 import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
 import { buttonVariants } from "@/components/ui/button";
 import { ListingThumb } from "@/components/seller/listing-thumb";
@@ -62,13 +63,13 @@ async function EarningsView() {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="On hold" value={earnings.pendingCentavos} testId="earnings-pending">
+        <Stat label="On hold" value={earnings.pendingCentavos} testId="earnings-pending" icon={Hourglass} tone="yellow">
           Sales from the last {plans.holdDays} days, kept in case of a refund.
         </Stat>
-        <Stat label="Available" value={earnings.availableCentavos} testId="earnings-available">
+        <Stat label="Available" value={earnings.availableCentavos} testId="earnings-available" icon={CircleCheck} tone="green">
           Past the hold and ready to be paid out.
         </Stat>
-        <Stat label="Lifetime earnings" value={earnings.lifetimeCentavos} testId="earnings-lifetime">
+        <Stat label="Lifetime earnings" value={earnings.lifetimeCentavos} testId="earnings-lifetime" icon={Wallet} tone="blue">
           Your share of every sale, from {earnings.salesCount} {earnings.salesCount === 1 ? "sale" : "sales"}.
         </Stat>
       </div>
@@ -149,12 +150,6 @@ async function EarningsView() {
   );
 }
 
-function Stat({ label, value, testId, children }: { label: string; value: number; testId: string; children: React.ReactNode }) {
-  return (
-    <Card className="flex flex-col gap-1 p-5">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="font-display text-2xl font-bold" data-testid={testId}>{formatAmount(value)}</p>
-      <p className="text-xs text-muted-foreground">{children}</p>
-    </Card>
-  );
+function Stat({ label, value, testId, icon, tone, children }: { label: string; value: number; testId: string; icon: LucideIcon; tone: "green" | "blue" | "yellow"; children: React.ReactNode }) {
+  return <StatTile label={label} value={formatAmount(value)} valueTestId={testId} icon={icon} tone={tone} note={children} />;
 }

@@ -19,7 +19,8 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
+import { BrandBanner, PageShell, PanelSkeleton } from "@/components/layout/page-shell";
+import { StatTile } from "@/components/ui/stat-tile";
 import { Badge, Card } from "@/components/ui/card";
 import { requireArea } from "@/lib/auth/dal";
 import { CopyButton } from "@/components/site/copy-button";
@@ -36,7 +37,7 @@ export const metadata: Metadata = { title: "Seller dashboard" };
 
 export default function SellerDashboardPage() {
   return (
-    <PageShell title="Seller dashboard">
+    <PageShell title="Seller dashboard" plain>
       <Suspense fallback={<PanelSkeleton />}>
         <Dashboard />
       </Suspense>
@@ -127,19 +128,17 @@ async function Dashboard() {
   ].filter((a) => a !== null);
 
   const stats = [
-    { label: "Lifetime earnings", value: formatAmount(earnings.lifetimeCentavos), icon: Wallet, tone: "bg-success-soft text-success", href: "/seller/earnings" },
-    { label: "Sales", value: count.format(sales), icon: ShoppingBag, tone: "bg-primary-soft text-primary", href: "/seller/earnings" },
-    { label: "Downloads", value: count.format(downloads), icon: Download, tone: "bg-accent-soft text-foreground", href: "/seller/products" },
-    { label: "Followers", value: count.format(Number(followers.data ?? 0)), icon: Users, tone: "bg-danger-soft text-danger", href: shopUrl ?? "/seller/shop" },
+    { label: "Lifetime earnings", value: formatAmount(earnings.lifetimeCentavos), icon: Wallet, tone: "green" as const, href: "/seller/earnings" },
+    { label: "Sales", value: count.format(sales), icon: ShoppingBag, tone: "blue" as const, href: "/seller/earnings" },
+    { label: "Downloads", value: count.format(downloads), icon: Download, tone: "yellow" as const, href: "/seller/products" },
+    { label: "Followers", value: count.format(Number(followers.data ?? 0)), icon: Users, tone: "red" as const, href: shopUrl ?? "/seller/shop" },
   ];
 
   return (
     <div className="flex flex-col gap-6">
       {/* Welcome banner: the shop, its link, and the one thing most sellers do next. */}
-      <section aria-label="Your shop" className="relative overflow-hidden rounded-[16px] bg-primary p-6 text-primary-foreground sm:p-8">
-        <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full bg-white/10" />
-        <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/3 size-56 rounded-full bg-white/5" />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+      <BrandBanner label="Your shop">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex min-w-0 flex-col gap-2">
             <p className="text-sm font-semibold text-primary-foreground/80">{greeting()}! Here&apos;s how your shop is doing.</p>
             <p className="font-display text-3xl font-bold sm:text-4xl">{store?.name}</p>
@@ -171,23 +170,12 @@ async function Dashboard() {
             ) : null}
           </div>
         </div>
-      </section>
+      </BrandBanner>
 
       <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" aria-label="Shop numbers" data-testid="seller-stats">
         {stats.map((s) => (
           <li key={s.label}>
-            <Link
-              href={s.href}
-              className="group flex h-full items-center gap-3 rounded-[12px] border border-border bg-surface p-4 text-foreground no-underline transition hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-full", s.tone)}>
-                <s.icon className="size-5" aria-hidden />
-              </span>
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate font-display text-xl font-bold sm:text-2xl">{s.value}</span>
-                <span className="text-sm text-muted-foreground">{s.label}</span>
-              </span>
-            </Link>
+            <StatTile {...s} />
           </li>
         ))}
       </ul>

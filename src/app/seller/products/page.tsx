@@ -20,7 +20,7 @@ export default function SellerProductsPage() {
       title="Your resources"
       description="Drafts, listings in review and live resources in your shop."
       actions={
-        <Button asChild>
+        <Button asChild variant="accent">
           <Link href="/seller/products/new">
             <Plus aria-hidden /> New resource
           </Link>

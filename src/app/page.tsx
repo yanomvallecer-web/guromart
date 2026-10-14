@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BannerCircles } from "@/components/layout/page-shell";
 import { Suspense } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { ProductGrid, ProductGridSkeleton } from "@/components/catalog/product-card";
@@ -14,8 +15,9 @@ const LAUNCH_THRESHOLD = 8;
 export default function HomePage() {
   return (
     <>
-      <section className="bg-primary text-white">
-        <div className="mx-auto flex max-w-[1200px] flex-col gap-6 px-4 py-8 sm:px-6 sm:py-16">
+      <section className="relative overflow-hidden bg-primary text-white">
+        <BannerCircles />
+        <div className="relative mx-auto flex max-w-[1200px] flex-col gap-6 px-4 py-8 sm:px-6 sm:py-16">
           <div className="max-w-2xl">
             <p className="mb-3 text-sm font-bold uppercase tracking-[0.08em] text-[#cfe0f7]">Para sa mga guro, gawa ng mga guro</p>
             <h1 className="font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl">
