@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { SearchX, X } from "lucide-react";
 import { FilterSheet } from "@/components/catalog/filter-sheet";
@@ -56,6 +57,8 @@ function BrowseSkeleton() {
 
 type Option = { value: string; label: string };
 const opts = (items: { code: string; name: string }[]): Option[] => items.map((i) => ({ value: i.code, label: i.name }));
+/** Bundles have their own page; picking them as a resource type goes there. */
+const BUNDLE_CATEGORY = { value: "bundle", label: "Lesson bundles" };
 
 /** Display name of an applied filter, from the same lists the filters offer. */
 function filterLabel(key: FilterKey, value: string, t: Taxonomy): string {
@@ -84,6 +87,7 @@ function filterLabel(key: FilterKey, value: string, t: Taxonomy): string {
 
 async function Browse({ searchParams }: { searchParams: PageProps<"/browse">["searchParams"] }) {
   const params = parseBrowseParams(await searchParams);
+  if (params.category === BUNDLE_CATEGORY.value) redirect("/bundles");
   // A plain visit to Browse starts from the grade and subject the teacher said they teach.
   // Any search, filter or "Show all" (all=1) leaves the results as asked.
   const prefs = !params.q && !params.all && activeFilters(params).length === 0 ? await getTeachingPreferences() : null;
@@ -136,7 +140,7 @@ async function Browse({ searchParams }: { searchParams: PageProps<"/browse">["se
         <form action="/browse" className="flex flex-col gap-4 rounded-[12px] border border-border bg-surface p-4">
           <h2 className="font-display text-lg font-bold">Filters</h2>
           {carried}
-          {select("f", "category", "Resource type", opts(taxonomy.categories))}
+          {select("f", "category", "Resource type", [...opts(taxonomy.categories), BUNDLE_CATEGORY])}
           {select("f", "grade", "Grade level", opts(taxonomy.grades))}
           {select("f", "subject", "Subject", opts(taxonomy.subjects))}
           {select("f", "curriculum", "Curriculum", opts(taxonomy.curricula))}
@@ -170,7 +174,7 @@ async function Browse({ searchParams }: { searchParams: PageProps<"/browse">["se
               })),
             )}
             {chips("subject", "Subject", opts(taxonomy.subjects))}
-            {chips("category", "Resource type", opts(taxonomy.categories))}
+            {chips("category", "Resource type", [...opts(taxonomy.categories), BUNDLE_CATEGORY])}
             {chips("price", "Price", PRICES)}
             <details open={moreActive} className="group rounded-[12px] border border-border">
               <summary className="flex min-h-11 cursor-pointer list-none items-center px-4 text-sm font-semibold text-primary [&::-webkit-details-marker]:hidden">

@@ -203,6 +203,21 @@ test("a seller bundles resources at one lower price and the buyer gets every res
   await expect(card.getByTestId("bundle-cover").locator("img")).toHaveCount(2);
   await expect(card.getByTestId("bundle-cover").locator("img").first()).toHaveAttribute("src", /\/product-previews\//);
 
+  // The shop page shows the bundle as a picture card ahead of its resources.
+  await page.goto(`/shop/${a.storeSlug}`);
+  const shopCard = page.getByTestId("bundle-card").first();
+  await expect(shopCard).toHaveAttribute("href", bundlePath);
+  await expect(shopCard.getByTestId("bundle-cover").locator("img")).toHaveCount(2);
+
+  // Bundles are a category: the home chip and the browse filter both lead to the bundles page.
+  await page.goto("/");
+  await page.getByRole("link", { name: "Lesson bundles", exact: true }).click();
+  await page.waitForURL("**/bundles");
+  await expect(page.getByRole("heading", { name: "Lesson bundles", level: 1 })).toBeVisible();
+  await expect(page.locator(`[data-testid="bundle-card"][href="${bundlePath}"]`).filter({ visible: true })).toBeVisible();
+  await page.goto("/browse?category=bundle");
+  await page.waitForURL("**/bundles");
+
   // Each resource page points to the bundle.
   await page.goto(`/resources/${a.slug}`);
   await expect(page.getByTestId("bundle-links").getByRole("link", { name: "Heat vs. Temperature" })).toHaveAttribute("href", bundlePath);

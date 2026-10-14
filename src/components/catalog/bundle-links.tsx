@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Layers } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { type BundleSummary, bundlesWithProduct, shopBundles } from "@/lib/catalog/bundles";
+import { type BundleSummary, bundlesWithProduct } from "@/lib/catalog/bundles";
 import { formatPrice } from "@/lib/format";
 
 function BundleList({ bundles, heading }: { bundles: BundleSummary[]; heading: string }) {
@@ -23,8 +23,4 @@ function BundleList({ bundles, heading }: { bundles: BundleSummary[]; heading: s
 
 export async function ProductBundles({ productId }: { productId: string }) {
   return <BundleList bundles={await bundlesWithProduct(productId)} heading="Also sold in a lesson bundle" />;
-}
-
-export async function ShopBundles({ storefrontId }: { storefrontId: string }) {
-  return <BundleList bundles={await shopBundles(storefrontId)} heading="Lesson bundles" />;
 }

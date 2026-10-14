@@ -57,13 +57,6 @@ export async function bundlesWithProduct(productId: string): Promise<BundleSumma
   return ((data ?? []) as unknown as { bundles: BundleSummary }[]).map((r) => r.bundles);
 }
 
-/** A shop's live bundles. */
-export async function shopBundles(storefrontId: string): Promise<BundleSummary[]> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("bundles").select(SUMMARY).eq("storefront_id", storefrontId).eq("status", "published").order("created_at", { ascending: false });
-  return (data ?? []) as BundleSummary[];
-}
-
 export type BundleCard = {
   id: string;
   slug: string;
@@ -92,20 +85,23 @@ type BundleCardRow = {
   }[];
 };
 
-/** Live bundles for the homepage, newest first. Read anonymously, so only live bundles and live resources count. */
-export async function getLiveBundleCards(limit = 4): Promise<BundleCard[]> {
+/**
+ * Live bundles as cards, newest first, optionally one shop's only. Read
+ * anonymously, so only live bundles and live resources count.
+ */
+export async function getLiveBundleCards({ limit = 4, storefrontId }: { limit?: number; storefrontId?: string } = {}): Promise<BundleCard[]> {
   "use cache";
   cacheLife("minutes");
   cacheTag("products", "bundles");
-  const { data, error } = await createPublicClient()
+  let query = createPublicClient()
     .from("bundles")
     .select(
       `id, slug, title, topic, price_centavos, storefronts(slug, name),
        bundle_items(sort_order, products(price_centavos, product_previews(storage_path, sort_order)))`,
     )
-    .eq("status", "published")
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .eq("status", "published");
+  if (storefrontId) query = query.eq("storefront_id", storefrontId);
+  const { data, error } = await query.order("created_at", { ascending: false }).limit(limit);
   if (error) throw new Error(`Could not load bundles: ${error.message}`);
   return (data as unknown as BundleCardRow[]).map((b) => {
     const items = [...b.bundle_items].sort((x, y) => x.sort_order - y.sort_order).flatMap((i) => (i.products ? [i.products] : []));

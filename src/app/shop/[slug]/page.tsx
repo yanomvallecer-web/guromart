@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { BookOpen } from "lucide-react";
-import { ShopBundles } from "@/components/catalog/bundle-links";
 import { FollowControl } from "@/components/catalog/follow-control";
 import { ProductGrid } from "@/components/catalog/product-card";
 import { EmptyState, Skeleton } from "@/components/ui/card";
+import { getLiveBundleCards } from "@/lib/catalog/bundles";
 import { browseProducts } from "@/lib/catalog/queries";
 import { getStorefront } from "@/lib/catalog/storefront";
 import { publicObjectUrl } from "@/lib/storage";
@@ -28,7 +28,7 @@ export default function ShopPage({ params }: PageProps<"/shop/[slug]">) {
 async function Shop({ params }: { params: PageProps<"/shop/[slug]">["params"] }) {
   const store = await getStorefront((await params).slug);
   if (!store) notFound();
-  const products = await browseProducts({ shop: store.slug, sort: "newest" });
+  const [products, bundles] = await Promise.all([browseProducts({ shop: store.slug, sort: "newest" }), getLiveBundleCards({ storefrontId: store.id, limit: 24 })]);
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-4">
@@ -59,11 +59,9 @@ async function Shop({ params }: { params: PageProps<"/shop/[slug]">["params"] })
         </Suspense>
         {store.description ? <p className="max-w-2xl whitespace-pre-line">{store.description}</p> : null}
       </header>
-      <Suspense fallback={null}>
-        <ShopBundles storefrontId={store.id} />
-      </Suspense>
-      {products.items.length ? (
-        <ProductGrid products={products.items} />
+      {/* The shop's bundles lead its resources, as cards with their pictures. */}
+      {products.items.length || bundles.length ? (
+        <ProductGrid products={products.items} bundles={bundles} />
       ) : (
         <EmptyState icon={<BookOpen />} title="No resources yet">This shop hasn&apos;t published anything yet.</EmptyState>
       )}

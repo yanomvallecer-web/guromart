@@ -68,6 +68,11 @@ async function QuickCategories() {
           </li>
         ))}
       <li>
+        <Link href="/bundles" className="block rounded-full border border-white/40 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10">
+          Lesson bundles
+        </Link>
+      </li>
+      <li>
         <Link href="/browse?price=free" className="block rounded-full bg-white px-4 py-2 text-sm font-semibold text-foreground hover:bg-white/90">
           Free downloads
         </Link>
@@ -175,7 +180,7 @@ async function ShelfSection({
   href: string;
   withBundles?: boolean;
 }) {
-  const [products, bundles] = await Promise.all([getShelf(shelf), withBundles ? getLiveBundleCards(FEATURED_BUNDLES) : []]);
+  const [products, bundles] = await Promise.all([getShelf(shelf), withBundles ? getLiveBundleCards({ limit: FEATURED_BUNDLES }) : []]);
   if (products.length === 0 && bundles.length === 0) return null;
   return (
     <section aria-labelledby={id} className="flex flex-col gap-4">
