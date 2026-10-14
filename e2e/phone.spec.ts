@@ -252,6 +252,11 @@ test("the seller dashboard shows the shop's real address with a Copy button", as
   await page.getByRole("button", { name: "Email me a sign-in code" }).click();
   await page.getByRole("textbox", { name: "Digit 1 of 6" }).fill(await latestCode(listing.sellerEmail));
   await page.waitForURL("**/seller");
+  // The banner and number tiles show the shop's real state: one live resource, no sales yet.
+  await expect(page.getByText("1 live", { exact: true })).toBeVisible();
+  const stats = page.getByTestId("seller-stats");
+  await expect(stats.getByRole("link", { name: /^0\s*Sales$/ })).toHaveAttribute("href", "/seller/earnings");
+  await expect(stats.getByRole("link", { name: /^0\s*Followers$/ })).toBeVisible();
   const site = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
   const link = page.getByTestId("shop-url");
   await expect(link).toHaveAttribute("href", new RegExp(`^${site.replace(/[.:/]/g, "\\$&")}/shop/buy-`));
