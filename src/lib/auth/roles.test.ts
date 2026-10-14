@@ -37,4 +37,9 @@ describe("safeNextPath", () => {
     expect(safeNextPath("/\\evil.example")).toBe("/");
     expect(safeNextPath(null, "/account")).toBe("/account");
   });
+  it("rejects paths a browser would turn into another site", () => {
+    expect(safeNextPath("/\t/evil.example")).toBe("/");
+    expect(safeNextPath("/\n/evil.example")).toBe("/");
+    expect(safeNextPath("/\r\n/evil.example")).toBe("/");
+  });
 });

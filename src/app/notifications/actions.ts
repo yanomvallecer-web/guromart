@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireViewer } from "@/lib/auth/dal";
+import { safeNextPath } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 
 export async function markAllRead() {
@@ -26,7 +27,5 @@ export async function openNotification(id: string) {
     .select("link_path")
     .maybeSingle();
   revalidatePath("/", "layout");
-  // link_path is checked by the database to be a site path ("/...").
-  const to = data?.link_path && data.link_path.startsWith("/") && !data.link_path.startsWith("//") ? data.link_path : "/notifications";
-  redirect(to);
+  redirect(safeNextPath(data?.link_path, "/notifications"));
 }
