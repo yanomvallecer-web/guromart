@@ -125,7 +125,7 @@ export async function submitListing(id: string): Promise<ActionState> {
   if (!["draft", "rejected"].includes(listing.status)) return { error: "This listing is already in review or live." };
   const { data } = await supabase
     .from("products")
-    .select("title, topic, description, category_id, subject_id, copyright_declared_at, product_grade_levels(grade_level_id), product_files(id), product_previews(id)")
+    .select("title, topic, description, category_id, subject_id, copyright_declared_at, product_categories(code), product_grade_levels(grade_level_id), product_files(id), product_previews(id)")
     .eq("id", id)
     .single();
   if (!data) return { error: "Unknown listing." };
@@ -139,6 +139,8 @@ export async function submitListing(id: string): Promise<ActionState> {
     file_count: data.product_files.length,
     preview_count: data.product_previews.length,
     copyright_declared: Boolean(data.copyright_declared_at),
+    // A to-one join, though the generated types call it a list.
+    category_code: ([] as { code: string }[]).concat(data.product_categories ?? [])[0]?.code ?? null,
   });
   if (problems.length) return { problems };
   const { error } = await supabase.from("products").update({ status: "pending_review" }).eq("id", id);

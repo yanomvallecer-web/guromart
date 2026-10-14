@@ -69,18 +69,31 @@ export const listingSchema = z.object({
 
 export type ListingInput = z.infer<typeof listingSchema>;
 
+/**
+ * Resource types that aren't tied to one lesson. They skip the lesson fields:
+ * short summary, curriculum, quarter, week or lesson, topic and learning competency.
+ */
+export const NON_LESSON_CATEGORIES = new Set(["printable", "educational-game", "classroom-decor", "planner"]);
+
+export function isLessonType(categoryCode: string | null | undefined): boolean {
+  return !categoryCode || !NON_LESSON_CATEGORIES.has(categoryCode);
+}
+
 export function listingFromForm(form: FormData) {
+  // A type without lessons saves those fields empty, whatever was typed before switching type.
+  const lesson = isLessonType(String(form.get("category") ?? ""));
+  const lessonField = (name: string) => (lesson ? (form.get(name) ?? "") : "");
   return listingSchema.safeParse({
     title: form.get("title") ?? "",
-    summary: form.get("summary") ?? "",
+    summary: lessonField("summary"),
     description: form.get("description") ?? "",
     category: form.get("category") ?? "",
     subject: form.get("subject") ?? "",
-    curriculum: form.get("curriculum") ?? "",
-    period: form.get("period") ?? "",
-    period_detail: form.get("period_detail") ?? "",
-    topic: form.get("topic") ?? "",
-    learning_competency: form.get("learning_competency") ?? "",
+    curriculum: lessonField("curriculum"),
+    period: lessonField("period"),
+    period_detail: lessonField("period_detail"),
+    topic: lessonField("topic"),
+    learning_competency: lessonField("learning_competency"),
     language: form.get("language") ?? "",
     grades: form.getAll("grades").map(String),
     price: String(form.get("price") ?? ""),
@@ -105,13 +118,15 @@ export type ReviewCheck = {
   file_count: number;
   preview_count: number;
   copyright_declared: boolean;
+  /** The resource type's code; types without lessons don't need a topic. */
+  category_code?: string | null;
 };
 
 /** What still blocks a listing from being sent to review, in plain words. Empty means ready. */
 export function reviewProblems(c: ReviewCheck): string[] {
   const problems: string[] = [];
   if (c.title.trim().length < 4) problems.push("Add a title.");
-  if (!c.topic?.trim()) problems.push("Add the lesson topic, for example \"Heat vs. Temperature\". It's the title teachers see first.");
+  if (isLessonType(c.category_code) && !c.topic?.trim()) problems.push("Add the lesson topic, for example \"Heat vs. Temperature\". It's the title teachers see first.");
   if (c.description.trim().length < 50) problems.push("Describe the resource in at least 50 characters.");
   if (!c.category_id) problems.push("Choose a resource type.");
   if (!c.subject_id) problems.push("Choose a subject.");
@@ -137,18 +152,20 @@ export type CompletenessCheck = ReviewCheck & {
  * whether it's done. Required items are the ones reviewProblems checks.
  */
 export function completeness(c: CompletenessCheck): { label: string; done: boolean; required: boolean }[] {
-  return [
-    { label: "Lesson topic", done: Boolean(c.topic?.trim()), required: true },
+  const lesson = isLessonType(c.category_code);
+  const items = [
+    { label: "Lesson topic", done: Boolean(c.topic?.trim()), required: true, lessonOnly: true },
     { label: "Resource type, subject and grade", done: Boolean(c.category_id && c.subject_id && c.grade_count), required: true },
     { label: "Description of at least 50 characters", done: c.description.trim().length >= 50, required: true },
     { label: "The file teachers download", done: c.file_count > 0, required: true },
     { label: `${MIN_PREVIEWS} or more preview images`, done: c.preview_count >= MIN_PREVIEWS, required: true },
     { label: "Copyright confirmation", done: c.copyright_declared, required: true },
-    { label: "Learning competency (MELC or code)", done: Boolean(c.learning_competency?.trim()), required: false },
+    { label: "Learning competency (MELC or code)", done: Boolean(c.learning_competency?.trim()), required: false, lessonOnly: true },
     { label: "Number of pages or slides", done: Boolean(c.page_count), required: false },
-    { label: "Quarter or curriculum", done: Boolean(c.academic_period_id || c.curriculum_id), required: false },
+    { label: "Quarter or curriculum", done: Boolean(c.academic_period_id || c.curriculum_id), required: false, lessonOnly: true },
     { label: "Language", done: Boolean(c.language_code), required: false },
     { label: "4 or more previews, including an activity and the assessment", done: c.preview_count >= 4, required: false },
-    { label: "Short summary", done: Boolean(c.summary?.trim()), required: false },
+    { label: "Short summary", done: Boolean(c.summary?.trim()), required: false, lessonOnly: true },
   ];
+  return items.filter((i) => lesson || !i.lessonOnly).map(({ label, done, required }) => ({ label, done, required }));
 }

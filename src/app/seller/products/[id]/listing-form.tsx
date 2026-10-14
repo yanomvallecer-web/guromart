@@ -7,7 +7,7 @@ import { ChipGroup, ChoiceChip } from "@/components/ui/chip";
 import { FieldError, FormAlert, Input, Label, NativeSelect, Textarea } from "@/components/ui/form";
 import { shortGradeLabel } from "@/lib/catalog/labels";
 import { useHydrated } from "@/lib/hooks/use-hydrated";
-import { LICENSE_TYPES } from "@/lib/listings/schema";
+import { LICENSE_TYPES, isLessonType } from "@/lib/listings/schema";
 import { cn } from "@/lib/utils";
 import type { ActionState } from "../actions";
 
@@ -94,10 +94,25 @@ export function ListingForm({
     "aria-describedby": `${name}-error`,
   });
 
-  const select = (name: keyof ListingValues, label: string, items: Option[], placeholder: string, required = false) => (
+  const [categoryCode, setCategoryCode] = useState(values.category);
+  // Printables, games, decor, planners and forms aren't one lesson, so they skip the lesson fields.
+  const lesson = isLessonType(categoryCode);
+  const select = (
+    name: keyof ListingValues,
+    label: string,
+    items: Option[],
+    placeholder: string,
+    required = false,
+    onChange?: (value: string) => void,
+  ) => (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={name}>{label}</Label>
-      <NativeSelect {...field(name)} defaultValue={values[name] as string} required={required}>
+      <NativeSelect
+        {...field(name)}
+        defaultValue={values[name] as string}
+        required={required}
+        onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+      >
         <option value="">{placeholder}</option>
         {items.map((i) => (
           <option key={i.code} value={i.code}>{i.name}</option>
@@ -151,7 +166,7 @@ export function ListingForm({
             <Input {...field("title")} required minLength={4} maxLength={160} defaultValue={values.title} />
             <FieldError id="title-error" messages={fe.title} />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div hidden={!lesson} className="flex flex-col gap-1.5">
             <Label htmlFor="summary">Short summary (optional)</Label>
             <Input {...field("summary")} maxLength={300} defaultValue={values.summary} placeholder="One line shown under the title" />
             <FieldError id="summary-error" messages={fe.summary} />
@@ -163,7 +178,7 @@ export function ListingForm({
           </div>
 
           <h2 className="mt-2 font-display text-xl font-bold">Where it fits</h2>
-          {select("category", "Resource type", options.categories, "Choose a type", true)}
+          {select("category", "Resource type", options.categories, "Choose a type", true, setCategoryCode)}
           <GradeChips grades={options.grades} selected={values.grades} />
           <FieldError id="grades-error" messages={fe.grades} />
           <ChipGroup legend="Subject">
@@ -175,22 +190,22 @@ export function ListingForm({
           </ChipGroup>
           <FieldError id="subject-error" messages={fe.subject} />
           <div className="grid gap-4 sm:grid-cols-2">
-            {select("curriculum", "Curriculum (optional)", options.curricula, "Any curriculum")}
             {select("language", "Language (optional)", options.languages, "Not specified")}
-            {select("period", "Quarter or period (optional)", options.periods, "Not specified")}
-            <div className="flex flex-col gap-1.5">
+            <div hidden={!lesson}>{select("curriculum", "Curriculum (optional)", options.curricula, "Any curriculum")}</div>
+            <div hidden={!lesson}>{select("period", "Quarter or period (optional)", options.periods, "Not specified")}</div>
+            <div hidden={!lesson} className="flex flex-col gap-1.5">
               <Label htmlFor="period_detail">Week or lesson (optional)</Label>
               <Input {...field("period_detail")} maxLength={80} defaultValue={values.period_detail} placeholder="e.g. Week 3" />
               <FieldError id="period_detail-error" messages={fe.period_detail} />
             </div>
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div hidden={!lesson} className="flex flex-col gap-1.5">
             <Label htmlFor="topic">Lesson topic (needed before review)</Label>
             <Input {...field("topic")} maxLength={200} defaultValue={values.topic} placeholder="e.g. Heat vs. Temperature" />
             <p className="text-xs text-muted-foreground">Shown as the main title on cards and your resource page. Keep it short: one topic, not a list.</p>
             <FieldError id="topic-error" messages={fe.topic} />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div hidden={!lesson} className="flex flex-col gap-1.5">
             <Label htmlFor="learning_competency">Learning competency (optional)</Label>
             <Textarea {...field("learning_competency")} maxLength={1000} rows={3} defaultValue={values.learning_competency} placeholder="The MELC or competency code and text this covers" />
             <FieldError id="learning_competency-error" messages={fe.learning_competency} />

@@ -58,6 +58,13 @@ test("a seller drafts a resource, uploads files securely and submits it for revi
 
   await openStep(page, "Details");
   await page.getByRole("textbox", { name: "Description" }).fill("Twenty-four worksheets on living things and their environment, with answer keys for every page.");
+  // Types that aren't one lesson skip the lesson fields; switching back brings them again.
+  const type = page.getByRole("combobox", { name: "Resource type" });
+  await type.selectOption({ label: "Classroom Decor" });
+  for (const name of [/Lesson topic/, /Short summary/, /Week or lesson/, /Learning competency/]) await expect(page.getByRole("textbox", { name })).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: /Curriculum/ })).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: /Quarter or period/ })).toHaveCount(0);
+  await type.selectOption({ label: "Worksheets" });
   await page.getByRole("textbox", { name: /Lesson topic/ }).fill("Living things and their environment");
   await tapChip(page, "radio", "Science");
   // "All" ticks every grade level, and tapping it again clears them.

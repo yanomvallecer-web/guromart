@@ -58,6 +58,7 @@ async function EditListing({ params }: { params: Promise<{ id: string }> }) {
     file_count: listing.files.length,
     preview_count: listing.previews.length,
     copyright_declared: Boolean(listing.copyright_declared_at),
+    category_code: codeOf(taxonomy.categories, listing.category_id) || null,
   };
   const problems = reviewProblems(check);
   const items = completeness({
