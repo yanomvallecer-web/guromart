@@ -57,9 +57,14 @@ export function typeName(code: string | null, name: string | null): string | nul
  * The grades a resource is for, compactly: "Grade 7", "Grades 7–8",
  * "Grades 4, 6", or the names as given ("Kindergarten, Grade 1").
  */
+/** Nursery, Kindergarten and Grades 1 to 12. */
+export const ALL_GRADE_COUNT = 14;
+
 export function gradeSummary(grades: string[]): string | null {
   if (!grades.length) return null;
   if (grades.length === 1) return grades[0];
+  // Every grade from Nursery to Grade 12, as ticked with "All" when listing.
+  if (grades.length >= ALL_GRADE_COUNT) return "All grades";
   const nums = grades.map((g) => /^Grade (\d+)$/.exec(g)?.[1]).map(Number);
   if (nums.some((n) => !n)) return grades.join(", ");
   const consecutive = nums.every((n, i) => i === 0 || n === nums[i - 1] + 1);

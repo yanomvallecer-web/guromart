@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useActionState, useState } from "react";
+import { type ReactNode, useActionState, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChipGroup, ChoiceChip } from "@/components/ui/chip";
@@ -164,14 +164,7 @@ export function ListingForm({
 
           <h2 className="mt-2 font-display text-xl font-bold">Where it fits</h2>
           {select("category", "Resource type", options.categories, "Choose a type", true)}
-          <ChipGroup legend="Grade levels">
-            {options.grades.map((g) => (
-              <ChoiceChip key={g.code} type="checkbox" name="grades" value={g.code} defaultChecked={values.grades.includes(g.code)}>
-                <span aria-hidden>{shortGradeLabel(g.name)}</span>
-                <span className="sr-only">{g.name}</span>
-              </ChoiceChip>
-            ))}
-          </ChipGroup>
+          <GradeChips grades={options.grades} selected={values.grades} />
           <FieldError id="grades-error" messages={fe.grades} />
           <ChipGroup legend="Subject">
             {options.subjects.map((o) => (
@@ -273,6 +266,49 @@ export function ListingForm({
           </Button>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Grade level chips with an "All" chip first that ticks or clears every grade.
+ * "All" isn't sent with the form; the grades it ticks are. It shows only once
+ * JavaScript runs, since it works by ticking the other chips.
+ */
+function GradeChips({ grades, selected }: { grades: Option[]; selected: string[] }) {
+  const hydrated = useHydrated();
+  const box = useRef<HTMLDivElement>(null);
+  const [all, setAll] = useState(grades.length > 0 && grades.every((g) => selected.includes(g.code)));
+  const inputs = () => [...(box.current?.querySelectorAll<HTMLInputElement>('input[name="grades"]') ?? [])];
+  return (
+    <div ref={box} onChange={(e) => {
+      if ((e.target as HTMLInputElement).name === "grades") setAll(inputs().every((i) => i.checked));
+    }}>
+      <ChipGroup legend="Grade levels">
+        {hydrated ? (
+          <label className="relative inline-flex cursor-pointer">
+            <input
+              type="checkbox"
+              checked={all}
+              onChange={(e) => {
+                for (const i of inputs()) i.checked = e.target.checked;
+                setAll(e.target.checked);
+              }}
+              className="peer sr-only"
+            />
+            <span className="inline-flex min-h-11 items-center gap-1 rounded-full border border-input bg-surface px-4 text-sm font-semibold text-foreground transition-colors hover:border-primary peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
+              {all ? <Check className="size-4" aria-hidden /> : null}
+              All<span className="sr-only"> grade levels</span>
+            </span>
+          </label>
+        ) : null}
+        {grades.map((g) => (
+          <ChoiceChip key={g.code} type="checkbox" name="grades" value={g.code} defaultChecked={selected.includes(g.code)}>
+            <span aria-hidden>{shortGradeLabel(g.name)}</span>
+            <span className="sr-only">{g.name}</span>
+          </ChoiceChip>
+        ))}
+      </ChipGroup>
     </div>
   );
 }

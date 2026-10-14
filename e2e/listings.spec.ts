@@ -60,6 +60,12 @@ test("a seller drafts a resource, uploads files securely and submits it for revi
   await page.getByRole("textbox", { name: "Description" }).fill("Twenty-four worksheets on living things and their environment, with answer keys for every page.");
   await page.getByRole("textbox", { name: /Lesson topic/ }).fill("Living things and their environment");
   await tapChip(page, "radio", "Science");
+  // "All" ticks every grade level, and tapping it again clears them.
+  const grades = page.getByRole("group", { name: "Grade levels" });
+  await tapChip(page, "checkbox", "All grade levels");
+  await expect(grades.getByRole("checkbox", { checked: true })).toHaveCount(15);
+  await page.locator("label").filter({ has: page.getByRole("checkbox", { name: "All grade levels", exact: true }) }).click();
+  await expect(grades.getByRole("checkbox", { checked: true })).toHaveCount(0);
   await tapChip(page, "checkbox", "Grade 4");
   await page.getByRole("button", { name: "Next: Price" }).click();
   await page.getByRole("textbox", { name: "Price in pesos" }).fill("75");

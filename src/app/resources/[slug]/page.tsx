@@ -12,6 +12,7 @@ import { ShareButton } from "@/components/catalog/share-button";
 import { BuyPanel } from "@/components/commerce/buy-panel";
 import { Card, Skeleton } from "@/components/ui/card";
 import { getPublishedProduct } from "@/lib/catalog/product";
+import { gradeSummary } from "@/lib/catalog/labels";
 import { formatPrice } from "@/lib/format";
 import { paymentMethodsShort } from "@/lib/payments/paymongo";
 import { publicObjectUrl } from "@/lib/storage";
@@ -44,7 +45,7 @@ async function Resource({ params }: { params: PageProps<"/resources/[slug]">["pa
   if (!product) notFound();
 
   const free = product.price_centavos === 0;
-  const kicker = [product.category, product.subject, product.grades.join(", ")].filter(Boolean).join(" · ");
+  const kicker = [product.category, product.subject, gradeSummary(product.grades)].filter(Boolean).join(" · ");
   const formats = product.file_formats.map((f) => f.toUpperCase()).join(", ");
   // Quick facts from the listing's own fields; a tile only appears when the seller filled it in.
   const tiles: { label: string; main: string; sub?: string }[] = [];

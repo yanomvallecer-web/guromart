@@ -24,6 +24,8 @@ describe("gradeSummary", () => {
     expect(gradeSummary(["Grade 7"])).toBe("Grade 7");
     expect(gradeSummary(["Grade 7", "Grade 8"])).toBe("Grades 7–8");
     expect(gradeSummary(["Grade 4", "Grade 6"])).toBe("Grades 4, 6");
+    const all = ["Nursery", "Kindergarten", ...Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`)];
+    expect(gradeSummary(all)).toBe("All grades");
     expect(gradeSummary(["Kindergarten", "Grade 1"])).toBe("Kindergarten, Grade 1");
   });
 });
