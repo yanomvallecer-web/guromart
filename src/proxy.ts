@@ -4,7 +4,7 @@ import { describeLoss, isAuthCookie, MARKER_MAX_AGE, SIGNED_IN_MARKER } from "@/
 
 // Paths that need a signed-in user. This is a fast redirect only; every
 // protected page and action checks the session and roles again on the server.
-const PROTECTED_PREFIXES = ["/account", "/seller", "/admin", "/sell/start", "/cart", "/library", "/orders", "/notifications", "/messages", "/help"];
+const PROTECTED_PREFIXES = ["/home", "/account", "/seller", "/admin", "/sell/start", "/cart", "/library", "/orders", "/notifications", "/messages", "/help"];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -77,6 +77,14 @@ export async function proxy(request: NextRequest) {
     }
     callback.searchParams.set("next", "/");
     return markSession(NextResponse.redirect(callback));
+  }
+  // Signed-in teachers get their own home at "/"; visitors keep the landing page.
+  if (signedIn && pathname === "/") {
+    const home = request.nextUrl.clone();
+    home.pathname = "/home";
+    const rewrite = NextResponse.rewrite(home, { request });
+    for (const cookie of response.cookies.getAll()) rewrite.cookies.set(cookie);
+    return markSession(rewrite);
   }
   if (!signedIn && PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     const signIn = request.nextUrl.clone();
