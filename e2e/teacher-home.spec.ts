@@ -11,9 +11,11 @@ test("visitors see the landing page, signed-in teachers their home", async ({ pa
   await signIn(page, email, "/");
   await expect(page.getByRole("heading", { level: 1, name: /^Magandang (umaga|hapon|gabi), / })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Find your next lesson, ready to teach" })).toBeVisible();
+  // One search field: on computers it sits in the yellow card, the site header steps aside for the side menu.
+  await expect(page.getByRole("search")).toHaveCount(1);
 
   // Without preferences, the quarter plan asks what they teach, and the library card points to free resources.
-  await expect(page.getByRole("heading", { name: "Plan your quarters" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Plan your school year" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Set what I teach" })).toHaveAttribute("href", "/account");
   await expect(page.getByRole("link", { name: "Find free resources" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Start selling" }).last()).toBeVisible();
@@ -28,14 +30,26 @@ test("visitors see the landing page, signed-in teachers their home", async ({ pa
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Grade 4 Science", exact: true })).toBeVisible();
   await expect(page.getByText("of 4 quarters have lessons")).toBeVisible();
-  await expect(page.getByRole("link", { name: /^Q1/ })).toHaveAttribute("href", /grade=grade-4.*subject=science.*period=quarter-1/);
+  await expect(page.getByRole("link", { name: "Quarter 1: none yet" })).toHaveAttribute("href", /grade=grade-4.*subject=science.*period=quarter-1/);
+
+  // Schools on terms switch the plan to Terms 1 to 3.
+  await page.getByRole("navigation", { name: "School calendar" }).getByRole("link", { name: "Terms" }).click();
+  await page.waitForURL("**/?grade=grade-4&subject=science&plan=terms");
+  await expect(page.getByText("of 3 terms have lessons")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Term 3: none yet" })).toHaveAttribute("href", /period=trimester-3/);
+  await expect(page.getByText("Term 1 has nothing yet")).toBeVisible();
 
   // Removing a filter keeps the other and writes "any" for the removed one.
   await page.getByRole("link", { name: "Remove filter: Grade 4" }).click();
-  await page.waitForURL("**/?grade=any&subject=science");
+  await page.waitForURL("**/?grade=any&subject=science&plan=terms");
   await expect(page.getByRole("link", { name: "Remove filter: Science" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Any grade" })).toBeVisible();
+  // The removed filter becomes a dropdown to pick another grade.
+  await page.getByText("Grade", { exact: true }).click();
+  await page.getByRole("link", { name: "Grade 6", exact: true }).click();
+  await page.waitForURL("**/?grade=grade-6&subject=science&plan=terms");
+  await expect(page.getByRole("link", { name: "Remove filter: Grade 6" })).toBeVisible();
   await page.getByRole("link", { name: "Clear filters" }).click();
-  await page.waitForURL("**/?grade=any&subject=any");
+  await page.waitForURL("**/?grade=any&subject=any&plan=terms");
+  await expect(page.getByRole("navigation", { name: "Your GuroMart" }).getByRole("link", { name: "Home" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Popular with teachers" })).toBeVisible();
 });

@@ -5,7 +5,9 @@ import {
   ArrowRight,
   Bookmark,
   BookOpen,
+  Bell,
   CalendarDays,
+  ChevronDown,
   CircleHelp,
   Download,
   FilePlus2,
@@ -17,28 +19,32 @@ import {
   type LucideIcon,
   MessageCircle,
   Receipt,
+  Settings,
   ShieldCheck,
   ShoppingCart,
   SlidersHorizontal,
   Store,
-  UserRound,
-  Users,
   Wallet,
   X,
 } from "lucide-react";
 import { signOut } from "@/app/auth/actions";
+import { FollowButton } from "@/components/catalog/follow-button";
 import { ProductCard as ResourceCard } from "@/components/catalog/product-card";
+import { AccountMenu, AccountMenuFallback } from "@/components/site/account-menu";
+import { Logo } from "@/components/site/logo";
+import { MenuDetails } from "@/components/site/menu-details";
 import { SearchForm } from "@/components/site/search-form";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/card";
 import { firstName, greeting } from "@/lib/account/greeting";
-import { getQuarterCoverage } from "@/lib/account/home";
+import { getUnreadCount } from "@/lib/account/notifications";
+import { getPeriodCoverage } from "@/lib/account/home";
 import { getTeachingPreferences } from "@/lib/account/preferences";
 import { type Viewer, requireViewer } from "@/lib/auth/dal";
 import { shopSummary } from "@/lib/catalog/labels";
 import { browseProducts, countProducts, getCatalogFacets, getFeaturedStorefronts, getShelf, getTaxonomy } from "@/lib/catalog/queries";
 import type { BrowseParams } from "@/lib/catalog/search-params";
-import { getLibrary, getLibraryDetails } from "@/lib/commerce/cart";
+import { getCartCount, getLibrary, getLibraryDetails } from "@/lib/commerce/cart";
 import { getEarnings } from "@/lib/commerce/earnings";
 import { formatAmount } from "@/lib/format";
 import { getSellerPlans } from "@/lib/platform-settings";
@@ -60,10 +66,13 @@ type Raw = Awaited<PageProps<"/home">["searchParams"]>;
 
 export default function TeacherHomePage({ searchParams }: PageProps<"/home">) {
   return (
-    <div className="mx-auto grid max-w-[1400px] gap-8 px-4 pb-10 pt-6 sm:px-6 xl:grid-cols-[208px_minmax(0,1fr)]">
-      <Suspense fallback={<div className="hidden xl:block" />}>
-        <Sidebar />
-      </Suspense>
+    // data-app-shell: on wide screens this page brings its own side menu and top bar, so the site header and floating Ask GuroMart button step aside.
+    <div data-app-shell className="xl:grid xl:min-h-dvh xl:grid-cols-[248px_minmax(0,1fr)]">
+      <div className="hidden border-r border-border bg-surface xl:block">
+        <Suspense>
+          <Sidebar />
+        </Suspense>
+      </div>
       <Suspense fallback={<HomeSkeleton />}>
         <Home searchParams={searchParams} />
       </Suspense>
@@ -85,11 +94,12 @@ function HomeSkeleton() {
 /* Sidebar (large screens; phones use the tab bar and the header menu)      */
 /* ------------------------------------------------------------------------ */
 
-type NavItem = { href: string; label: string; icon: LucideIcon; current?: boolean };
+type NavItem = { href: string; label: string; icon: LucideIcon; current?: boolean; badge?: number };
 
 async function Sidebar() {
   const viewer = await requireViewer("/");
   const seller = viewer.roles.includes("seller");
+  const cartCount = await getCartCount(viewer);
   const groups: { label: string; items: NavItem[] }[] = [
     {
       label: "My teaching",
@@ -99,8 +109,9 @@ async function Sidebar() {
         { href: "/library?tab=saved", label: "Saved", icon: Bookmark },
         { href: "/browse", label: "Browse", icon: LayoutGrid },
         { href: "/bundles", label: "Lesson bundles", icon: Layers },
-        { href: "/cart", label: "Cart", icon: ShoppingCart },
+        { href: "/cart", label: "Cart", icon: ShoppingCart, badge: cartCount || undefined },
         { href: "/orders", label: "Orders", icon: Receipt },
+        { href: "/messages", label: "Messages", icon: MessageCircle },
       ],
     },
     {
@@ -113,43 +124,48 @@ async function Sidebar() {
           ]
         : [{ href: "/sell", label: "Start selling", icon: Store }],
     },
-    {
-      label: "Others",
-      items: [
-        { href: "/messages", label: "Messages", icon: MessageCircle },
-        { href: "/help", label: "Ask GuroMart", icon: CircleHelp },
-        { href: "/account", label: "My account", icon: UserRound },
-        ...(viewer.roles.includes("admin") ? [{ href: "/admin", label: "Admin", icon: ShieldCheck }] : []),
-      ],
-    },
   ];
+  const others: NavItem[] = [
+    { href: "/help", label: "Ask GuroMart", icon: CircleHelp },
+    { href: "/account", label: "Settings", icon: Settings },
+    ...(viewer.roles.includes("admin") ? [{ href: "/admin", label: "Admin", icon: ShieldCheck }] : []),
+  ];
+  const link = (i: NavItem) => (
+    <Link
+      key={i.href}
+      href={i.href}
+      aria-current={i.current ? "page" : undefined}
+      className={cn(
+        "flex min-h-11 items-center gap-3 rounded-[10px] px-3 text-[15px] font-semibold",
+        i.current ? "bg-primary-soft text-primary" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
+      )}
+    >
+      <i.icon className="size-5 shrink-0" aria-hidden />
+      <span className="flex-1">{i.label}</span>
+      {i.badge ? <span className="rounded-full bg-accent px-2 text-xs font-bold text-foreground">{i.badge}</span> : null}
+    </Link>
+  );
   return (
-    <aside className="hidden xl:block">
-      <nav aria-label="Your GuroMart" className="sticky top-24 flex flex-col gap-5">
+    <aside className="sticky top-0 flex h-dvh flex-col gap-6 overflow-y-auto px-5 py-6">
+      <div className="px-2">
+        <Logo />
+      </div>
+      <nav aria-label="Your GuroMart" className="flex flex-1 flex-col gap-5">
         {groups.map((g) => (
           <div key={g.label} className="flex flex-col gap-1">
             <p className="px-3 pb-1 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{g.label}</p>
-            {g.items.map((i) => (
-              <Link
-                key={i.href}
-                href={i.href}
-                aria-current={i.current ? "page" : undefined}
-                className={cn(
-                  "flex min-h-11 items-center gap-3 rounded-[10px] px-3 text-[15px] font-semibold",
-                  i.current ? "bg-primary-soft text-primary" : "text-muted-foreground hover:bg-surface hover:text-foreground",
-                )}
-              >
-                <i.icon className="size-5 shrink-0" aria-hidden />
-                {i.label}
-              </Link>
-            ))}
+            {g.items.map(link)}
           </div>
         ))}
-        <form action={signOut}>
-          <button type="submit" className="flex min-h-11 w-full items-center gap-3 rounded-[10px] px-3 text-[15px] font-semibold text-muted-foreground hover:bg-surface hover:text-foreground">
-            <LogOut className="size-5 shrink-0" aria-hidden /> Sign out
-          </button>
-        </form>
+        <div className="mt-auto flex flex-col gap-1">
+          <p className="px-3 pb-1 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Others</p>
+          {others.map(link)}
+          <form action={signOut}>
+            <button type="submit" className="flex min-h-11 w-full items-center gap-3 rounded-[10px] px-3 text-[15px] font-semibold text-muted-foreground hover:bg-surface-muted hover:text-foreground">
+              <LogOut className="size-5 shrink-0" aria-hidden /> Log out
+            </button>
+          </form>
+        </div>
       </nav>
     </aside>
   );
@@ -173,31 +189,44 @@ async function Home({ searchParams }: { searchParams: PageProps<"/home">["search
     grade: pick(raw.grade, prefs?.grade?.code ?? null),
     subject: pick(raw.subject, prefs?.subject?.code ?? null),
     free: raw.price === "free",
+    type: pick(raw.type, null),
+    plan: raw.plan === "terms" || raw.plan === "quarters" ? (raw.plan as Calendar) : null,
   };
-  const quarters = taxonomy.periods.filter((p) => /^quarter-\d$/.test(p.code));
+  const calendars = {
+    quarters: taxonomy.periods.filter((p) => /^quarter-\d$/.test(p.code)),
+    // Stored as trimesters; schools call them terms.
+    terms: taxonomy.periods.filter((p) => /^trimester-\d$/.test(p.code)).map((p, i) => ({ code: p.code, name: `Term ${i + 1}` })),
+  };
 
+  const hello = `${greeting()}, ${firstName(viewer.displayName)}`;
+  const unread = await getUnreadCount(viewer.id);
   return (
-    // Phones get one column in a set order; large screens put the planning cards in a right column.
-    <div className="flex min-w-0 flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-8">
+    <div className="min-w-0">
+      {/* Wide screens: the dashboard's own top bar, in place of the site header. */}
+      <header className="hidden items-center gap-4 border-b border-border bg-surface px-8 py-5 xl:flex">
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate font-display text-[28px] font-extrabold leading-tight">{hello}</h1>
+          <Teaching prefs={prefs} />
+        </div>
+        <Link href="/help" className="flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold hover:border-primary">
+          <MessageCircle className="size-4" aria-hidden /> Ask GuroMart
+        </Link>
+        <Link href="/notifications" aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"} className="relative flex size-11 items-center justify-center rounded-full border border-border hover:border-primary">
+          <Bell className="size-5" aria-hidden />
+          {unread ? <span aria-hidden className="absolute right-2.5 top-2.5 size-2.5 rounded-full border-2 border-surface bg-danger" /> : null}
+        </Link>
+        <Suspense fallback={<AccountMenuFallback />}>
+          <AccountMenu />
+        </Suspense>
+      </header>
+
+    {/* Phones get one column in a set order; large screens put the planning cards in a right column. */}
+    <div className="mx-auto flex min-w-0 max-w-[1400px] flex-col gap-6 px-4 pb-10 pt-6 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-8 xl:px-8">
       <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-8">
-        <header className="order-1">
-          <h1 className="font-display text-[28px] font-extrabold leading-tight sm:text-[32px]">
-            {greeting()}, {firstName(viewer.displayName)}
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            {prefs ? (
-              <>
-                {[prefs.grade?.name, prefs.subject?.name].filter(Boolean).join(" · ")}{" "}
-                <Link href="/account" className="font-semibold text-primary hover:underline">Change</Link>
-              </>
-            ) : (
-              <>
-                Tell us what you teach and this page fills with lessons for your class.{" "}
-                <Link href="/account" className="font-semibold text-primary hover:underline">Set your grade and subject</Link>
-              </>
-            )}
-          </p>
-        </header>
+        <div className="order-1 xl:hidden">
+          <p role="heading" aria-level={1} className="font-display text-[28px] font-extrabold leading-tight sm:text-[32px]">{hello}</p>
+          <Teaching prefs={prefs} />
+        </div>
         <Suspense fallback={<Skeleton className="order-2 h-52 w-full rounded-[20px]" />}>
           <Hero filter={filter} />
         </Suspense>
@@ -210,7 +239,7 @@ async function Home({ searchParams }: { searchParams: PageProps<"/home">["search
       </div>
       <div className="contents lg:sticky lg:top-24 lg:flex lg:flex-col lg:gap-6">
         <Suspense fallback={<Skeleton className="order-3 h-64 w-full" />}>
-          <QuarterPlan teach={{ grade: prefs?.grade?.code ?? null, subject: prefs?.subject?.code ?? null, free: false }} quarters={quarters} />
+          <SchoolYearPlan teach={{ grade: prefs?.grade?.code ?? null, subject: prefs?.subject?.code ?? null, free: false }} calendars={calendars} chosen={filter.plan ?? null} filter={filter} />
         </Suspense>
         <Suspense fallback={<Skeleton className="order-5 h-64 w-full" />}>
           <PickUp />
@@ -220,15 +249,38 @@ async function Home({ searchParams }: { searchParams: PageProps<"/home">["search
         </Suspense>
       </div>
     </div>
+    </div>
   );
 }
 
-type Filter = { grade: string | null; subject: string | null; free: boolean };
+/** The grade and subject the teacher saved, with a link to change them. */
+function Teaching({ prefs }: { prefs: Awaited<ReturnType<typeof getTeachingPreferences>> }) {
+  return (
+    <p className="mt-1 text-muted-foreground">
+      {prefs ? (
+        <>
+          {[prefs.grade?.name, prefs.subject?.name].filter(Boolean).join(" · ")}{" "}
+          <Link href="/account" className="font-semibold text-primary hover:underline">Change</Link>
+        </>
+      ) : (
+        <>
+          Tell us what you teach and this page fills with lessons for your class.{" "}
+          <Link href="/account" className="font-semibold text-primary hover:underline">Set your grade and subject</Link>
+        </>
+      )}
+    </p>
+  );
+}
+
+type Filter = { grade: string | null; subject: string | null; free: boolean; type?: string | null; plan?: Calendar | null };
+type Calendar = "quarters" | "terms";
+type Period = { code: string; name: string };
 
 const browseFor = (f: Filter): BrowseParams => ({
   grade: f.grade ?? undefined,
   subject: f.subject ?? undefined,
   price: f.free ? "free" : undefined,
+  category: f.type ?? undefined,
   sort: "popular",
 });
 
@@ -238,6 +290,7 @@ function browseHref(f: Filter, extra: Record<string, string> = {}) {
   if (f.grade) qs.set("grade", f.grade);
   if (f.subject) qs.set("subject", f.subject);
   if (f.free) qs.set("price", "free");
+  if (f.type) qs.set("category", f.type);
   for (const [k, v] of Object.entries(extra)) qs.set(k, v);
   if (!f.grade && !f.subject) qs.set("all", "1");
   return `/browse?${qs}`;
@@ -250,17 +303,19 @@ function homeHref(f: Filter, change: Partial<Filter>) {
   qs.set("grade", next.grade ?? ANY);
   qs.set("subject", next.subject ?? ANY);
   if (next.free) qs.set("price", "free");
+  if (next.type) qs.set("type", next.type);
+  if (next.plan) qs.set("plan", next.plan);
   return `/?${qs}`;
 }
 
-/** Search first, on a warm card, with three real covers peeking in on wider screens. */
+/** A warm welcome card leading to filtered browsing, with three real covers peeking in on wide screens. */
 async function Hero({ filter }: { filter: Filter }) {
   const forClass = (await browseProducts(browseFor(filter))).items;
   const covers = [...forClass, ...(await getShelf("popular", 12))]
     .filter((p, i, all) => p.preview_path && all.findIndex((q) => q.id === p.id) === i)
     .slice(0, 3);
   return (
-    <section aria-label="Search" className="relative order-2 overflow-hidden rounded-[20px] bg-gradient-to-br from-accent-soft via-[#fbe7b0] to-[#f8dc93] p-5 sm:p-8">
+    <section aria-label="Find lessons" className="relative order-2 overflow-hidden rounded-[20px] bg-gradient-to-br from-accent-soft via-[#fbe7b0] to-[#f8dc93] p-5 sm:p-8">
       <div className="relative z-10 flex max-w-[420px] flex-col gap-3">
         <h2 className="font-display text-[26px] font-extrabold leading-[1.08] sm:text-4xl">
           Find your next lesson,{" "}
@@ -270,11 +325,8 @@ async function Hero({ filter }: { filter: Filter }) {
           </span>
         </h2>
         <p className="text-[15px] text-foreground/75">DLLs, lesson plans, slides and worksheets made by Filipino teachers.</p>
-        {/* Phones already have the search field in the header. */}
-        <Link href={browseHref(filter)} className={cn(buttonVariants(), "mt-1 w-fit md:hidden")}>
-          <SlidersHorizontal aria-hidden /> Browse with filters
-        </Link>
-        <div className="mt-1 hidden gap-2 md:flex">
+        {/* Wide screens hide the site header, so search lives here; narrower ones keep it in the header. */}
+        <div className="mt-1 hidden gap-2 xl:flex">
           <SearchForm size="lg" className="flex-1 border-0 shadow-lg shadow-foreground/5" placeholder='Try "Grade 5 Science Quarter 2"' />
           <Link
             href={browseHref(filter)}
@@ -283,6 +335,14 @@ async function Hero({ filter }: { filter: Filter }) {
             className="flex size-14 shrink-0 items-center justify-center rounded-[12px] bg-foreground text-white hover:bg-foreground/90"
           >
             <SlidersHorizontal className="size-5" aria-hidden />
+          </Link>
+        </div>
+        <div className="mt-1 flex flex-wrap gap-2 xl:hidden">
+          <Link href={browseHref(filter)} className={buttonVariants()}>
+            <SlidersHorizontal aria-hidden /> Browse with filters
+          </Link>
+          <Link href={browseHref({ ...filter, free: true })} className={cn(buttonVariants({ variant: "outline" }), "bg-surface")}>
+            Free resources
           </Link>
         </div>
       </div>
@@ -317,8 +377,9 @@ async function ForYourClass({ filter, taxonomy }: { filter: Filter; taxonomy: Aw
   const name = (list: { code: string; name: string }[], code: string | null) => list.find((i) => i.code === code)?.name ?? null;
   const grade = name(taxonomy.grades, filter.grade);
   const subject = name(taxonomy.subjects, filter.subject);
-  const filtering = Boolean(filter.grade || filter.subject || filter.free);
-  const shown = items.slice(0, 6);
+  const type = name(taxonomy.categories, filter.type ?? null);
+  const filtering = Boolean(filter.grade || filter.subject || filter.free || filter.type);
+  const shown = items.slice(0, 10);
 
   const chip = "flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-sm font-semibold";
   const on = cn(chip, "bg-primary text-white hover:bg-primary-hover");
@@ -338,8 +399,9 @@ async function ForYourClass({ filter, taxonomy }: { filter: Filter; taxonomy: Aw
         </Link>
       </div>
 
-      <nav aria-label="Filters for your class" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <ul className="flex items-center gap-2">
+      {/* Phones swipe the chips; the dropdowns need room to open, so wider screens wrap instead. */}
+      <nav aria-label="Filters for your class" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:overflow-visible sm:px-0">
+        <ul className="flex items-center gap-2 sm:flex-wrap">
           {grade ? (
             <li>
               <Link href={homeHref(filter, { grade: null })} className={on} aria-label={`Remove filter: ${grade}`}>
@@ -347,8 +409,8 @@ async function ForYourClass({ filter, taxonomy }: { filter: Filter; taxonomy: Aw
               </Link>
             </li>
           ) : (
-            <li>
-              <Link href={browseHref(filter)} className={off}>Any grade</Link>
+            <li className="hidden sm:block">
+              <Pick label="Grade" chip={off} options={taxonomy.grades.map((o) => ({ name: o.name, href: homeHref(filter, { grade: o.code }) }))} />
             </li>
           )}
           {subject ? (
@@ -358,10 +420,26 @@ async function ForYourClass({ filter, taxonomy }: { filter: Filter; taxonomy: Aw
               </Link>
             </li>
           ) : (
-            <li>
-              <Link href={browseHref(filter)} className={off}>Any subject</Link>
+            <li className="hidden sm:block">
+              <Pick label="Subject" chip={off} options={taxonomy.subjects.map((o) => ({ name: o.name, href: homeHref(filter, { subject: o.code }) }))} />
             </li>
           )}
+          {type ? (
+            <li>
+              <Link href={homeHref(filter, { type: null })} className={on} aria-label={`Remove filter: ${type}`}>
+                {type} <X className="size-4" aria-hidden />
+              </Link>
+            </li>
+          ) : (
+            <li className="hidden sm:block">
+              <Pick label="Type" chip={off} options={taxonomy.categories.map((o) => ({ name: o.name, href: homeHref(filter, { type: o.code }) }))} />
+            </li>
+          )}
+          <li className="sm:hidden">
+            <Link href={browseHref(filter)} className={off}>
+              <SlidersHorizontal className="size-4" aria-hidden /> More filters
+            </Link>
+          </li>
           <li>
             <Link
               href={homeHref(filter, { free: !filter.free })}
@@ -373,7 +451,7 @@ async function ForYourClass({ filter, taxonomy }: { filter: Filter; taxonomy: Aw
           </li>
           {filtering ? (
             <li className="sm:ml-auto">
-              <Link href={homeHref(filter, { grade: null, subject: null, free: false })} className="flex min-h-10 items-center whitespace-nowrap px-2 text-sm font-semibold text-primary hover:underline">
+              <Link href={homeHref(filter, { grade: null, subject: null, free: false, type: null })} className="flex min-h-10 items-center whitespace-nowrap px-2 text-sm font-semibold text-primary hover:underline">
                 Clear filters
               </Link>
             </li>
@@ -382,8 +460,14 @@ async function ForYourClass({ filter, taxonomy }: { filter: Filter; taxonomy: Aw
       </nav>
 
       {shown.length ? (
-        // A swipeable row on phones, a grid from small tablets up.
-        <ul className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-x-5 sm:gap-y-8 sm:overflow-visible sm:px-0">
+        // A swipeable row on phones; from tablets up, full rows only (6, 8 or 10 cards by width).
+        <ul
+          className={cn(
+            "-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-x-4 sm:gap-y-7 sm:overflow-visible sm:px-0",
+            "sm:[&>li:nth-child(n+7)]:hidden xl:grid-cols-4 xl:[&>li:nth-child(n+7)]:block xl:[&>li:nth-child(n+9)]:hidden",
+            "min-[1440px]:grid-cols-5 min-[1440px]:[&>li:nth-child(n+9)]:block",
+          )}
+        >
           {shown.map((p) => (
             <li key={p.id} className="w-[160px] shrink-0 snap-start sm:w-auto sm:min-w-0">
               <ResourceCard product={p} />
@@ -394,12 +478,30 @@ async function ForYourClass({ filter, taxonomy }: { filter: Filter; taxonomy: Aw
         <div className="rounded-[16px] border border-dashed border-border bg-surface p-6 text-center">
           <p className="font-semibold">No resources for this class yet.</p>
           <p className="mt-1 text-sm text-muted-foreground">New ones appear as teachers publish them.</p>
-          <Link href={homeHref(filter, { grade: null, subject: null, free: false })} className={cn(buttonVariants({ variant: "outline" }), "mt-4")}>
+          <Link href={homeHref(filter, { grade: null, subject: null, free: false, type: null })} className={cn(buttonVariants({ variant: "outline" }), "mt-4")}>
             Show everything popular
           </Link>
         </div>
       )}
     </section>
+  );
+}
+
+/** A filter chip that opens a short list of choices; each choice is a plain link, so it works without JavaScript. */
+function Pick({ label, chip, options }: { label: string; chip: string; options: { name: string; href: string }[] }) {
+  return (
+    <MenuDetails className="group relative">
+      <summary className={cn(chip, "cursor-pointer list-none [&::-webkit-details-marker]:hidden")}>
+        {label} <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden />
+      </summary>
+      <ul className="absolute left-0 z-20 mt-2 max-h-72 w-56 overflow-y-auto rounded-[12px] border border-border bg-surface p-1.5 shadow-lg">
+        {options.map((o) => (
+          <li key={o.href}>
+            <Link href={o.href} className="block rounded-md px-3 py-2.5 text-sm font-medium hover:bg-surface-muted">{o.name}</Link>
+          </li>
+        ))}
+      </ul>
+    </MenuDetails>
   );
 }
 
@@ -411,31 +513,41 @@ async function Shops() {
     .sort((a, b) => facets.shops[b.slug].count - facets.shops[a.slug].count)
     .slice(0, 4);
   if (live.length === 0) return null;
+  const viewer = await requireViewer("/");
   const supabase = await createClient();
   const { data: ids } = await supabase.from("storefronts").select("id, slug").in("slug", live.map((s) => s.slug));
-  const followers = new Map(
-    await Promise.all(
-      (ids ?? []).map(async (s) => {
-        const { data } = await supabase.rpc("shop_follower_count", { p_storefront_id: s.id });
-        return [s.slug, typeof data === "number" ? data : 0] as const;
+  const idBySlug = new Map((ids ?? []).map((r) => [r.slug, r.id as string]));
+  const storeIds = [...idBySlug.values()];
+  const [counts, follows, own] = await Promise.all([
+    Promise.all(
+      storeIds.map(async (id) => {
+        const { data } = await supabase.rpc("shop_follower_count", { p_storefront_id: id });
+        return [id, typeof data === "number" ? data : 0] as const;
       }),
     ),
-  );
+    supabase.from("shop_follows").select("storefront_id").eq("user_id", viewer.id).in("storefront_id", storeIds),
+    // Seller accounts are only readable by their owner, so this matches only the viewer's own shop.
+    supabase.from("storefronts").select("id, seller_accounts!inner(user_id)").in("id", storeIds).eq("seller_accounts.user_id", viewer.id),
+  ]);
+  const followers = new Map(counts);
+  const following = new Set((follows.data ?? []).map((f) => f.storefront_id as string));
+  const mine = new Set((own.data ?? []).map((r) => r.id as string));
   const tones = ["bg-success", "bg-violet-600", "bg-orange-600", "bg-primary"];
   return (
     <section aria-labelledby="shops-h" className="order-6 flex min-w-0 flex-col gap-4">
       <div className="flex items-end justify-between gap-4">
-        <h2 id="shops-h" className="font-display text-2xl font-extrabold">Teacher shops</h2>
+        <h2 id="shops-h" className="font-display text-2xl font-extrabold">Teacher shops you might like</h2>
         <Link href="/browse" className="flex min-h-11 shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:underline">
           Browse all <ArrowRight className="size-4" aria-hidden />
         </Link>
       </div>
       <ul className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0">
         {live.map((s, i) => {
-          const n = followers.get(s.slug) ?? 0;
+          const id = idBySlug.get(s.slug);
+          const n = id ? (followers.get(id) ?? 0) : 0;
           return (
-            <li key={s.slug} className="w-[260px] shrink-0 snap-start sm:w-auto">
-              <Link href={`/shop/${s.slug}`} className="group flex h-full items-center gap-3 rounded-[16px] border border-border bg-surface p-4 hover:border-primary hover:shadow-md">
+            <li key={s.slug} className="flex w-[270px] shrink-0 snap-start flex-col gap-3 rounded-[16px] border border-border bg-surface p-4 sm:w-auto">
+              <Link href={`/shop/${s.slug}`} className="group flex items-center gap-3">
                 {s.logo_path ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={publicObjectUrl("storefront-media", s.logo_path)} alt="" className="size-12 shrink-0 rounded-[12px] object-cover" />
@@ -447,13 +559,13 @@ async function Shops() {
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate font-bold group-hover:text-primary">{s.name}</span>
                   <span className="truncate text-sm text-muted-foreground">{shopSummary(facets.shops[s.slug])}</span>
-                  {n > 0 ? (
-                    <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                      <Users className="size-3.5" aria-hidden /> {count.format(n)} {n === 1 ? "follower" : "followers"}
-                    </span>
-                  ) : null}
                 </span>
               </Link>
+              {id && !mine.has(id) ? (
+                <FollowButton storefrontId={id} path="/" initiallyFollowing={following.has(id)} followers={n} />
+              ) : (
+                <span className="text-sm text-muted-foreground">{mine.has(id ?? "") ? "Your shop" : null}{n > 0 ? ` · ${count.format(n)} ${n === 1 ? "follower" : "followers"}` : ""}</span>
+              )}
             </li>
           );
         })}
@@ -477,49 +589,91 @@ const pesos = (centavos: number) => formatAmount(centavos).replace(/\.00$/, "");
 const panel = "rounded-[18px] border border-border bg-surface p-4 sm:p-5";
 
 /**
- * The quarters for the grade and subject the teacher saved: which ones already have
- * resources in their library, and a way to fill the first empty one.
+ * The school year for the grade and subject the teacher saved, as quarters or
+ * as terms: which periods already have resources in their library, and a way
+ * to fill the first empty one. Without a choice in the URL, it follows
+ * whichever calendar their library uses more, and quarters on a tie.
  */
-async function QuarterPlan({ teach: filter, quarters }: { teach: Filter; quarters: { code: string; name: string }[] }) {
-  if (!filter.grade && !filter.subject) {
+async function SchoolYearPlan({
+  teach,
+  calendars,
+  chosen,
+  filter,
+}: {
+  teach: Filter;
+  calendars: Record<Calendar, Period[]>;
+  chosen: Calendar | null;
+  filter: Filter;
+}) {
+  if (!teach.grade && !teach.subject) {
     return (
       <section aria-labelledby="plan-h" className={cn(panel, "order-3")}>
         <div className="rounded-[14px] bg-primary p-4 text-white">
           <CalendarDays className="size-6 text-accent" aria-hidden />
-          <h2 id="plan-h" className="mt-2 font-display text-lg font-bold">Plan your quarters</h2>
-          <p className="mt-1 text-sm text-white/85">Tell us the grade and subject you teach. We&apos;ll show which quarters your library already covers and find lessons for the rest.</p>
+          <h2 id="plan-h" className="mt-2 font-display text-lg font-bold">Plan your school year</h2>
+          <p className="mt-1 text-sm text-white/85">
+            Tell us the grade and subject you teach. We&apos;ll show which quarters or terms your library already covers and find lessons for the rest.
+          </p>
         </div>
         <Link href="/account" className={cn(buttonVariants(), "mt-3 w-full")}>Set what I teach</Link>
       </section>
     );
   }
-  const library = await getLibrary();
-  const [coverage, taxonomy] = await Promise.all([getQuarterCoverage(library.map((i) => i.product_id), quarters, filter), getTaxonomy()]);
+  const ids = (await getLibrary()).map((i) => i.product_id);
+  const [byQuarter, byTerm, taxonomy] = await Promise.all([
+    getPeriodCoverage(ids, calendars.quarters, teach),
+    getPeriodCoverage(ids, calendars.terms, teach),
+    getTaxonomy(),
+  ]);
+  const owned = (c: typeof byQuarter) => c.reduce((n, p) => n + p.owned, 0);
+  const calendar: Calendar = chosen ?? (owned(byTerm) > owned(byQuarter) ? "terms" : "quarters");
+  const coverage = calendar === "terms" ? byTerm : byQuarter;
+  const unit = calendar === "terms" ? "term" : "quarter";
   const covered = coverage.filter((q) => q.owned > 0).length;
   const gap = coverage.find((q) => q.owned === 0);
-  const matches = gap ? await countProducts({ grade: filter.grade ?? undefined, subject: filter.subject ?? undefined, period: gap.code }) : 0;
-  const label = [taxonomy.grades.find((g) => g.code === filter.grade)?.name, taxonomy.subjects.find((s) => s.code === filter.subject)?.name].filter(Boolean).join(" ");
+  const matches = gap ? await countProducts({ grade: teach.grade ?? undefined, subject: teach.subject ?? undefined, period: gap.code }) : 0;
+  const label = [taxonomy.grades.find((g) => g.code === teach.grade)?.name, taxonomy.subjects.find((s) => s.code === teach.subject)?.name].filter(Boolean).join(" ");
+  const words = ["", "one", "two", "three", "four"];
 
   return (
     <section aria-labelledby="plan-h" className={cn(panel, "order-3")}>
       <div className="relative overflow-hidden rounded-[14px] bg-gradient-to-br from-primary to-[#2f6fc4] p-4 text-white">
         <div aria-hidden className="pointer-events-none absolute -right-10 -top-12 size-36 rounded-full bg-white/10" />
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-white/80">Your quarter plan</p>
-        <h2 id="plan-h" className="mt-1 font-display text-lg font-bold">{label}</h2>
-        <p className="mt-2 font-display text-4xl font-extrabold leading-none">
-          {covered} <span className="text-base font-semibold text-white/85">of {coverage.length} quarters have lessons</span>
+        <p className="relative text-xs font-bold uppercase tracking-[0.08em] text-white/80">Your {unit} plan</p>
+        <div className="relative mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <h2 id="plan-h" className="font-display text-lg font-bold">{label}</h2>
+          {/* Schools follow quarters or terms; one tap switches, and the choice stays in the URL. */}
+          <nav aria-label="School calendar" className="flex rounded-full bg-white/15 p-0.5 text-xs font-bold">
+            {(["quarters", "terms"] as const).map((c) => (
+              <Link
+                key={c}
+                href={homeHref(filter, { plan: c })}
+                aria-current={calendar === c ? "true" : undefined}
+                className={cn("rounded-full px-2.5 py-1", calendar === c ? "bg-white text-primary" : "text-white hover:bg-white/15")}
+              >
+                {c === "quarters" ? "Quarters" : "Terms"}
+              </Link>
+            ))}
+          </nav>
+        </div>
+        <p className="relative mt-2 font-display text-4xl font-extrabold leading-none">
+          {covered} <span className="text-base font-semibold text-white/85">of {coverage.length} {unit}s have lessons</span>
         </p>
-        <ol className="mt-4 grid grid-cols-4 gap-2">
+        <ol className={cn("relative mt-4 grid gap-2", coverage.length === 3 ? "grid-cols-3" : "grid-cols-4")}>
           {coverage.map((q) => (
             <li key={q.code}>
               <Link
-                href={browseHref(filter, { period: q.code })}
+                href={browseHref(teach, { period: q.code })}
+                aria-label={`${q.name}: ${q.owned ? `${q.owned} owned` : "none yet"}`}
                 className={cn(
                   "flex flex-col items-center rounded-[10px] px-1 py-2 text-center",
                   q.owned ? "bg-accent text-foreground" : "bg-white/15 text-white hover:bg-white/25",
                 )}
               >
-                <span className="font-display text-base font-extrabold">Q{q.sequence}</span>
+                <span className="font-display text-base font-extrabold">
+                  {calendar === "terms" ? "T" : "Q"}
+                  {q.sequence}
+                </span>
                 <span className="text-[11px] font-semibold">{q.owned ? `${q.owned} owned` : "None yet"}</span>
               </Link>
             </li>
@@ -527,20 +681,22 @@ async function QuarterPlan({ teach: filter, quarters }: { teach: Filter; quarter
         </ol>
       </div>
       {gap ? (
-        <div className="mt-3 flex items-center justify-between gap-3 rounded-[12px] bg-accent-soft p-3">
-          <div className="min-w-0">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[12px] bg-accent-soft p-3">
+          <div className="min-w-40 flex-1">
             <p className="text-sm font-bold">{gap.name} has nothing yet</p>
             <p className="text-xs text-muted-foreground">
               {matches ? `${count.format(matches)} ${matches === 1 ? "resource matches" : "resources match"}` : "None for your grade yet. See every grade."}
             </p>
           </div>
           {/* With nothing for this grade yet, the button widens the search to every grade. */}
-          <Link href={browseHref(matches ? filter : { ...filter, grade: null }, { period: gap.code })} className="shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-bold text-foreground hover:bg-accent/90">
+          <Link href={browseHref(matches ? teach : { ...teach, grade: null }, { period: gap.code })} className="shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-bold text-foreground hover:bg-accent/90">
             Find lessons
           </Link>
         </div>
       ) : (
-        <p className="mt-3 rounded-[12px] bg-success-soft p-3 text-sm font-semibold text-success">All four quarters have lessons in your library.</p>
+        <p className="mt-3 rounded-[12px] bg-success-soft p-3 text-sm font-semibold text-success">
+          All {words[coverage.length] ?? coverage.length} {unit}s have lessons in your library.
+        </p>
       )}
     </section>
   );

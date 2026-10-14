@@ -110,6 +110,8 @@ export function ChatLauncherPanel({ signedIn, enabled, children }: { signedIn: b
         className={cn(
           "fixed right-4 z-40 flex h-14 items-center gap-2 rounded-full bg-primary px-4 text-primary-foreground shadow-lg hover:bg-primary-hover",
           "bottom-[calc(var(--bottom-bar)+env(safe-area-inset-bottom)+1rem)] md:right-6 md:bottom-6",
+          // The teacher home's top bar has its own Ask GuroMart on wide screens (app/home/page.tsx).
+          "xl:[body:has([data-app-shell])_&]:hidden",
         )}
       >
         {open ? <X aria-hidden className="size-6" /> : <MessageCircleQuestion aria-hidden className="size-6" />}
