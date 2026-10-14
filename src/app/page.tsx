@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { BannerCircles } from "@/components/layout/page-shell";
 import { Suspense } from "react";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, CheckCircle2, Download, Eye, Search, ShieldCheck, Sparkles, Wallet } from "lucide-react";
 import { ProductGrid, ProductGridSkeleton } from "@/components/catalog/product-card";
 import { SearchForm } from "@/components/site/search-form";
 import { buttonVariants } from "@/components/ui/button";
 import { type CatalogFacets, type Facet, type HomeShelf, getCatalogFacets, getFeaturedStorefronts, getShelf, getTaxonomy } from "@/lib/catalog/queries";
 import { getLiveBundleCards } from "@/lib/catalog/bundles";
-import { shopSummary } from "@/lib/catalog/labels";
+import { displayTitle, shopSummary } from "@/lib/catalog/labels";
+import { getSellerPlans } from "@/lib/platform-settings";
+import { publicObjectUrl } from "@/lib/storage";
+import { cn } from "@/lib/utils";
 
 /** Below this many live resources, a one-line note says the catalog is new, and extra shelves would only repeat the featured ones. */
 const LAUNCH_THRESHOLD = 8;
@@ -17,43 +20,166 @@ export default function HomePage() {
     <>
       <section className="relative overflow-hidden bg-primary text-white">
         <BannerCircles />
-        <div className="relative mx-auto flex max-w-[1200px] flex-col gap-6 px-4 py-8 sm:px-6 sm:py-16">
-          <div className="max-w-2xl">
-            <p className="mb-3 text-sm font-bold uppercase tracking-[0.08em] text-[#cfe0f7]">Para sa mga guro, gawa ng mga guro</p>
-            <h1 className="font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl">
-              Everything you need to teach, all in one place.
-            </h1>
+        <div className="relative mx-auto grid max-w-[1200px] items-center gap-10 px-4 py-8 sm:px-6 sm:py-14 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="flex flex-col gap-6">
+            <div>
+              <p className="mb-3 text-sm font-bold uppercase tracking-[0.08em] text-[#cfe0f7]">Para sa mga guro, gawa ng mga guro</p>
+              <h1 className="font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-[56px]">
+                Everything you need to teach, all in one place.
+              </h1>
+              <p className="mt-4 max-w-xl text-lg text-[#dbe7f8]">
+                Lesson plans, DLLs, slides and worksheets made by Filipino teachers. Every one is checked by GuroMart before it goes live.
+              </p>
+            </div>
+            {/* Phones already have the search field in the header. */}
+            <SearchForm size="lg" className="hidden max-w-2xl border-white/0 md:flex" />
+            <Suspense fallback={<div className="h-9" />}>
+              <QuickCategories />
+            </Suspense>
+            <Suspense fallback={<div className="h-6" />}>
+              <HeroCounts />
+            </Suspense>
           </div>
-          {/* Phones already have the search field in the header. */}
-          <SearchForm size="lg" className="hidden max-w-2xl border-white/0 md:flex" />
-          <Suspense fallback={<div className="h-9" />}>
-            <QuickCategories />
+          <Suspense fallback={null}>
+            <HeroCovers />
           </Suspense>
         </div>
       </section>
 
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-10 px-4 py-6 sm:gap-12 sm:px-6 sm:py-8">
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-10 px-4 py-6 sm:gap-14 sm:px-6 sm:py-10">
         <Suspense fallback={<ProductGridSkeleton />}>
           <Resources />
         </Suspense>
+
+        <HowItWorks />
 
         <Suspense fallback={null}>
           <Storefronts />
         </Suspense>
 
-        <section className="flex flex-col items-start gap-4 rounded-[16px] bg-accent-soft p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
-          <div>
-            <h2 className="font-display text-2xl font-bold">Sell what you already make for your class</h2>
-            <p className="mt-1 text-muted-foreground">Open a shop, upload your lesson plans and worksheets, and get paid to GCash, Maya or your bank.</p>
-          </div>
-          <Link href="/sell" className={buttonVariants({ variant: "dark", size: "lg" })}>
-            Start selling
-          </Link>
-        </section>
+        <Suspense fallback={null}>
+          <SellBand />
+        </Suspense>
       </div>
     </>
   );
 }
+
+/** The catalog's real size, so a teacher knows what they'll find. */
+async function HeroCounts() {
+  const facets = await getCatalogFacets();
+  if (!facets.total) return null;
+  const shops = Object.keys(facets.shops).length;
+  const grades = facets.grades.filter((g) => g.count > 0).length;
+  const items = [
+    { value: facets.total, label: facets.total === 1 ? "resource" : "resources" },
+    { value: shops, label: shops === 1 ? "teacher shop" : "teacher shops" },
+    { value: grades, label: grades === 1 ? "grade level" : "grade levels" },
+    ...(facets.free ? [{ value: facets.free, label: "free to download" }] : []),
+  ];
+  return (
+    <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-[#dbe7f8]" data-testid="hero-counts">
+      {items.map((i) => (
+        <li key={i.label} className="flex items-baseline gap-1.5">
+          <span className="font-display text-2xl font-bold text-white">{count.format(i.value)}</span> {i.label}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Three real covers from the most popular resources, fanned out like papers on a desk. */
+async function HeroCovers() {
+  const covers = (await getShelf("popular")).filter((p) => p.preview_path).slice(0, 3);
+  if (covers.length < 2) return null;
+  // Two papers behind, spread left and right, and one in front between them.
+  const place = ["left-0 top-6 -rotate-6", "right-0 top-0 rotate-6", "left-[19%] top-[150px] -rotate-1"];
+  return (
+    <div className="relative hidden h-[400px] lg:block" aria-label="Popular resources">
+      {covers.map((p, i) => (
+        <Link
+          key={p.id}
+          href={`/resources/${p.slug}`}
+          className={cn(
+            "absolute w-[62%] overflow-hidden rounded-[14px] border-4 border-white bg-white shadow-2xl transition hover:z-10 hover:rotate-0 hover:scale-[1.03]",
+            place[i],
+          )}
+          style={{ zIndex: i + 1 }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={publicObjectUrl("product-previews", p.preview_path!)} alt={displayTitle(p)} className="aspect-[4/3] w-full object-cover object-top" />
+        </Link>
+      ))}
+      <span className="absolute bottom-2 right-0 z-20 flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-bold text-foreground shadow-lg">
+        <ShieldCheck className="size-4" aria-hidden /> Checked by GuroMart
+      </span>
+    </div>
+  );
+}
+
+/** What a teacher does, in the order they do it. Each step says only what the site really does. */
+function HowItWorks() {
+  const steps = [
+    { icon: Search, title: "Find it fast", text: "Search or filter by grade, subject, quarter and resource type." },
+    { icon: Eye, title: "See inside first", text: "Every resource shows its cover and pages from inside before you buy." },
+    { icon: Wallet, title: "Pay online", text: "Pay through PayMongo, for example with GCash or Maya. Free resources need no payment." },
+    { icon: Download, title: "Download anytime", text: "Your files stay in My Library, ready to download again whenever you need them." },
+  ];
+  return (
+    <section aria-labelledby="how-h" className="flex flex-col gap-5">
+      <h2 id="how-h" className="font-display text-2xl font-bold">How GuroMart works</h2>
+      <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {steps.map((s, i) => (
+          <li key={s.title} className="relative flex flex-col gap-2 rounded-[16px] border border-border bg-surface p-5">
+            <span className="flex items-center gap-3">
+              <span className="flex size-11 items-center justify-center rounded-full bg-primary-soft text-primary">
+                <s.icon className="size-5" aria-hidden />
+              </span>
+              <span className="font-display text-sm font-bold text-muted-foreground">Step {i + 1}</span>
+            </span>
+            <h3 className="font-display text-lg font-bold">{s.title}</h3>
+            <p className="text-sm text-muted-foreground">{s.text}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/** The invitation to sell, with the real fee and payout terms. */
+async function SellBand() {
+  const plans = await getSellerPlans();
+  const keep = 100 - plans.starterBps / 100;
+  const points = [
+    `Free to open a shop. You keep ${keep}% of each sale.`,
+    "Upload a file and previews are made for you.",
+    `Get paid to GCash, Maya or your bank from ₱${count.format(plans.minPayoutCentavos / 100)}.`,
+  ];
+  return (
+    <section className="relative overflow-hidden rounded-[20px] bg-accent p-6 sm:p-10">
+      <div aria-hidden className="pointer-events-none absolute -right-12 -top-16 size-56 rounded-full bg-white/25" />
+      <div className="relative grid items-center gap-6 lg:grid-cols-[1.4fr_1fr]">
+        <div>
+          <h2 className="font-display text-3xl font-extrabold leading-tight text-foreground">Sell what you already make for your class</h2>
+          <ul className="mt-4 flex flex-col gap-2">
+            {points.map((p) => (
+              <li key={p} className="flex items-start gap-2 font-medium text-foreground">
+                <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden /> {p}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="flex lg:justify-end">
+          <Link href="/sell" className={buttonVariants({ variant: "dark", size: "lg" })}>
+            Start selling <ArrowRight aria-hidden />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const count = new Intl.NumberFormat("en-PH");
 
 async function QuickCategories() {
   const { categories } = await getTaxonomy();
@@ -216,10 +342,23 @@ async function Storefronts() {
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {live.map((s) => (
           <li key={s.slug}>
-            <Link href={`/shop/${s.slug}`} className="flex h-full flex-col gap-1 rounded-[12px] border border-border bg-surface p-4 hover:border-primary">
-              <span className="font-bold">{s.name}</span>
-              {s.tagline ? <span className="text-sm text-muted-foreground">{s.tagline}</span> : null}
-              <span className="text-sm text-muted-foreground">{shopSummary(s.facet)}</span>
+            <Link
+              href={`/shop/${s.slug}`}
+              className="flex h-full items-center gap-4 rounded-[16px] border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md"
+            >
+              {s.logo_path ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={publicObjectUrl("storefront-media", s.logo_path)} alt="" className="size-14 shrink-0 rounded-full border border-border object-cover" />
+              ) : (
+                <span aria-hidden className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary font-display text-xl font-bold text-white">
+                  {s.name.trim().charAt(0).toUpperCase()}
+                </span>
+              )}
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="font-bold">{s.name}</span>
+                {s.tagline ? <span className="line-clamp-1 text-sm text-muted-foreground">{s.tagline}</span> : null}
+                <span className="text-sm text-muted-foreground">{shopSummary(s.facet)}</span>
+              </span>
             </Link>
           </li>
         ))}

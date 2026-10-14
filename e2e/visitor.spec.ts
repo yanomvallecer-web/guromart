@@ -3,6 +3,9 @@ import { expect, test } from "@playwright/test";
 test("homepage leads with real resources, then grades and subjects that have some", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Everything you need to teach, all in one place." })).toBeVisible();
+  // The hero states the catalog's real size, and the steps say how buying works.
+  await expect(page.getByTestId("hero-counts")).toContainText(/\d+ resources?/);
+  await expect(page.getByRole("region", { name: "How GuroMart works" }).getByRole("listitem")).toHaveCount(4);
   // Resources come right after the hero, with the rule that picked them.
   const featured = page.getByRole("region", { name: "Featured resources" });
   await expect(featured.getByText("The newest lesson bundles, then the most bought and downloaded resources.", { exact: false })).toBeVisible();
