@@ -26,7 +26,7 @@ test("visitors see the landing page, signed-in teachers their home", async ({ pa
 
   // The plan and the class filters follow what they teach.
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Grade 4 Science" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Grade 4 Science", exact: true })).toBeVisible();
   await expect(page.getByText("of 4 quarters have lessons")).toBeVisible();
   await expect(page.getByRole("link", { name: /^Q1/ })).toHaveAttribute("href", /grade=grade-4.*subject=science.*period=quarter-1/);
 
