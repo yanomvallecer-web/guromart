@@ -190,6 +190,18 @@ test("a seller bundles resources at one lower price and the buyer gets every res
   await seller.waitForURL((url) => url.pathname.startsWith("/bundles/"));
   const bundlePath = new URL(seller.url()).pathname;
   await expect(seller.getByText("You save ₱51.00.")).toBeVisible();
+  // The bundle's picture is the covers of its two resources.
+  await expect(seller.getByTestId("bundle-cover").locator("img")).toHaveCount(2);
+
+  // The newest live bundle leads Featured resources on the homepage, with the same picture.
+  await page.goto("/");
+  const featured = page.getByRole("region", { name: "Featured resources" });
+  const card = featured.getByTestId("bundle-card").first();
+  await expect(card).toHaveAttribute("href", bundlePath);
+  await expect(card).toContainText("Bundle · 2 resources");
+  await expect(card).toContainText("Save ₱51.00");
+  await expect(card.getByTestId("bundle-cover").locator("img")).toHaveCount(2);
+  await expect(card.getByTestId("bundle-cover").locator("img").first()).toHaveAttribute("src", /\/product-previews\//);
 
   // Each resource page points to the bundle.
   await page.goto(`/resources/${a.slug}`);

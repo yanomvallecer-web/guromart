@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { FileText, Star } from "lucide-react";
+import type { BundleCard as Bundle } from "@/lib/catalog/bundles";
 import type { ProductCard as Card } from "@/lib/catalog/queries";
 import { displayTitle, fileFacts, gradeSummary, lengthUnit, shortTypeLabel, typeName } from "@/lib/catalog/labels";
 import { formatPrice } from "@/lib/format";
 import { publicObjectUrl } from "@/lib/storage";
 import { cn } from "@/lib/utils";
+import { BundleCard } from "./bundle-card";
 
 /** A resource card. `link={false}` draws it without a link, for the seller's preview of a draft. */
 export function ProductCard({ product, link = true }: { product: Card; link?: boolean }) {
@@ -87,9 +89,15 @@ function CoverTemplate({ title, type, context }: { title: string; type: string |
 /** Two cards per row from 360px (most phones), more on wider screens. */
 const GRID = "grid grid-cols-1 gap-x-3 gap-y-6 min-[360px]:grid-cols-2 sm:gap-x-5 sm:gap-y-8 md:grid-cols-3 lg:grid-cols-4";
 
-export function ProductGrid({ products, className }: { products: Card[]; className?: string }) {
+/** Resource cards; any bundles come first, in the same grid. */
+export function ProductGrid({ products, bundles = [], className }: { products: Card[]; bundles?: Bundle[]; className?: string }) {
   return (
     <ul className={cn(GRID, className)}>
+      {bundles.map((b) => (
+        <li key={b.id} className="min-w-0">
+          <BundleCard bundle={b} />
+        </li>
+      ))}
       {products.map((p) => (
         <li key={p.id} className="min-w-0">
           <ProductCard product={p} />

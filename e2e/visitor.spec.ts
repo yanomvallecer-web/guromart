@@ -5,7 +5,7 @@ test("homepage leads with real resources, then grades and subjects that have som
   await expect(page.getByRole("heading", { name: "Everything you need to teach, all in one place." })).toBeVisible();
   // Resources come right after the hero, with the rule that picked them.
   const featured = page.getByRole("region", { name: "Featured resources" });
-  await expect(featured.getByText("Most bought and downloaded first, then newest.")).toBeVisible();
+  await expect(featured.getByText("The newest lesson bundles, then the most bought and downloaded resources.", { exact: false })).toBeVisible();
   expect(await featured.getByRole("listitem").count()).toBeGreaterThan(0);
   // Grades and subjects only appear with a live count, and lead to matching results.
   const grades = page.getByRole("region", { name: "Available grades and subjects" });

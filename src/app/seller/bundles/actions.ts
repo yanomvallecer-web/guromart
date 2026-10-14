@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireArea } from "@/lib/auth/dal";
@@ -104,6 +104,8 @@ export async function setBundleStatus(bundleId: string, status: "draft" | "publi
   revalidatePath(`/seller/bundles/${bundleId}`);
   revalidatePath("/seller/bundles");
   revalidatePath(`/bundles/${data.slug}`);
+  // The homepage shows live bundles.
+  updateTag("bundles");
   return { ok: true };
 }
 

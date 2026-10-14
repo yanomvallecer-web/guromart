@@ -1,4 +1,6 @@
 import "server-only";
+import { cacheLife, cacheTag } from "next/cache";
+import { createPublicClient } from "@/lib/supabase/public";
 import { createClient } from "@/lib/supabase/server";
 import { type ProductCard, getCardsByIds } from "./queries";
 
@@ -60,4 +62,66 @@ export async function shopBundles(storefrontId: string): Promise<BundleSummary[]
   const supabase = await createClient();
   const { data } = await supabase.from("bundles").select(SUMMARY).eq("storefront_id", storefrontId).eq("status", "published").order("created_at", { ascending: false });
   return (data ?? []) as BundleSummary[];
+}
+
+export type BundleCard = {
+  id: string;
+  slug: string;
+  title: string;
+  topic: string | null;
+  price_centavos: number;
+  storefront: { slug: string; name: string } | null;
+  /** Live resources in the bundle. */
+  item_count: number;
+  /** What those resources cost bought one by one. */
+  separate_centavos: number;
+  /** The first preview image of up to four of its resources, in bundle order: the bundle's picture. */
+  cover_paths: string[];
+};
+
+type BundleCardRow = {
+  id: string;
+  slug: string;
+  title: string;
+  topic: string | null;
+  price_centavos: number;
+  storefronts: { slug: string; name: string } | null;
+  bundle_items: {
+    sort_order: number;
+    products: { price_centavos: number; product_previews: { storage_path: string; sort_order: number }[] } | null;
+  }[];
+};
+
+/** Live bundles for the homepage, newest first. Read anonymously, so only live bundles and live resources count. */
+export async function getLiveBundleCards(limit = 4): Promise<BundleCard[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("products", "bundles");
+  const { data, error } = await createPublicClient()
+    .from("bundles")
+    .select(
+      `id, slug, title, topic, price_centavos, storefronts(slug, name),
+       bundle_items(sort_order, products(price_centavos, product_previews(storage_path, sort_order)))`,
+    )
+    .eq("status", "published")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`Could not load bundles: ${error.message}`);
+  return (data as unknown as BundleCardRow[]).map((b) => {
+    const items = [...b.bundle_items].sort((x, y) => x.sort_order - y.sort_order).flatMap((i) => (i.products ? [i.products] : []));
+    return {
+      id: b.id,
+      slug: b.slug,
+      title: b.title,
+      topic: b.topic,
+      price_centavos: b.price_centavos,
+      storefront: b.storefronts,
+      item_count: items.length,
+      separate_centavos: items.reduce((s, i) => s + i.price_centavos, 0),
+      cover_paths: items
+        .map((i) => [...i.product_previews].sort((x, y) => x.sort_order - y.sort_order)[0]?.storage_path)
+        .filter((p): p is string => Boolean(p))
+        .slice(0, 4),
+    };
+  });
 }

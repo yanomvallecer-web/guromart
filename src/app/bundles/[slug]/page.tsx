@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { BundleCover } from "@/components/catalog/bundle-card";
 import { ProductGrid } from "@/components/catalog/product-card";
 import { BuyBundleButton } from "@/components/commerce/buy-bundle-button";
 import { WebCheckoutOnly } from "@/components/site/android-app";
@@ -92,6 +93,11 @@ async function Bundle({ params }: { params: PageProps<"/bundles/[slug]">["params
 
       <div className="grid gap-6 lg:grid-cols-[3fr_2fr] lg:items-start">
         <div className="flex flex-col gap-4">
+          <BundleCover
+            paths={bundle.items.flatMap((i) => (i.preview_path ? [i.preview_path] : []))}
+            title={bundle.topic || bundle.title}
+            className="max-w-md"
+          />
           {bundle.description ? <p className="whitespace-pre-line text-[15px] leading-relaxed">{bundle.description}</p> : null}
           <h2 className="font-display text-xl font-bold">What&apos;s in the bundle</h2>
           <ProductGrid products={bundle.items} className="lg:grid-cols-2 xl:grid-cols-2" />

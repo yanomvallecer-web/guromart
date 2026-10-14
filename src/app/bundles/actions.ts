@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { requireArea } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
@@ -12,4 +12,5 @@ export async function setBundleHidden(bundleId: string, hidden: boolean): Promis
   const supabase = await createClient();
   const { data } = await supabase.from("bundles").update({ status: hidden ? "hidden" : "draft" }).eq("id", bundleId).select("slug").maybeSingle();
   if (data) revalidatePath(`/bundles/${data.slug}`);
+  updateTag("bundles");
 }

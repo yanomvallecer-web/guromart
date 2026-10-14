@@ -5,6 +5,7 @@ import { ProductGrid, ProductGridSkeleton } from "@/components/catalog/product-c
 import { SearchForm } from "@/components/site/search-form";
 import { buttonVariants } from "@/components/ui/button";
 import { type CatalogFacets, type Facet, type HomeShelf, getCatalogFacets, getFeaturedStorefronts, getShelf, getTaxonomy } from "@/lib/catalog/queries";
+import { getLiveBundleCards } from "@/lib/catalog/bundles";
 import { shopSummary } from "@/lib/catalog/labels";
 
 /** Below this many live resources, a one-line note says the catalog is new, and extra shelves would only repeat the featured ones. */
@@ -101,8 +102,9 @@ async function Resources() {
         shelf="popular"
         id="featured-h"
         title="Featured resources"
-        criteria="Most bought and downloaded first, then newest. Every resource was checked by GuroMart before it went live."
+        criteria="The newest lesson bundles, then the most bought and downloaded resources. Every resource was checked by GuroMart before it went live."
         href="/browse?sort=popular"
+        withBundles
       />
 
       <GradesAndSubjects facets={facets} />
@@ -155,9 +157,26 @@ function GradesAndSubjects({ facets }: { facets: CatalogFacets }) {
   );
 }
 
-async function ShelfSection({ shelf, id, title, criteria, href }: { shelf: HomeShelf; id: string; title: string; criteria: string; href: string }) {
-  const products = await getShelf(shelf);
-  if (products.length === 0) return null;
+/** Up to this many lesson bundles lead the featured shelf. */
+const FEATURED_BUNDLES = 2;
+
+async function ShelfSection({
+  shelf,
+  id,
+  title,
+  criteria,
+  href,
+  withBundles = false,
+}: {
+  shelf: HomeShelf;
+  id: string;
+  title: string;
+  criteria: string;
+  href: string;
+  withBundles?: boolean;
+}) {
+  const [products, bundles] = await Promise.all([getShelf(shelf), withBundles ? getLiveBundleCards(FEATURED_BUNDLES) : []]);
+  if (products.length === 0 && bundles.length === 0) return null;
   return (
     <section aria-labelledby={id} className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-4">
@@ -170,7 +189,7 @@ async function ShelfSection({ shelf, id, title, criteria, href }: { shelf: HomeS
         </Link>
       </div>
       {/* Four on phones keeps each shelf to two rows; See all has the rest. */}
-      <ProductGrid products={products} className="max-md:[&>li:nth-child(n+5)]:hidden" />
+      <ProductGrid products={products.slice(0, 8 - bundles.length)} bundles={bundles} className="max-md:[&>li:nth-child(n+5)]:hidden" />
     </section>
   );
 }
