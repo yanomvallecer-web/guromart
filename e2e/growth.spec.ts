@@ -164,13 +164,17 @@ test("a seller bundles resources at one lower price and the buyer gets every res
   const a = await createLiveListing("Bundle Test Lesson Plan", 10000);
   const b = await addLiveListing(a, "Bundle Test Summative Assessment", 15000);
 
+  await serviceRest(`products?id=eq.${a.productId}`, { method: "PATCH", body: JSON.stringify({ topic: "Thermal energy transfer" }) });
+
   const seller = await newPage(browser, testInfo.project.use.baseURL);
   await signIn(seller, a.sellerEmail, "/seller/bundles");
-  await seller.getByRole("textbox", { name: "Bundle name" }).fill("Bundle Test Full Lesson");
+  await seller.getByRole("textbox", { name: "Bundle name" }).fill("Heat vs. Temperature");
   await seller.getByRole("button", { name: "Create bundle" }).click();
   await seller.waitForURL(/\/seller\/bundles\/[0-9a-f-]{36}$/);
-  await seller.getByRole("textbox", { name: "Lesson topic" }).fill("Heat vs. Temperature");
-  await seller.getByRole("checkbox", { name: /Bundle Test Lesson Plan/ }).check();
+  // The bundle is named by its title alone; each resource is listed by its topic.
+  await expect(seller.getByRole("textbox", { name: "Lesson topic" })).toHaveCount(0);
+  await expect(seller.getByRole("textbox", { name: /What's included/ })).toHaveCount(0);
+  await seller.getByRole("checkbox", { name: /Thermal energy transfer\s*Bundle Test Lesson Plan/ }).check();
   await seller.getByRole("checkbox", { name: /Bundle Test Summative Assessment/ }).check();
   await expect(seller.getByTestId("bundle-separate")).toHaveText("2 chosen, ₱250.00 if bought separately");
 
@@ -227,7 +231,7 @@ test("a seller bundles resources at one lower price and the buyer gets every res
   await expect(page.getByRole("heading", { level: 1, name: "Heat vs. Temperature" })).toBeVisible();
   await page.getByRole("button", { name: "Buy the bundle" }).click();
   await page.waitForURL(`${STAND_IN}/checkout/**`);
-  await expect(page.getByText("Bundle: Bundle Test Full Lesson: ₱199.00")).toBeVisible();
+  await expect(page.getByText("Bundle: Heat vs. Temperature: ₱199.00")).toBeVisible();
   const orderNumber = (await page.getByText(/^Order GM-\d+/).textContent())!.match(/GM-\d+/)![0];
 
   // Nothing is unlocked until PayMongo confirms.

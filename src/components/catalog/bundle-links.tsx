@@ -12,7 +12,7 @@ function BundleList({ bundles, heading }: { bundles: BundleSummary[]; heading: s
       <ul className="flex flex-col gap-1">
         {bundles.map((b) => (
           <li key={b.id} className="flex flex-wrap items-baseline justify-between gap-2">
-            <Link href={`/bundles/${b.slug}`} className="font-semibold text-primary hover:underline">{b.topic || b.title}</Link>
+            <Link href={`/bundles/${b.slug}`} className="font-semibold text-primary hover:underline">{b.title}</Link>
             <span className="text-muted-foreground">{formatPrice(b.price_centavos)}</span>
           </li>
         ))}

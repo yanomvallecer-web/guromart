@@ -2,7 +2,7 @@
 
 import { startTransition, useActionState, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { FieldError, FormAlert, Input, Label, Textarea } from "@/components/ui/form";
+import { FieldError, FormAlert, Input, Label } from "@/components/ui/form";
 import { formatPrice } from "@/lib/format";
 import { type BundleState, createBundle, deleteBundle, saveBundle, setBundleStatus } from "./actions";
 
@@ -24,14 +24,14 @@ export function NewBundleForm() {
   );
 }
 
-type Resource = { id: string; title: string; price_centavos: number };
+type Resource = { id: string; title: string; detail: string | null; price_centavos: number };
 
 export function BundleEditor({
   bundle,
   resources,
   selected,
 }: {
-  bundle: { id: string; title: string; topic: string | null; description: string | null; price_centavos: number; status: string };
+  bundle: { id: string; title: string; price_centavos: number; status: string };
   resources: Resource[];
   selected: string[];
 }) {
@@ -57,16 +57,6 @@ export function BundleEditor({
           <Input id="title" name="title" required minLength={4} maxLength={160} defaultValue={bundle.title} aria-describedby="title-error" />
           <FieldError id="title-error" messages={fe.title} />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="topic">Lesson topic</Label>
-          <Input id="topic" name="topic" maxLength={200} placeholder="e.g. Heat vs. Temperature" defaultValue={bundle.topic ?? ""} aria-describedby="topic-error" />
-          <FieldError id="topic-error" messages={fe.topic} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="description">What&apos;s included and how to use it</Label>
-          <Textarea id="description" name="description" rows={4} maxLength={4000} defaultValue={bundle.description ?? ""} aria-describedby="description-error" />
-          <FieldError id="description-error" messages={fe.description} />
-        </div>
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-1 text-sm font-semibold">Resources in this bundle</legend>
           {resources.length === 0 ? (
@@ -91,7 +81,10 @@ export function BundleEditor({
                       }
                       className="size-5 accent-primary"
                     />
-                    <span className="min-w-0 flex-1 text-[15px]">{r.title}</span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="text-[15px]">{r.title}</span>
+                      {r.detail ? <span className="text-sm text-muted-foreground">{r.detail}</span> : null}
+                    </span>
                     <span className="text-sm text-muted-foreground">{formatPrice(r.price_centavos)}</span>
                   </label>
                 </li>

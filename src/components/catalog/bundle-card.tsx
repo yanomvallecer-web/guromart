@@ -40,7 +40,7 @@ export function BundleCover({ paths, title, className }: { paths: string[]; titl
 
 /** A lesson bundle in a grid of resource cards, marked as a bundle with its saving. */
 export function BundleCard({ bundle }: { bundle: Card }) {
-  const title = bundle.topic || bundle.title;
+  const title = bundle.title;
   const saving = bundle.separate_centavos - bundle.price_centavos;
   return (
     <Link href={`/bundles/${bundle.slug}`} className="group flex h-full flex-col gap-2.5 rounded-[12px] text-foreground no-underline" data-testid="bundle-card">
@@ -54,7 +54,6 @@ export function BundleCard({ bundle }: { bundle: Card }) {
       </div>
       <div className="flex flex-1 flex-col gap-1">
         <h3 className="line-clamp-2 text-base font-bold leading-snug group-hover:text-primary group-hover:underline">{title}</h3>
-        {bundle.topic ? <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{bundle.title}</p> : null}
         <div className="mt-auto flex flex-wrap items-center gap-x-2 pt-1">
           <span className="text-base font-bold">{formatPrice(bundle.price_centavos)}</span>
           {saving > 0 ? <span className="text-sm font-semibold text-success">Save {formatPrice(saving)}</span> : null}

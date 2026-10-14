@@ -30,8 +30,6 @@ const peso = z
 
 const bundleSchema = z.object({
   title: z.string().trim().min(4, "Use at least 4 characters.").max(160, "Keep the title under 160 characters."),
-  topic: z.string().trim().max(200, "Keep the topic under 200 characters.").transform((v) => v || null),
-  description: z.string().trim().max(4000, "Keep the description under 4,000 characters.").transform((v) => v || null),
   price: peso,
   items: z.array(id).max(12, "A bundle can have up to 12 resources."),
 });
@@ -39,8 +37,6 @@ const bundleSchema = z.object({
 function fromForm(form: FormData) {
   return bundleSchema.safeParse({
     title: form.get("title") ?? "",
-    topic: form.get("topic") ?? "",
-    description: form.get("description") ?? "",
     price: form.get("price") ?? "",
     items: form.getAll("items").map(String),
   });
@@ -72,8 +68,9 @@ export async function saveBundle(bundleId: string, _prev: BundleState, form: For
   if (!bundle) return { error: "Unknown bundle." };
   if (bundle.status !== "draft") return { error: "Unpublish the bundle before changing it." };
 
-  const { title, topic, description, price, items } = parsed.data;
-  const { error } = await supabase.from("bundles").update({ title, topic, description, price_centavos: price }).eq("id", bundleId);
+  const { title, price, items } = parsed.data;
+  // A bundle is named by its title alone; the old topic and description fields are cleared on save.
+  const { error } = await supabase.from("bundles").update({ title, topic: null, description: null, price_centavos: price }).eq("id", bundleId);
   if (error) return { error: "We couldn't save the bundle. Please try again." };
   const del = await supabase.from("bundle_items").delete().eq("bundle_id", bundleId);
   const ins = items.length

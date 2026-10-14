@@ -18,7 +18,7 @@ import { setBundleHidden } from "../actions";
 
 export async function generateMetadata({ params }: PageProps<"/bundles/[slug]">): Promise<Metadata> {
   const bundle = await getBundle((await params).slug);
-  return bundle ? { title: bundle.title, description: bundle.topic ?? undefined } : { title: "Bundle not found" };
+  return bundle ? { title: bundle.title } : { title: "Bundle not found" };
 }
 
 export default function BundlePage({ params }: PageProps<"/bundles/[slug]">) {
@@ -82,8 +82,7 @@ async function Bundle({ params }: { params: PageProps<"/bundles/[slug]">["params
           Lesson bundle · {bundle.items.length} resources
           {bundle.status !== "published" ? <Badge className="ml-2 bg-surface-muted">{bundle.status === "hidden" ? "Hidden" : "Draft"}</Badge> : null}
         </p>
-        <h1 className="font-display text-[28px] font-bold leading-tight sm:text-3xl">{bundle.topic || bundle.title}</h1>
-        {bundle.topic ? <p className="text-[15px] text-muted-foreground">{bundle.title}</p> : null}
+        <h1 className="font-display text-[28px] font-bold leading-tight sm:text-3xl">{bundle.title}</h1>
         {bundle.storefront ? (
           <p className="text-[15px] text-muted-foreground">
             by <Link href={`/shop/${bundle.storefront.slug}`} className="font-semibold text-primary hover:underline">{bundle.storefront.name}</Link>
@@ -95,10 +94,9 @@ async function Bundle({ params }: { params: PageProps<"/bundles/[slug]">["params
         <div className="flex flex-col gap-4">
           <BundleCover
             paths={bundle.items.flatMap((i) => (i.preview_path ? [i.preview_path] : []))}
-            title={bundle.topic || bundle.title}
+            title={bundle.title}
             className="max-w-md"
           />
-          {bundle.description ? <p className="whitespace-pre-line text-[15px] leading-relaxed">{bundle.description}</p> : null}
           <h2 className="font-display text-xl font-bold">What&apos;s in the bundle</h2>
           <ProductGrid products={bundle.items} className="lg:grid-cols-2 xl:grid-cols-2" />
         </div>
