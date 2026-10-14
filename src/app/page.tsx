@@ -1,11 +1,42 @@
 import Link from "next/link";
-import { BannerCircles } from "@/components/layout/page-shell";
 import { Suspense } from "react";
-import { ArrowRight, CheckCircle2, Download, Eye, Search, ShieldCheck, Sparkles, Wallet } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpen,
+  BookOpenText,
+  Calculator,
+  CheckCircle2,
+  Download,
+  Eye,
+  Flag,
+  FlaskConical,
+  GraduationCap,
+  HeartHandshake,
+  Landmark,
+  Languages,
+  type LucideIcon,
+  MessageCircle,
+  Music,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Sprout,
+  Wallet,
+  Wrench,
+} from "lucide-react";
 import { ProductGrid, ProductGridSkeleton } from "@/components/catalog/product-card";
 import { SearchForm } from "@/components/site/search-form";
 import { buttonVariants } from "@/components/ui/button";
-import { type CatalogFacets, type Facet, type HomeShelf, getCatalogFacets, getFeaturedStorefronts, getShelf, getTaxonomy } from "@/lib/catalog/queries";
+import {
+  type CatalogFacets,
+  type Facet,
+  type HomeShelf,
+  type ProductCard,
+  getCatalogFacets,
+  getFeaturedStorefronts,
+  getShelf,
+  getTaxonomy,
+} from "@/lib/catalog/queries";
 import { getLiveBundleCards } from "@/lib/catalog/bundles";
 import { displayTitle, shopSummary } from "@/lib/catalog/labels";
 import { getSellerPlans } from "@/lib/platform-settings";
@@ -15,24 +46,35 @@ import { cn } from "@/lib/utils";
 /** Below this many live resources, a one-line note says the catalog is new, and extra shelves would only repeat the featured ones. */
 const LAUNCH_THRESHOLD = 8;
 
+const count = new Intl.NumberFormat("en-PH");
+
 export default function HomePage() {
   return (
     <>
-      <section className="relative overflow-hidden bg-primary text-white">
-        <BannerCircles />
-        <div className="relative mx-auto grid max-w-[1200px] items-center gap-10 px-4 py-8 sm:px-6 sm:py-14 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="flex flex-col gap-6">
-            <div>
-              <p className="mb-3 text-sm font-bold uppercase tracking-[0.08em] text-[#cfe0f7]">Para sa mga guro, gawa ng mga guro</p>
-              <h1 className="font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-[56px]">
-                Everything you need to teach, all in one place.
-              </h1>
-              <p className="mt-4 max-w-xl text-lg text-[#dbe7f8]">
-                Lesson plans, DLLs, slides and worksheets made by Filipino teachers. Every one is checked by GuroMart before it goes live.
-              </p>
-            </div>
+      {/* Hero: light, like paper on a teacher's desk, with real covers drifting past on the right. */}
+      <section className="relative overflow-hidden border-b border-border">
+        <div aria-hidden className="pointer-events-none absolute -left-24 top-24 size-72 rounded-full bg-accent-soft" />
+        <div aria-hidden className="pointer-events-none absolute -right-20 -top-28 size-96 rounded-full bg-primary-soft" />
+        <div className="relative mx-auto grid max-w-[1200px] items-center gap-10 px-4 pb-10 pt-8 sm:px-6 sm:pt-14 lg:grid-cols-[1.1fr_0.9fr] lg:items-stretch lg:pb-0 lg:pt-0">
+          <div className="flex flex-col gap-6 lg:py-16">
+            <p className="w-fit rounded-full bg-primary px-3 py-1 text-xs font-bold uppercase tracking-[0.08em] text-white">
+              Para sa mga guro, gawa ng mga guro
+            </p>
+            <h1 className="font-display text-[40px] font-extrabold leading-[1.02] tracking-tight text-foreground sm:text-6xl">
+              Everything you need to{" "}
+              <span className="relative whitespace-nowrap">
+                <span aria-hidden className="absolute inset-x-[-4px] bottom-1 -z-0 h-[0.38em] -rotate-1 rounded-sm bg-accent" />
+                <span className="relative">teach</span>
+              </span>
+              , all in one place.
+            </h1>
+            <p className="max-w-xl text-lg text-muted-foreground">
+              Lesson plans, DLLs, slides and worksheets made by Filipino teachers. Every one is checked by GuroMart before it goes live.
+            </p>
             {/* Phones already have the search field in the header. */}
-            <SearchForm size="lg" className="hidden max-w-2xl border-white/0 md:flex" />
+            <div className="hidden max-w-2xl rounded-[18px] bg-surface p-2 shadow-xl shadow-primary/10 ring-1 ring-border md:block">
+              <SearchForm size="lg" className="border-0" />
+            </div>
             <Suspense fallback={<div className="h-9" />}>
               <QuickCategories />
             </Suspense>
@@ -41,27 +83,57 @@ export default function HomePage() {
             </Suspense>
           </div>
           <Suspense fallback={null}>
-            <HeroCovers />
+            <CoverWall />
           </Suspense>
         </div>
       </section>
 
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-10 px-4 py-6 sm:gap-14 sm:px-6 sm:py-10">
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-12 px-4 py-8 sm:gap-16 sm:px-6 sm:py-12">
         <Suspense fallback={<ProductGridSkeleton />}>
           <Resources />
         </Suspense>
+      </div>
 
-        <HowItWorks />
+      <HowItWorks />
 
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-12 px-4 py-8 sm:gap-16 sm:px-6 sm:py-12">
         <Suspense fallback={null}>
           <Storefronts />
         </Suspense>
-
         <Suspense fallback={null}>
           <SellBand />
         </Suspense>
       </div>
     </>
+  );
+}
+
+async function QuickCategories() {
+  const { categories } = await getTaxonomy();
+  const picks = ["daily-lesson-log", "lesson-plan", "worksheet", "assessment", "presentation"];
+  const chip = "block rounded-full border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground hover:border-primary hover:text-primary";
+  return (
+    <ul className="flex flex-wrap gap-2">
+      {categories
+        .filter((c) => picks.includes(c.code))
+        .map((c) => (
+          <li key={c.code}>
+            <Link href={`/browse?category=${c.code}`} className={chip}>
+              {c.name}
+            </Link>
+          </li>
+        ))}
+      <li>
+        <Link href="/bundles" className={chip}>
+          Lesson bundles
+        </Link>
+      </li>
+      <li>
+        <Link href="/browse?price=free" className="block rounded-full bg-accent px-4 py-2 text-sm font-semibold text-foreground hover:bg-accent/90">
+          Free downloads
+        </Link>
+      </li>
+    </ul>
   );
 }
 
@@ -78,134 +150,54 @@ async function HeroCounts() {
     ...(facets.free ? [{ value: facets.free, label: "free to download" }] : []),
   ];
   return (
-    <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-[#dbe7f8]" data-testid="hero-counts">
+    <ul className="flex flex-wrap gap-x-8 gap-y-3 border-t border-border pt-5 text-sm text-muted-foreground" data-testid="hero-counts">
       {items.map((i) => (
-        <li key={i.label} className="flex items-baseline gap-1.5">
-          <span className="font-display text-2xl font-bold text-white">{count.format(i.value)}</span> {i.label}
+        <li key={i.label} className="flex flex-col">
+          <span className="font-display text-3xl font-extrabold text-primary">{count.format(i.value)}</span> {i.label}
         </li>
       ))}
     </ul>
   );
 }
 
-/** Three real covers from the most popular resources, fanned out like papers on a desk. */
-async function HeroCovers() {
-  const covers = (await getShelf("popular")).filter((p) => p.preview_path).slice(0, 3);
-  if (covers.length < 2) return null;
-  // Two papers behind, spread left and right, and one in front between them.
-  const place = ["left-0 top-6 -rotate-6", "right-0 top-0 rotate-6", "left-[19%] top-[150px] -rotate-1"];
-  return (
-    <div className="relative hidden h-[400px] lg:block" aria-label="Popular resources">
-      {covers.map((p, i) => (
-        <Link
-          key={p.id}
-          href={`/resources/${p.slug}`}
-          className={cn(
-            "absolute w-[62%] overflow-hidden rounded-[14px] border-4 border-white bg-white shadow-2xl transition hover:z-10 hover:rotate-0 hover:scale-[1.03]",
-            place[i],
-          )}
-          style={{ zIndex: i + 1 }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={publicObjectUrl("product-previews", p.preview_path!)} alt={displayTitle(p)} className="aspect-[4/3] w-full object-cover object-top" />
-        </Link>
-      ))}
-      <span className="absolute bottom-2 right-0 z-20 flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-bold text-foreground shadow-lg">
-        <ShieldCheck className="size-4" aria-hidden /> Checked by GuroMart
-      </span>
+/** Two columns of real covers from popular resources, drifting upward. Hovering pauses them. */
+async function CoverWall() {
+  const covers = (await getShelf("popular", 16)).filter((p) => p.preview_path).slice(0, 10);
+  if (covers.length < 4) return null;
+  const left = covers.filter((_, i) => i % 2 === 0);
+  const right = covers.filter((_, i) => i % 2 === 1);
+  const column = (items: ProductCard[], drift: string, offset: string) => (
+    <div className={cn("flex flex-col gap-4", offset)}>
+      <div className={cn("flex flex-col gap-4", drift)}>
+        {/* Doubled so the drift loops without a jump; the copy is hidden from screen readers and the tab order. */}
+        {[...items, ...items].map((p, i) => (
+          <Link
+            key={`${p.id}-${i}`}
+            href={`/resources/${p.slug}`}
+            aria-hidden={i >= items.length || undefined}
+            tabIndex={i >= items.length ? -1 : undefined}
+            className="group block overflow-hidden rounded-[14px] bg-surface shadow-lg ring-1 ring-border transition hover:-translate-y-1 hover:shadow-2xl"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={publicObjectUrl("product-previews", p.preview_path!)} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover object-top" />
+            <span className="block truncate px-3 py-2 text-sm font-semibold group-hover:text-primary">{displayTitle(p)}</span>
+          </Link>
+        ))}
+      </div>
     </div>
   );
-}
-
-/** What a teacher does, in the order they do it. Each step says only what the site really does. */
-function HowItWorks() {
-  const steps = [
-    { icon: Search, title: "Find it fast", text: "Search or filter by grade, subject, quarter and resource type." },
-    { icon: Eye, title: "See inside first", text: "Every resource shows its cover and pages from inside before you buy." },
-    { icon: Wallet, title: "Pay online", text: "Pay through PayMongo, for example with GCash or Maya. Free resources need no payment." },
-    { icon: Download, title: "Download anytime", text: "Your files stay in My Library, ready to download again whenever you need them." },
-  ];
   return (
-    <section aria-labelledby="how-h" className="flex flex-col gap-5">
-      <h2 id="how-h" className="font-display text-2xl font-bold">How GuroMart works</h2>
-      <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {steps.map((s, i) => (
-          <li key={s.title} className="relative flex flex-col gap-2 rounded-[16px] border border-border bg-surface p-5">
-            <span className="flex items-center gap-3">
-              <span className="flex size-11 items-center justify-center rounded-full bg-primary-soft text-primary">
-                <s.icon className="size-5" aria-hidden />
-              </span>
-              <span className="font-display text-sm font-bold text-muted-foreground">Step {i + 1}</span>
-            </span>
-            <h3 className="font-display text-lg font-bold">{s.title}</h3>
-            <p className="text-sm text-muted-foreground">{s.text}</p>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-/** The invitation to sell, with the real fee and payout terms. */
-async function SellBand() {
-  const plans = await getSellerPlans();
-  const keep = 100 - plans.starterBps / 100;
-  const points = [
-    `Free to open a shop. You keep ${keep}% of each sale.`,
-    "Upload a file and previews are made for you.",
-    `Get paid to GCash, Maya or your bank from ₱${count.format(plans.minPayoutCentavos / 100)}.`,
-  ];
-  return (
-    <section className="relative overflow-hidden rounded-[20px] bg-accent p-6 sm:p-10">
-      <div aria-hidden className="pointer-events-none absolute -right-12 -top-16 size-56 rounded-full bg-white/25" />
-      <div className="relative grid items-center gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <div>
-          <h2 className="font-display text-3xl font-extrabold leading-tight text-foreground">Sell what you already make for your class</h2>
-          <ul className="mt-4 flex flex-col gap-2">
-            {points.map((p) => (
-              <li key={p} className="flex items-start gap-2 font-medium text-foreground">
-                <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden /> {p}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="flex lg:justify-end">
-          <Link href="/sell" className={buttonVariants({ variant: "dark", size: "lg" })}>
-            Start selling <ArrowRight aria-hidden />
-          </Link>
-        </div>
+    <div className="cover-wall relative hidden overflow-hidden lg:block" aria-label="Popular resources">
+      <div className="absolute inset-0 grid grid-cols-2 gap-4">
+        {column(left, "cover-drift", "")}
+        {column(right, "cover-drift-slow", "pt-24")}
       </div>
-    </section>
-  );
-}
-
-const count = new Intl.NumberFormat("en-PH");
-
-async function QuickCategories() {
-  const { categories } = await getTaxonomy();
-  const picks = ["daily-lesson-log", "lesson-plan", "worksheet", "assessment", "presentation"];
-  return (
-    <ul className="flex flex-wrap gap-2">
-      {categories
-        .filter((c) => picks.includes(c.code))
-        .map((c) => (
-          <li key={c.code}>
-            <Link href={`/browse?category=${c.code}`} className="block rounded-full border border-white/40 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10">
-              {c.name}
-            </Link>
-          </li>
-        ))}
-      <li>
-        <Link href="/bundles" className="block rounded-full border border-white/40 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10">
-          Lesson bundles
-        </Link>
-      </li>
-      <li>
-        <Link href="/browse?price=free" className="block rounded-full bg-white px-4 py-2 text-sm font-semibold text-foreground hover:bg-white/90">
-          Free downloads
-        </Link>
-      </li>
-    </ul>
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-background to-transparent" />
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent" />
+      <span className="absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-foreground px-4 py-2 text-sm font-bold text-white shadow-xl">
+        <ShieldCheck className="size-4 text-accent" aria-hidden /> Every resource checked by GuroMart
+      </span>
+    </div>
   );
 }
 
@@ -252,40 +244,103 @@ async function Resources() {
   );
 }
 
+/** Each subject's icon and color, so the subject tiles read at a glance. */
+const SUBJECT_LOOK: Record<string, { icon: LucideIcon; tone: string }> = {
+  english: { icon: BookOpen, tone: "bg-sky-100 text-sky-800" },
+  filipino: { icon: Languages, tone: "bg-rose-100 text-rose-800" },
+  mathematics: { icon: Calculator, tone: "bg-indigo-100 text-indigo-800" },
+  science: { icon: FlaskConical, tone: "bg-emerald-100 text-emerald-800" },
+  "araling-panlipunan": { icon: Landmark, tone: "bg-amber-100 text-amber-900" },
+  gmrc: { icon: HeartHandshake, tone: "bg-pink-100 text-pink-800" },
+  mapeh: { icon: Music, tone: "bg-violet-100 text-violet-800" },
+  epp: { icon: Sprout, tone: "bg-lime-100 text-lime-900" },
+  tle: { icon: Wrench, tone: "bg-orange-100 text-orange-900" },
+  "mother-tongue": { icon: MessageCircle, tone: "bg-teal-100 text-teal-800" },
+  "reading-literacy": { icon: BookOpenText, tone: "bg-cyan-100 text-cyan-800" },
+  makabansa: { icon: Flag, tone: "bg-red-100 text-red-800" },
+};
+const SUBJECT_DEFAULT = { icon: GraduationCap, tone: "bg-slate-100 text-slate-800" };
+
+/** A grade's tile color by school stage, and the big mark shown on it. */
+function gradeLook(code: string, name: string) {
+  const n = Number(/^grade-(\d+)$/.exec(code)?.[1]);
+  const mark = n ? String(n) : name.charAt(0);
+  if (!n) return { mark, tone: "bg-pink-500" };
+  if (n <= 6) return { mark, tone: "bg-primary" };
+  if (n <= 10) return { mark, tone: "bg-emerald-600" };
+  return { mark, tone: "bg-violet-600" };
+}
+
 /** Only grades and subjects that have live resources, with how many. */
 function GradesAndSubjects({ facets }: { facets: CatalogFacets }) {
   const grades = facets.grades.filter((g) => g.count > 0);
   const subjects = facets.subjects.filter((s) => s.count > 0).sort((a, b) => b.count - a.count);
   if (!grades.length && !subjects.length) return null;
-  const row = (label: string, items: Facet[], key: "grade" | "subject") => (
-    <div className="flex flex-col gap-2">
-      <h3 className="text-sm font-semibold text-muted-foreground">{label}</h3>
-      <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-        {items.map((i) => (
-          <li key={i.code} className="shrink-0">
-            <Link
-              href={`/browse?${key}=${i.code}`}
-              className="relative flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-surface px-4 text-sm font-semibold hover:border-primary hover:text-primary"
-            >
-              {i.name}{" "}
-              <span className="rounded-full bg-primary-soft px-2 text-xs font-bold text-primary">
-                {i.count}
-                <span className="sr-only"> {i.count === 1 ? "resource" : "resources"}</span>
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+  const countLabel = (i: Facet) => (
+    <span className="text-sm text-muted-foreground">
+      <span data-testid="facet-count">{i.count}</span> {i.count === 1 ? "resource" : "resources"}
+    </span>
   );
   return (
-    <section aria-labelledby="grades-h" className="flex flex-col gap-4">
-      <h2 id="grades-h" className="font-display text-2xl font-bold">Available grades and subjects</h2>
-      {grades.length ? row("Grades", grades, "grade") : null}
-      {subjects.length ? row("Subjects", subjects, "subject") : null}
-      <Link href="/browse" className="flex min-h-11 w-fit items-center gap-1 text-sm font-semibold text-primary hover:underline">
-        Browse all resources <ArrowRight className="size-4" aria-hidden />
-      </Link>
+    <section aria-labelledby="grades-h" className="flex flex-col gap-6">
+      <div className="flex items-end justify-between gap-4">
+        <h2 id="grades-h" className="font-display text-3xl font-extrabold">Available grades and subjects</h2>
+        <Link href="/browse" className="flex min-h-11 shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:underline">
+          Browse all resources <ArrowRight className="size-4" aria-hidden />
+        </Link>
+      </div>
+      {grades.length ? (
+        <div className="flex flex-col gap-3">
+          <h3 className="text-sm font-bold uppercase tracking-[0.08em] text-muted-foreground">By grade</h3>
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+            {grades.map((g) => {
+              const look = gradeLook(g.code, g.name);
+              return (
+                <li key={g.code}>
+                  <Link
+                    href={`/browse?grade=${g.code}`}
+                    className="group flex h-full items-center gap-3 rounded-[16px] border border-border bg-surface p-3 transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md"
+                  >
+                    <span aria-hidden className={cn("flex size-12 shrink-0 items-center justify-center rounded-[12px] font-display text-2xl font-extrabold text-white", look.tone)}>
+                      {look.mark}
+                    </span>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate font-bold group-hover:text-primary">{g.name}</span>
+                      {countLabel(g)}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+      {subjects.length ? (
+        <div className="flex flex-col gap-3">
+          <h3 className="text-sm font-bold uppercase tracking-[0.08em] text-muted-foreground">By subject</h3>
+          <ul className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-4">
+            {subjects.map((s) => {
+              const look = SUBJECT_LOOK[s.code] ?? SUBJECT_DEFAULT;
+              return (
+                <li key={s.code}>
+                  <Link
+                    href={`/browse?subject=${s.code}`}
+                    className="group flex h-full items-center gap-3 rounded-[16px] border border-border bg-surface p-3 transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md"
+                  >
+                    <span className={cn("flex size-12 shrink-0 items-center justify-center rounded-[12px]", look.tone)}>
+                      <look.icon className="size-6" aria-hidden />
+                    </span>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate font-bold group-hover:text-primary">{s.name}</span>
+                      {countLabel(s)}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -311,18 +366,50 @@ async function ShelfSection({
   const [products, bundles] = await Promise.all([getShelf(shelf), withBundles ? getLiveBundleCards({ limit: FEATURED_BUNDLES }) : []]);
   if (products.length === 0 && bundles.length === 0) return null;
   return (
-    <section aria-labelledby={id} className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-4">
+    <section aria-labelledby={id} className="flex flex-col gap-5">
+      <div className="flex items-end justify-between gap-4">
         <div>
-          <h2 id={id} className="font-display text-2xl font-bold">{title}</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">{criteria}</p>
+          <h2 id={id} className="font-display text-3xl font-extrabold">{title}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{criteria}</p>
         </div>
-        <Link href={href} className="flex min-h-11 shrink-0 items-center text-sm font-semibold text-primary hover:underline">
-          See all
+        <Link href={href} className="flex min-h-11 shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:underline">
+          See all <ArrowRight className="size-4" aria-hidden />
         </Link>
       </div>
       {/* Four on phones keeps each shelf to two rows; See all has the rest. */}
       <ProductGrid products={products.slice(0, 8 - bundles.length)} bundles={bundles} className="max-md:[&>li:nth-child(n+5)]:hidden" />
+    </section>
+  );
+}
+
+/** What a teacher does, in the order they do it. Each step says only what the site really does. */
+function HowItWorks() {
+  const steps = [
+    { icon: Search, title: "Find it fast", text: "Search or filter by grade, subject, quarter and resource type." },
+    { icon: Eye, title: "See inside first", text: "Every resource shows its cover and pages from inside before you buy." },
+    { icon: Wallet, title: "Pay online", text: "Pay through PayMongo, for example with GCash or Maya. Free resources need no payment." },
+    { icon: Download, title: "Download anytime", text: "Your files stay in My Library, ready to download again whenever you need them." },
+  ];
+  return (
+    <section aria-labelledby="how-h" className="bg-foreground text-white">
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-8 px-4 py-12 sm:px-6 sm:py-16">
+        <div className="max-w-2xl">
+          <p className="text-sm font-bold uppercase tracking-[0.08em] text-accent">For teachers</p>
+          <h2 id="how-h" className="mt-2 font-display text-3xl font-extrabold sm:text-4xl">How GuroMart works</h2>
+        </div>
+        <ol className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {steps.map((s, i) => (
+            <li key={s.title} className="flex flex-col gap-3">
+              <span className="flex items-center gap-3">
+                <span className="flex size-12 items-center justify-center rounded-full bg-accent font-display text-xl font-extrabold text-foreground">{i + 1}</span>
+                <s.icon className="size-6 text-white/70" aria-hidden />
+              </span>
+              <h3 className="font-display text-xl font-bold">{s.title}</h3>
+              <p className="text-sm text-white/75">{s.text}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
     </section>
   );
 }
@@ -337,8 +424,8 @@ async function Storefronts() {
     .slice(0, 6);
   if (live.length === 0) return null;
   return (
-    <section aria-labelledby="shops-h" className="flex flex-col gap-4">
-      <h2 id="shops-h" className="font-display text-2xl font-bold">Teacher shops</h2>
+    <section aria-labelledby="shops-h" className="flex flex-col gap-5">
+      <h2 id="shops-h" className="font-display text-3xl font-extrabold">Teacher shops</h2>
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {live.map((s) => (
           <li key={s.slug}>
@@ -363,6 +450,41 @@ async function Storefronts() {
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/** The invitation to sell, with the real fee and payout terms. */
+async function SellBand() {
+  const plans = await getSellerPlans();
+  const keep = 100 - plans.starterBps / 100;
+  const points = [
+    `Free to open a shop. You keep ${keep}% of each sale.`,
+    "Upload a file and previews are made for you.",
+    `Get paid to GCash, Maya or your bank from ₱${count.format(plans.minPayoutCentavos / 100)}.`,
+  ];
+  return (
+    <section className="relative overflow-hidden rounded-[24px] bg-primary p-6 text-white sm:p-12">
+      <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 size-72 rounded-full bg-accent/90" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-24 right-40 size-48 rounded-full bg-white/10" />
+      <div className="relative grid items-center gap-8 lg:grid-cols-[1.4fr_1fr]">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-[0.08em] text-accent">For teachers who create</p>
+          <h2 className="mt-2 font-display text-3xl font-extrabold leading-tight sm:text-4xl">Sell what you already make for your class</h2>
+          <ul className="mt-5 flex flex-col gap-2.5">
+            {points.map((p) => (
+              <li key={p} className="flex items-start gap-2 font-medium">
+                <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-accent" aria-hidden /> {p}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="flex lg:justify-end">
+          <Link href="/sell" className={buttonVariants({ variant: "accent", size: "lg", className: "h-14 rounded-full px-8 text-lg" })}>
+            Start selling <ArrowRight aria-hidden />
+          </Link>
+        </div>
+      </div>
     </section>
   );
 }

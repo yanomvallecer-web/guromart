@@ -51,6 +51,36 @@
   --animate-sheet-up: sheet-up 200ms ease-out;
 }
 
+/* The homepage's wall of covers drifts upward; the list is doubled so the loop is seamless. */
+@keyframes cover-drift {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+.cover-drift {
+  animation: cover-drift 60s linear infinite;
+}
+
+.cover-drift-slow {
+  animation: cover-drift 80s linear infinite;
+}
+
+.cover-wall:hover .cover-drift,
+.cover-wall:hover .cover-drift-slow {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cover-drift,
+  .cover-drift-slow {
+    animation: none;
+  }
+}
+
 @keyframes sheet-up {
   from {
     transform: translateY(100%);

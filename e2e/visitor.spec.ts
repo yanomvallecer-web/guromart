@@ -14,8 +14,7 @@ test("homepage leads with real resources, then grades and subjects that have som
   const grades = page.getByRole("region", { name: "Available grades and subjects" });
   await expect(grades.getByRole("link", { name: "Browse all resources" })).toHaveAttribute("href", "/browse");
   const first = grades.getByRole("listitem").getByRole("link").first();
-  const label = (await first.textContent())!;
-  const shown = Number(label.match(/(\d+)\D*$/)![1]);
+  const shown = Number(await first.getByTestId("facet-count").textContent());
   expect(shown).toBeGreaterThan(0);
   await first.click();
   await expect(page).toHaveURL(/\/browse\?(grade|subject)=/);
