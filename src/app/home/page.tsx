@@ -243,7 +243,7 @@ async function Home({ searchParams }: { searchParams: PageProps<"/home">["search
           </div>
           <div className="teacher-home-shops">
             <Suspense fallback={<Skeleton className="h-44 rounded-2xl" />}><Shops /></Suspense>
-            <Link href="/browse?all=1" className={cn(buttonVariants({ variant: "outline" }), "teacher-mobile-browse")}>Browse all resources <ArrowRight className="size-4" aria-hidden /></Link>
+            <Link href="/shops" className={cn(buttonVariants({ variant: "outline" }), "teacher-mobile-browse")}>Browse other shops <ArrowRight className="size-4" aria-hidden /></Link>
           </div>
         </div>
         <aside className="teacher-home-rail" aria-label="Your teaching library"><Suspense fallback={<Skeleton className="h-64" />}><PickUp /></Suspense></aside>

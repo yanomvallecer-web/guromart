@@ -89,7 +89,14 @@ test("teacher phone home shows branding and products first, with working filters
   const visitShop = shops.getByRole("link", { name: "Visit shop", exact: true });
   await expect(visitShop.first()).toBeVisible();
   await expect(visitShop.first()).toHaveAttribute("href", /^\/shop\/[a-z0-9-]+$/);
-  await expect(page.getByRole("link", { name: "Browse all resources", exact: true })).toHaveAttribute("href", "/browse?all=1");
+  const otherShops = page.getByRole("link", { name: "Browse other shops", exact: true });
+  await expect(otherShops).toHaveAttribute("href", "/shops");
+  await otherShops.click();
+  await expect(page).toHaveURL(/\/shops$/);
+  await expect(page.getByRole("heading", { name: "Teacher shops", exact: true, level: 1 })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Shop directory", exact: true }).getByRole("link", { name: "Visit shop", exact: true }).first()).toBeVisible();
+  await page.getByRole("link", { name: "Back to home", exact: true }).click();
+  await expect(shops).toBeVisible();
   await visitShop.first().click();
   await expect(page).toHaveURL(/\/shop\//);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
