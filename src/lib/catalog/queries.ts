@@ -228,6 +228,22 @@ export async function getFeaturedStorefronts(limit = 6): Promise<FeaturedStore[]
   return data;
 }
 
+/** Public shop accounts, in a stable alphabetical order with 24 per page. */
+export async function getShopDirectory(page = 1) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("storefronts");
+  const from = (page - 1) * 24;
+  const { data, count, error } = await createPublicClient()
+    .from("storefronts")
+    .select("slug, name, tagline, logo_path", { count: "exact" })
+    .order("name")
+    .order("slug")
+    .range(from, from + 23);
+  if (error) throw new Error(`Could not load shops: ${error.message}`);
+  return { shops: data, total: count ?? 0 };
+}
+
 export type BrowseResult = { items: ProductCard[]; total: number; page: number; pageCount: number };
 
 /**
