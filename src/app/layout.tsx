@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   appleWebApp: { title: "GuroMart", capable: true },
 };
 
-export const viewport: Viewport = { themeColor: "#1a56a8" };
+export const viewport: Viewport = { themeColor: "#17675f" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

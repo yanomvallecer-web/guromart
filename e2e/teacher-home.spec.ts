@@ -11,7 +11,7 @@ test("visitors see the landing page, signed-in teachers their home", async ({ pa
   await signIn(page, email, "/");
   await expect(page.getByRole("heading", { level: 1, name: /^Magandang (umaga|hapon|gabi), / })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Find your next lesson, ready to teach" })).toBeVisible();
-  // One search field: on computers it sits in the yellow card, the site header steps aside for the side menu.
+  // One search field in the discovery toolbar; the site header steps aside for the teacher's own navigation.
   await expect(page.getByRole("search")).toHaveCount(1);
 
   // Without preferences, the quarter plan asks what they teach, and the library card points to free resources.

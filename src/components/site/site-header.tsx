@@ -12,6 +12,11 @@ export function SiteHeader() {
       <div className="mx-auto flex max-w-[1200px] items-center gap-3 px-4 py-2.5 sm:px-6 md:gap-4 md:py-3">
         <Logo />
         <SearchForm className="flex-1" placeholder="Search lesson plans, DLL…" />
+        <div className="md:hidden">
+          <Suspense fallback={<div className="size-10 animate-pulse rounded-full bg-primary-soft" aria-hidden />}>
+            <AccountMenu />
+          </Suspense>
+        </div>
         <nav aria-label="Main" className="hidden items-center gap-1 text-[15px] font-semibold md:flex">
           <Link href="/browse" className="rounded-[10px] px-3 py-2.5 hover:bg-surface-muted">
             Browse
