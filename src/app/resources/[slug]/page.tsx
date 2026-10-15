@@ -16,6 +16,7 @@ import { gradeSummary } from "@/lib/catalog/labels";
 import { formatPrice } from "@/lib/format";
 import { paymentMethodsShort } from "@/lib/payments/paymongo";
 import { publicObjectUrl } from "@/lib/storage";
+import "./resource-detail.css";
 
 const LICENSE: Record<string, string> = {
   single_teacher: "One teacher, for use with their own classes",
@@ -32,7 +33,7 @@ export async function generateMetadata({ params }: PageProps<"/resources/[slug]"
 
 export default function ResourcePage({ params }: PageProps<"/resources/[slug]">) {
   return (
-    <div className="mx-auto max-w-[1200px] px-4 py-4 sm:px-6 sm:py-8">
+    <div data-resource-detail className="mx-auto max-w-[1200px] px-4 py-4 sm:px-6 sm:py-8">
       <Suspense fallback={<div className="h-96 animate-pulse rounded-[12px] bg-border/50" />}>
         <Resource params={params} />
       </Suspense>
@@ -97,8 +98,8 @@ async function Resource({ params }: { params: PageProps<"/resources/[slug]">["pa
         </section>
 
         <section className="order-5 flex flex-col gap-2">
-          <h2 className="font-display text-xl font-bold">About this resource</h2>
-          <p className="whitespace-pre-line text-[15px] leading-relaxed">{product.description || product.summary}</p>
+          <h2 className="font-display text-lg font-bold sm:text-xl">About this resource</h2>
+          <p className="whitespace-pre-line text-sm leading-7 sm:text-[15px]">{product.description || product.summary}</p>
           {product.learning_competency ? (
             <>
               <h3 className="mt-2 font-semibold">Learning competency</h3>
@@ -115,19 +116,11 @@ async function Resource({ params }: { params: PageProps<"/resources/[slug]">["pa
       </div>
 
       <aside className="contents lg:flex lg:flex-col lg:gap-4">
-        <header className="order-1 flex flex-col gap-1">
-          <div className="flex items-start justify-between gap-3">
-            {kicker ? <p className="pt-1 text-sm font-semibold text-muted-foreground">{kicker}</p> : <span />}
-            <div className="flex items-start gap-2">
-              <Suspense fallback={null}>
-                <SaveControl productId={product.id} path={`/resources/${product.slug}`} />
-              </Suspense>
-              <ShareButton title={product.title} />
-            </div>
-          </div>
-          <h1 className="font-display text-[28px] font-bold leading-tight sm:text-3xl">{product.title}</h1>
+        <header className="order-1 flex flex-col gap-2">
+          {kicker ? <p className="text-xs font-medium leading-relaxed text-muted-foreground sm:text-sm">{kicker}</p> : null}
+          <h1 className="font-display text-[23px] font-bold leading-snug tracking-tight sm:text-3xl">{product.title}</h1>
           {product.storefront || byline.length ? (
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] text-muted-foreground">
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground sm:text-[15px]">
               {product.storefront ? (
                 <span>
                   by <Link href={`/shop/${product.storefront.slug}`} className="font-semibold text-primary hover:underline">{product.storefront.name}</Link>
@@ -141,18 +134,24 @@ async function Resource({ params }: { params: PageProps<"/resources/[slug]">["pa
               ))}
             </p>
           ) : null}
+          <div className="flex items-start gap-2 pt-1">
+            <Suspense fallback={<Skeleton className="h-11 w-20" />}>
+              <SaveControl productId={product.id} path={`/resources/${product.slug}`} />
+            </Suspense>
+            <ShareButton title={product.title} />
+          </div>
         </header>
 
         {/* The price and one action: a bar fixed to the bottom of phones, a card from md up. */}
         <div
           data-testid="buy-bar"
-          className="order-3 fixed inset-x-0 bottom-0 z-30 flex min-h-[var(--bottom-bar)] items-center gap-3 border-t border-border bg-surface px-4 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgb(21_35_63/0.08)] md:static md:z-auto md:flex-col md:items-stretch md:gap-3 md:rounded-[12px] md:border md:p-5 md:shadow-none"
+          className="order-3 fixed inset-x-0 bottom-0 z-30 flex min-h-[var(--bottom-bar)] flex-col items-stretch gap-2 border-t border-border bg-surface px-4 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgb(21_35_63/0.08)] md:static md:z-auto md:gap-3 md:rounded-[12px] md:border md:p-5 md:shadow-none"
         >
-          <div className="shrink-0">
+          <div className="flex shrink-0 items-baseline justify-between gap-3 md:block">
             <p className={`font-display text-2xl font-bold leading-none md:text-3xl ${free ? "text-success" : ""}`}>{formatPrice(product.price_centavos)}</p>
-            {free ? null : <p data-web-checkout className="mt-1 text-xs text-muted-foreground">{paymentMethodsShort()}</p>}
+            {free ? null : <p data-web-checkout className="text-right text-[11px] text-muted-foreground md:mt-1 md:text-left md:text-xs">{paymentMethodsShort()}</p>}
           </div>
-          <div className="min-w-0 flex-1 md:flex-none">
+          <div className="min-w-0">
             <Suspense fallback={<Skeleton className="h-12 w-full" />}>
               <BuyPanel productId={product.id} slug={product.slug} free={free} />
             </Suspense>
@@ -164,8 +163,8 @@ async function Resource({ params }: { params: PageProps<"/resources/[slug]">["pa
             {tiles.map((t) => (
               <div key={t.label} className="flex flex-col items-center justify-center rounded-[12px] border border-border bg-surface px-2 py-3 text-center">
                 <dt className="sr-only">{t.label}</dt>
-                <dd className="text-[15px] font-bold leading-tight">{t.main}</dd>
-                {t.sub ? <dd className="mt-0.5 text-sm text-muted-foreground">{t.sub}</dd> : null}
+                <dd className="text-[13px] font-semibold leading-tight sm:text-[15px]">{t.main}</dd>
+                {t.sub ? <dd className="mt-0.5 text-xs text-muted-foreground sm:text-sm">{t.sub}</dd> : null}
               </div>
             ))}
           </dl>

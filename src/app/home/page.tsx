@@ -34,6 +34,8 @@ import { FollowButton } from "@/components/catalog/follow-button";
 import { ProductCard as ResourceCard } from "@/components/catalog/product-card";
 import { AccountMenu, AccountMenuFallback } from "@/components/site/account-menu";
 import { Logo } from "@/components/site/logo";
+import { TeacherPhoneHeader } from "@/components/site/teacher-phone-header";
+import { ResourceCategoryLink } from "@/components/site/resource-category-link";
 import { MenuDetails } from "@/components/site/menu-details";
 import { HomeDiscovery } from "@/components/catalog/home-discovery";
 import { SaveButton } from "@/components/catalog/save-button";
@@ -78,9 +80,12 @@ export default function TeacherHomePage({ searchParams }: PageProps<"/home">) {
           <Sidebar />
         </Suspense>
       </div>
-      <Suspense fallback={<HomeSkeleton />}>
-        <Home searchParams={searchParams} />
-      </Suspense>
+      <div className="min-w-0">
+        <TeacherPhoneHeader greeting={<PhoneGreeting />} initial={<PhoneInitial />} />
+        <Suspense fallback={<HomeSkeleton />}>
+          <Home searchParams={searchParams} />
+        </Suspense>
+      </div>
     </div>
   );
 }
@@ -93,6 +98,16 @@ function HomeSkeleton() {
       <Skeleton className="h-72 w-full" />
     </div>
   );
+}
+
+async function PhoneGreeting() {
+  const viewer = await requireViewer("/");
+  return `${greeting()}, ${firstName(viewer.displayName)}`;
+}
+
+async function PhoneInitial() {
+  const viewer = await requireViewer("/");
+  return viewer.displayName.slice(0, 1).toUpperCase();
 }
 
 /* ------------------------------------------------------------------------ */
@@ -212,10 +227,6 @@ async function Home({ searchParams }: { searchParams: PageProps<"/home">["search
         <Link href="/notifications" aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"} className="relative flex size-11 items-center justify-center rounded-full border border-border hover:border-primary"><Bell className="size-5" aria-hidden />{unread ? <span aria-hidden className="absolute right-2.5 top-2.5 size-2.5 rounded-full border-2 border-surface bg-danger" /> : null}</Link>
         <Suspense fallback={<AccountMenuFallback />}><AccountMenu /></Suspense>
       </header>
-      <header className="teacher-phone-header">
-        <div><Logo showWordmark /><h1>{hello}</h1></div>
-        <Link href="/account" aria-label="Your account" className="teacher-avatar">{viewer.displayName.slice(0, 1).toUpperCase()}</Link>
-      </header>
       <div className="teacher-home-content">
         <div className="teacher-home-main">
           <Suspense fallback={<Skeleton className="hidden h-44 w-full rounded-[18px] md:block" />}><Hero filter={filter} /></Suspense>
@@ -319,7 +330,7 @@ function MobileCategories({ filter }: { filter: Filter }) {
   ];
   return <>
     <nav className="teacher-categories" aria-label="Resource categories" aria-describedby="resource-categories-hint" tabIndex={0}>
-      {categories.map(c => <Link key={c.label} href={browseHref({ ...filter, type: c.type, free: c.type === null })}><span className={`teacher-category-circle teacher-category-${c.tone}`}><c.icon aria-hidden /></span>{c.label}</Link>)}
+      {categories.map(c => <ResourceCategoryLink key={c.label} label={c.label} href={browseHref({ ...filter, type: c.type, free: c.type === null })}><span className={`teacher-category-circle teacher-category-${c.tone}`}><c.icon aria-hidden /></span>{c.label}</ResourceCategoryLink>)}
     </nav>
     <p id="resource-categories-hint" className="teacher-category-hint">Swipe for more <ArrowRight aria-hidden /></p>
   </>;
