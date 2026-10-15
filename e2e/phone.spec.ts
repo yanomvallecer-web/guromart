@@ -95,7 +95,7 @@ test("the tab bar marks the current tab and sends signed-out visitors to sign in
   await page.goto("/");
   const tabs = page.getByRole("navigation", { name: "Main" });
   await expect(tabs).toBeVisible();
-  for (const name of ["Home", "Browse", "Library", "Cart", "Account"]) {
+  for (const name of ["Home", "Browse", "Saved", "Library", "Cart"]) {
     const box = (await tabs.getByRole("link", { name }).boundingBox())!;
     expect(box.height).toBeGreaterThanOrEqual(44);
     expect(box.width).toBeGreaterThanOrEqual(44);
@@ -115,6 +115,9 @@ test("the tab bar marks the current tab and sends signed-out visitors to sign in
   await expect(tabs.getByRole("link", { name: "Browse" })).toHaveAttribute("aria-current", "page");
   await tabs.getByRole("link", { name: "Library" }).click();
   await expect(page).toHaveURL(/\/sign-in\?next=%2Flibrary$/);
+  await page.goto("/");
+  await tabs.getByRole("link", { name: "Saved" }).click();
+  await expect(page).toHaveURL(/\/sign-in\?next=%2Flibrary%3Ftab%3Dsaved$/);
   await page.goto("/");
   await tabs.getByRole("link", { name: "Cart" }).click();
   await expect(page).toHaveURL(/\/sign-in\?next=%2Fcart$/);
