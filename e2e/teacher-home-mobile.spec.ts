@@ -15,6 +15,9 @@ test("teacher phone home shows branding and products first, with working filters
   await expect(page.getByRole("navigation", { name: "Resource categories" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Resource categories" }).getByRole("link", { name: "Presentations" })).toHaveAttribute("href", /\/browse\?.*category=presentation/);
   await expect(page.getByRole("navigation", { name: "Resource categories" }).getByRole("link", { name: "Free resources" })).toHaveAttribute("href", /price=free/);
+  const explore = page.getByRole("region", { name: "Lesson bundles", exact: true });
+  await expect(explore.getByRole("link", { name: "Explore bundles", exact: true })).toHaveAttribute("href", "/bundles");
+  await expect(explore.getByRole("link", { name: "Browse all resources", exact: true })).toHaveAttribute("href", "/browse?all=1");
 
   const toggle = page.getByRole("button", { name: "Show lesson filters" });
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -27,6 +30,7 @@ test("teacher phone home shows branding and products first, with working filters
   const shortcuts = [
     { label: "Presentations", query: "category=presentation", filter: "PowerPoint Presentations" },
     { label: "Lesson plans", query: "category=lesson-plan", filter: "Detailed Lesson Plans" },
+    { label: "Lesson bundles", query: null, filter: null },
     { label: "Printables", query: "category=printable", filter: "Classroom Printables" },
     { label: "Free resources", query: "price=free", filter: "Free" },
     { label: "Worksheets", query: "category=worksheet", filter: "Worksheets" },
@@ -42,8 +46,13 @@ test("teacher phone home shows branding and products first, with working filters
       expect(await rail.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
     }
     await link.click();
-    await expect(page).toHaveURL(new RegExp(`/browse\\?.*${shortcut.query}`));
-    await expect(page.getByRole("link", { name: `Remove filter: ${shortcut.filter}`, exact: true })).toBeVisible();
+    if (shortcut.query) {
+      await expect(page).toHaveURL(new RegExp(`/browse\\?.*${shortcut.query}`));
+      await expect(page.getByRole("link", { name: `Remove filter: ${shortcut.filter}`, exact: true })).toBeVisible();
+    } else {
+      await expect(page).toHaveURL(/\/bundles$/);
+      await expect(page.getByRole("heading", { name: "Lesson bundles", exact: true })).toBeVisible();
+    }
     await expect(page.locator("[data-site-header]")).toBeVisible();
     await page.getByRole("navigation", { name: "Main", exact: true }).getByRole("link", { name: "Home", exact: true }).click();
     await expect(page.locator(".teacher-phone-header")).toBeVisible();

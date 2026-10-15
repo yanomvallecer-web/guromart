@@ -76,6 +76,7 @@ body:has([data-teacher-home]:not([style*="display: none"])) [data-testid="chat-l
 
 /* Native horizontal scrolling works in Android's installed app and without JavaScript. */
 .teacher-category-hint { display: none; }
+.teacher-mobile-explore { display: none; }
 @media (max-width: 767px) {
   .teacher-categories { display: flex; gap: 12px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding: 4px 2px 8px; margin: -4px -2px 0; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
   .teacher-categories a { flex: 0 0 78px; scroll-snap-align: start; }
@@ -84,6 +85,19 @@ body:has([data-teacher-home]:not([style*="display: none"])) [data-testid="chat-l
   .teacher-category-worksheets { background: #dbe8f1; color: #456b87; }
   .teacher-category-logs { background: #f3e0ba; color: #8b6935; }
   .teacher-category-assessments { background: #e2e3f1; color: #64668e; }
+  .teacher-category-bundles { background: #f3ddc4; color: #99602f; }
   .teacher-categories a { cursor: pointer; -webkit-tap-highlight-color: #17675f22; }
   .teacher-categories a:active .teacher-category-circle { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .teacher-mobile-explore { display: flex; flex-direction: column; gap: 14px; margin-top: 30px; }
+  .teacher-bundle-promo { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 20px; border-radius: 18px; background: #f6edda; }
+  .teacher-bundle-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: #e9b44c40; color: #805f1f; }
+  .teacher-bundle-icon svg { width: 24px; height: 24px; }
+  .teacher-bundle-promo h2 { font-size: 21px; font-weight: 800; line-height: 1.25; }
+  .teacher-bundle-promo > p { font-size: 13px; line-height: 1.6; color: var(--muted-foreground); }
+  .teacher-bundle-promo .teacher-bundle-note { font-size: 12px; }
+  .teacher-bundle-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: 100%; }
+  .teacher-bundle-grid > li { min-width: 0; }
+  .teacher-bundle-grid h3 { font-size: 13px; line-height: 1.4; }
+  .teacher-bundle-grid [data-testid="bundle-card"] > div:first-child > span { font-size: 10px; padding-left: 5px; padding-right: 5px; }
+  .teacher-mobile-explore > a { background: var(--surface); }
 }

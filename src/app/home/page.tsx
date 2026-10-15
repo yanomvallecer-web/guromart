@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { signOut } from "@/app/auth/actions";
 import { FollowButton } from "@/components/catalog/follow-button";
+import { BundleCard } from "@/components/catalog/bundle-card";
 import { ProductCard as ResourceCard } from "@/components/catalog/product-card";
 import { AccountMenu, AccountMenuFallback } from "@/components/site/account-menu";
 import { Logo } from "@/components/site/logo";
@@ -49,6 +50,7 @@ import { getPeriodCoverage } from "@/lib/account/home";
 import { getTeachingPreferences } from "@/lib/account/preferences";
 import { type Viewer, requireViewer } from "@/lib/auth/dal";
 import { shopSummary } from "@/lib/catalog/labels";
+import { getLiveBundleCards } from "@/lib/catalog/bundles";
 import { browseProducts, countProducts, getCatalogFacets, getFeaturedStorefronts, getShelf, getTaxonomy } from "@/lib/catalog/queries";
 import type { BrowseParams } from "@/lib/catalog/search-params";
 import { getCartCount, getLibrary, getLibraryDetails } from "@/lib/commerce/cart";
@@ -235,6 +237,7 @@ async function Home({ searchParams }: { searchParams: PageProps<"/home">["search
           </HomeDiscovery>
           <MobileCategories filter={filter} />
           <Suspense fallback={<Skeleton className="h-80 w-full" />}><ForYourClass filter={filter} taxonomy={taxonomy} viewer={viewer} /></Suspense>
+          <MobileExplore />
           <div className="teacher-home-extras">
             <Suspense fallback={<Skeleton className="h-60" />}><SchoolYearPlan teach={{ grade: prefs?.grade?.code ?? null, subject: prefs?.subject?.code ?? null, free: false }} calendars={calendars} chosen={filter.plan ?? null} filter={filter} /></Suspense>
             <Suspense fallback={null}><ShopCard viewer={viewer} /></Suspense>
@@ -322,6 +325,7 @@ function MobileCategories({ filter }: { filter: Filter }) {
   const categories = [
     { label: "Presentations", type: "presentation", icon: Presentation, tone: "slides" },
     { label: "Lesson plans", type: "lesson-plan", icon: FileText, tone: "plans" },
+    { label: "Lesson bundles", type: "bundle", icon: Layers, tone: "bundles" },
     { label: "Printables", type: "printable", icon: CalendarDays, tone: "prints" },
     { label: "Free resources", type: null, icon: Download, tone: "free" },
     { label: "Worksheets", type: "worksheet", icon: FilePenLine, tone: "worksheets" },
@@ -330,10 +334,32 @@ function MobileCategories({ filter }: { filter: Filter }) {
   ];
   return <>
     <nav className="teacher-categories" aria-label="Resource categories" aria-describedby="resource-categories-hint" tabIndex={0}>
-      {categories.map(c => <ResourceCategoryLink key={c.label} label={c.label} href={browseHref({ ...filter, type: c.type, free: c.type === null })}><span className={`teacher-category-circle teacher-category-${c.tone}`}><c.icon aria-hidden /></span>{c.label}</ResourceCategoryLink>)}
+      {categories.map(c => <ResourceCategoryLink key={c.label} label={c.label} href={c.type === "bundle" ? "/bundles" : browseHref({ ...filter, type: c.type, free: c.type === null })}><span className={`teacher-category-circle teacher-category-${c.tone}`}><c.icon aria-hidden /></span>{c.label}</ResourceCategoryLink>)}
     </nav>
     <p id="resource-categories-hint" className="teacher-category-hint">Swipe for more <ArrowRight aria-hidden /></p>
   </>;
+}
+
+/** Give phone shoppers a next step after the eight featured resources. */
+function MobileExplore() {
+  return (
+    <section aria-labelledby="mobile-bundles-h" className="teacher-mobile-explore">
+      <div className="teacher-bundle-promo">
+        <span className="teacher-bundle-icon"><Layers aria-hidden /></span>
+        <h2 id="mobile-bundles-h">Lesson bundles</h2>
+        <p>Ready-to-teach resources, together in one collection.</p>
+        <Suspense fallback={null}><HomeBundleCards /></Suspense>
+        <Link href="/bundles" className={cn(buttonVariants(), "w-full")}>Explore bundles <ArrowRight className="size-4" aria-hidden /></Link>
+      </div>
+      <Link href="/browse?all=1" className={cn(buttonVariants({ variant: "outline" }), "w-full")}>Browse all resources <ArrowRight className="size-4" aria-hidden /></Link>
+    </section>
+  );
+}
+
+async function HomeBundleCards() {
+  const bundles = await getLiveBundleCards({ limit: 2 });
+  if (!bundles.length) return <p className="teacher-bundle-note">New bundles appear here as teachers publish them.</p>;
+  return <ul className="teacher-bundle-grid">{bundles.map(bundle => <li key={bundle.id}><BundleCard bundle={bundle} /></li>)}</ul>;
 }
 
 /** Popular resources for the teacher's grade and subject, with the filters shown as chips they can remove. */
