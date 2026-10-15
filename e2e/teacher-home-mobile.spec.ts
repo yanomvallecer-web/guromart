@@ -29,16 +29,19 @@ test("teacher phone home shows branding and products first, with working filters
   await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
 
   await page.goto("/?grade=any&subject=any&price=free&type=worksheet");
-  const card = page.locator(".teacher-resource-grid > li").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
+  // The popular shelf is capped at eight cards and shared catalog queries are cached.
+  // Save a displayed resource instead of assuming the newest fixture ranks in that shelf.
+  const card = page.locator(".teacher-resource-grid > li").first();
   await expect(card).toBeVisible();
-  await card.getByRole("button", { name: `Save: ${title}`, exact: true }).click();
-  await expect(card.getByRole("button", { name: `Remove from saved: ${title}`, exact: true })).toHaveAttribute("aria-pressed", "true");
+  const savedTitle = await card.getByRole("heading").innerText();
+  await card.getByRole("button", { name: `Save: ${savedTitle}`, exact: true }).click();
+  await expect(card.getByRole("button", { name: `Remove from saved: ${savedTitle}`, exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("navigation", { name: "Main", exact: true }).getByRole("link", { name: "Saved", exact: true }).click();
   await expect(page).toHaveURL(/\/library\?tab=saved/);
-  await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: savedTitle, exact: true })).toBeVisible();
 
   await page.goto("/?grade=any&subject=any");
-  const columns = await page.locator(".teacher-resource-grid").evaluate(el => getComputedStyle(el).gridTemplateColumns.split(" ").length);
-  expect(columns).toBe(2);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  // Navigation streams the viewport metadata and stylesheet before the final layout settles.
+  await expect.poll(() => page.locator(".teacher-resource-grid").evaluate(el => getComputedStyle(el).gridTemplateColumns.split(" ").length)).toBe(2);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
