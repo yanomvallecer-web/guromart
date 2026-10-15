@@ -8,7 +8,7 @@ import { SearchForm } from "./search-form";
 /** One row: logo and search on phones (the tab bar has the rest); the full menu from md up. */
 export function SiteHeader() {
   return (
-    <header className="border-b border-border bg-surface">
+    <header data-site-header className="border-b border-border bg-surface xl:[body:has([data-app-shell])_&]:hidden">
       <div className="mx-auto flex max-w-[1200px] items-center gap-3 px-4 py-2.5 sm:px-6 md:gap-4 md:py-3">
         <Logo />
         <SearchForm className="flex-1" placeholder="Search lesson plans, DLL…" />
