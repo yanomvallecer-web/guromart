@@ -8,7 +8,6 @@ import {
   Bell,
   CalendarDays,
   ChevronDown,
-  CircleHelp,
   Download,
   FilePlus2,
   FileText,
@@ -126,7 +125,6 @@ async function Sidebar() {
     },
   ];
   const others: NavItem[] = [
-    { href: "/help", label: "Ask GuroMart", icon: CircleHelp },
     { href: "/account", label: "Settings", icon: Settings },
     ...(viewer.roles.includes("admin") ? [{ href: "/admin", label: "Admin", icon: ShieldCheck }] : []),
   ];
