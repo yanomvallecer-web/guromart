@@ -432,7 +432,10 @@ function HomeFilters({ filter, taxonomy }: { filter: Filter; taxonomy: Awaited<R
             </li>
           ) : (
             <li>
-              <Pick label="Grade" chip={off} options={taxonomy.grades.map((o) => ({ name: o.name, href: homeHref(filter, { grade: o.code }) }))} />
+              <Pick label="Grade" chip={off} options={[
+                { name: "All grade levels", href: homeHref(filter, { grade: null }) },
+                ...taxonomy.grades.map((o) => ({ name: o.name, href: homeHref(filter, { grade: o.code }) })),
+              ]} />
             </li>
           )}
           {subject ? (
