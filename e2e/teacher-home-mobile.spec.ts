@@ -1,6 +1,33 @@
 import { expect, test } from "@playwright/test";
 import { createLiveListing, signIn, uniqueEmail } from "./helpers";
 
+test("live Android phone frame shares sign-in and supports real page navigation", async ({ page }) => {
+  test.setTimeout(60_000);
+  await signIn(page, uniqueEmail("phone-frame"), "/");
+  await page.goto("/app-preview.html");
+  const app = page.frameLocator("#app");
+  await expect(app.locator("html")).toHaveAttribute("data-app", "android");
+  await expect(app.locator(".teacher-phone-header")).toBeVisible();
+  await expect.poll(() => app.locator("html").evaluate(el => el.ownerDocument.defaultView!.innerWidth)).toBe(393);
+  await expect.poll(() => page.locator("#device").evaluate(el => {
+    const box = el.getBoundingClientRect();
+    return box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight;
+  })).toBe(true);
+
+  await app.getByRole("navigation", {name:"Main",exact:true}).getByRole("link", {name:"Browse",exact:true}).click();
+  await expect(app.getByRole("heading", {name:"All teaching resources",exact:true})).toBeVisible();
+  await app.getByRole("link", {name:"Explore lesson bundles",exact:true}).click();
+  await expect(app.getByRole("heading", {name:"Lesson bundles",exact:true})).toBeVisible();
+  // Reload is a real iframe navigation; the same-origin framing policy must still allow it.
+  await page.getByRole("button", {name:"Reload",exact:true}).click();
+  await expect(app.getByRole("heading", {name:"Lesson bundles",exact:true})).toBeVisible();
+  await expect(page.getByRole("status")).toHaveText("Live app connected");
+  await page.getByRole("button", {name:"Home",exact:true}).click();
+  await expect(app.locator(".teacher-phone-header")).toBeVisible();
+  await expect(app.getByRole("link", {name:"Your account",exact:true})).toBeVisible();
+  await expect(app.getByRole("navigation", {name:"Main",exact:true}).getByRole("link", {name:"Cart",exact:true})).toHaveCount(0);
+});
+
 test("teachers can discover bundles from every storefront entry page", async ({ page, isMobile }) => {
   test.setTimeout(90_000);
   if (isMobile) await page.setViewportSize({ width: 320, height: 844 });

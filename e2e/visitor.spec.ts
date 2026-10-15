@@ -1,5 +1,20 @@
 import { expect, test } from "@playwright/test";
 
+test("phone preview only allows same-origin iframe documents", async ({ request }) => {
+  for (const site of [undefined, "cross-site", "same-site"]) {
+    const response = await request.get("/browse?all=1", { headers: {
+      ...(site ? { "sec-fetch-site": site } : {}), "sec-fetch-dest": "iframe",
+    } });
+    expect(response.headers()["x-frame-options"]).toBe("DENY");
+  }
+  const sameOrigin = await request.get("/browse?all=1", {headers: {"sec-fetch-site":"same-origin", "sec-fetch-dest":"iframe"}});
+  expect(sameOrigin.headers()["x-frame-options"]).toBe("SAMEORIGIN");
+  expect(sameOrigin.headers()["content-security-policy"]).toBe("frame-ancestors 'self'");
+  const viewer = await request.get("/app-preview.html", {headers: {"sec-fetch-site":"same-origin", "sec-fetch-dest":"iframe"}});
+  expect(viewer.headers()["x-frame-options"]).toBe("DENY");
+  expect(viewer.headers()["content-security-policy"]).toBe("frame-ancestors 'none'");
+});
+
 test("homepage leads with real resources, then grades and subjects that have some", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Everything you need to teach, all in one place." })).toBeVisible();
