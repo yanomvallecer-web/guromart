@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { FollowControl } from "@/components/catalog/follow-control";
 import { ProductGrid } from "@/components/catalog/product-card";
+import { BundlePromo } from "@/components/catalog/bundle-promo";
 import { EmptyState, Skeleton } from "@/components/ui/card";
 import { getLiveBundleCards } from "@/lib/catalog/bundles";
 import { browseProducts } from "@/lib/catalog/queries";
@@ -18,6 +19,7 @@ export async function generateMetadata({ params }: PageProps<"/shop/[slug]">): P
 export default function ShopPage({ params }: PageProps<"/shop/[slug]">) {
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6">
+      <BundlePromo className="mb-5" />
       <Suspense fallback={<div className="h-96 animate-pulse rounded-[12px] bg-border/50" />}>
         <Shop params={params} />
       </Suspense>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
+import { BundlePromo } from "@/components/catalog/bundle-promo";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getViewer } from "@/lib/auth/dal";
@@ -14,6 +15,7 @@ export const metadata: Metadata = { title: "Sell on GuroMart" };
 export default function SellPage() {
   return (
     <PageShell title="Sell on GuroMart" description="Open a shop for the lesson plans, worksheets and slides you already make.">
+      <BundlePromo />
       <Suspense fallback={<PanelSkeleton />}>
         <Plans />
       </Suspense>

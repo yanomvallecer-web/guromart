@@ -17,6 +17,9 @@ export function SiteHeader() {
           <Link href="/browse" className="rounded-[10px] px-3 py-2.5 hover:bg-surface-muted">
             Browse
           </Link>
+          <Link href="/bundles" className="rounded-[10px] px-3 py-2.5 text-primary hover:bg-primary-soft">
+            Bundles
+          </Link>
           <Link href="/sell" className="rounded-[10px] px-3 py-2.5 hover:bg-surface-muted">
             Sell
           </Link>

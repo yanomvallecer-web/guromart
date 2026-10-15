@@ -1,6 +1,36 @@
 import { expect, test } from "@playwright/test";
 import { createLiveListing, signIn, uniqueEmail } from "./helpers";
 
+test("teachers can discover bundles from every storefront entry page", async ({ page, isMobile }) => {
+  test.setTimeout(90_000);
+  if (isMobile) await page.setViewportSize({ width: 320, height: 844 });
+  const listing = await createLiveListing(`Bundle discovery resource ${Date.now()}`, 3000);
+
+  async function openBundlesFrom(path: string) {
+    await page.goto(path);
+    const promo = page.getByRole("complementary", { name: "Discover lesson bundles", exact: true });
+    const link = promo.getByRole("link", { name: "Explore lesson bundles", exact: true });
+    await expect(link).toBeVisible();
+    await expect.poll(() => link.evaluate(el => {
+      const box = el.getBoundingClientRect();
+      return el.scrollWidth <= el.clientWidth && box.left >= 0 && box.right <= innerWidth && box.height >= 44;
+    })).toBe(true);
+    await link.click();
+    await expect(page).toHaveURL(/\/bundles$/);
+    await expect(page.getByRole("heading", { name: "Lesson bundles", exact: true })).toBeVisible();
+    await expect(page.getByRole("complementary", { name: "Discover lesson bundles", exact: true })).toHaveCount(0);
+  }
+
+  // Guest landing, search/category results, a direct resource link, a teacher shop and selling entry.
+  for (const path of ["/", "/browse?all=1", "/browse?category=worksheet&all=1", `/resources/${listing.slug}`, `/shop/${listing.storeSlug}`, "/sell"]) {
+    await openBundlesFrom(path);
+  }
+  await signIn(page, uniqueEmail("bundle-discovery"), "/");
+  await openBundlesFrom("/");
+  await openBundlesFrom("/library");
+  await expect(page.getByRole("navigation", { name: "Footer" }).getByRole("link", { name: "Lesson bundles", exact: true })).toHaveAttribute("href", "/bundles");
+});
+
 test("teacher phone home shows branding and products first, with working filters and saved resources", async ({ page, isMobile }) => {
   test.skip(!isMobile, "Phone storefront regression");
   test.setTimeout(60_000);

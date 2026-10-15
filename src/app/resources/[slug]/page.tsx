@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { FileText, Star } from "lucide-react";
 import { PreviewGallery } from "@/components/catalog/preview-gallery";
 import { ProductBundles } from "@/components/catalog/bundle-links";
+import { BundlePromo } from "@/components/catalog/bundle-promo";
 import { FollowControl } from "@/components/catalog/follow-control";
 import { ReviewsSection } from "@/components/catalog/reviews";
 import { SaveControl } from "@/components/catalog/save-control";
@@ -34,6 +35,7 @@ export async function generateMetadata({ params }: PageProps<"/resources/[slug]"
 export default function ResourcePage({ params }: PageProps<"/resources/[slug]">) {
   return (
     <div data-resource-detail className="mx-auto max-w-[1200px] px-4 py-4 sm:px-6 sm:py-8">
+      <BundlePromo className="mb-5" />
       <Suspense fallback={<div className="h-96 animate-pulse rounded-[12px] bg-border/50" />}>
         <Resource params={params} />
       </Suspense>
