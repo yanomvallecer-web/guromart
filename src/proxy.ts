@@ -83,6 +83,11 @@ export async function proxy(request: NextRequest) {
     const home = request.nextUrl.clone();
     home.pathname = "/home";
     const rewrite = NextResponse.rewrite(home, { request });
+    // Carry the same-origin iframe policy through this rewritten response too.
+    if (request.headers.get("sec-fetch-site") === "same-origin" && request.headers.get("sec-fetch-dest") === "iframe") {
+      rewrite.headers.set("X-Frame-Options", "SAMEORIGIN");
+      rewrite.headers.set("Content-Security-Policy", "frame-ancestors 'self'");
+    }
     for (const cookie of response.cookies.getAll()) rewrite.cookies.set(cookie);
     return markSession(rewrite);
   }

@@ -4,6 +4,18 @@ import { createLiveListing, signIn, uniqueEmail } from "./helpers";
 test("live Android phone frame shares sign-in and supports real page navigation", async ({ page }) => {
   test.setTimeout(60_000);
   await signIn(page, uniqueEmail("phone-frame"), "/");
+  const homeResponse = await page.request.get("/?app=android", {headers:{"sec-fetch-site":"same-origin", "sec-fetch-dest":"iframe"}});
+  expect(homeResponse.headers()["x-frame-options"]).toBe("SAMEORIGIN");
+  expect(homeResponse.headers()["content-security-policy"]).toBe("frame-ancestors 'self'");
+  page.on("console", message => {
+    if (/Refused to display|frame-ancestors|X-Frame-Options/i.test(message.text())) console.log("Phone-frame browser policy:", message.text());
+  });
+  page.on("response", response => {
+    if (response.request().isNavigationRequest() && response.frame() !== page.mainFrame()) {
+      const headers=response.headers();
+      console.log("Phone-frame document:", new URL(response.url()).pathname, response.status(), headers["x-frame-options"], headers["content-security-policy"]);
+    }
+  });
   await page.goto("/app-preview.html");
   const app = page.frameLocator("#app");
   await expect(app.locator("html")).toHaveAttribute("data-app", "android");
