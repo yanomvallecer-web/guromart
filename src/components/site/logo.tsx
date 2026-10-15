@@ -15,11 +15,11 @@ export function LogoMark({ className }: { className?: string }) {
   );
 }
 
-export function Logo() {
+export function Logo({ showWordmark = false }: { showWordmark?: boolean }) {
   return (
     <Link href="/" className="flex shrink-0 items-center gap-1.5 text-foreground no-underline" aria-label="GuroMart home">
       <LogoMark className="size-10 md:size-9" />
-      <span className="hidden font-display text-[22px] font-extrabold tracking-tight md:inline">
+      <span className={`${showWordmark ? "inline" : "hidden md:inline"} font-display text-[22px] font-extrabold tracking-tight`}>
         Guro<span className="text-primary">Mart</span>
       </span>
     </Link>

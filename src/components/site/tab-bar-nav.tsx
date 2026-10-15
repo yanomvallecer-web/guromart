@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { BookOpen, Home, LayoutGrid, ShoppingCart, User } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Bookmark, BookOpen, Home, LayoutGrid, ShoppingCart } from "lucide-react";
 
 /** Pages that put their own action bar (price and buy button) in the tab bar's place. */
 const OWN_BOTTOM_BAR = ["/resources/"];
@@ -11,24 +11,21 @@ const signInFor = (path: string) => `/sign-in?next=${encodeURIComponent(path)}`;
 
 /**
  * Phone navigation fixed to the bottom of the screen. Signed-out visitors'
- * Library, Cart and Account tabs go to sign-in and come back afterwards.
+ * Saved, Library and Cart tabs go to sign-in and come back afterwards.
  */
 export function TabBarNav({ signedIn, cartCount }: { signedIn: boolean; cartCount: number }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const saved = pathname === "/library" && searchParams.get("tab") === "saved";
   if (OWN_BOTTOM_BAR.some((p) => pathname.startsWith(p))) return null;
 
   const under = (...prefixes: string[]) => prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const tabs = [
     { label: "Home", href: "/", icon: Home, active: pathname === "/" },
     { label: "Browse", href: "/browse", icon: LayoutGrid, active: under("/browse", "/shop") },
-    { label: "Library", href: !signedIn ? signInFor("/library") : "/library", icon: BookOpen, active: under("/library") },
+    { label: "Saved", href: !signedIn ? signInFor("/library?tab=saved") : "/library?tab=saved", icon: Bookmark, active: saved },
+    { label: "Library", href: !signedIn ? signInFor("/library") : "/library", icon: BookOpen, active: under("/library") && !saved },
     { label: "Cart", href: !signedIn ? signInFor("/cart") : "/cart", icon: ShoppingCart, active: under("/cart"), badge: cartCount },
-    {
-      label: "Account",
-      href: signedIn ? "/account" : signInFor("/account"),
-      icon: User,
-      active: under("/account", "/orders", "/seller", "/admin", "/sell", "/sign-in"),
-    },
   ];
 
   return (
