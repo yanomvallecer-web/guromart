@@ -9,6 +9,7 @@ export function SiteFooter() {
         </p>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
           <Link href="/browse" className="hover:text-foreground">Browse</Link>
+          <Link href="/bundles" className="font-semibold text-primary hover:underline">Lesson bundles</Link>
           <Link href="/sell" className="hover:text-foreground">Sell on GuroMart</Link>
           <Link href="/terms" className="hover:text-foreground">Terms</Link>
           <Link href="/refunds" className="hover:text-foreground">Refunds</Link>

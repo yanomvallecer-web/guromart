@@ -32,6 +32,7 @@ import {
 import { signOut } from "@/app/auth/actions";
 import { FollowButton } from "@/components/catalog/follow-button";
 import { BundleCard } from "@/components/catalog/bundle-card";
+import { BundlePromo } from "@/components/catalog/bundle-promo";
 import { ProductCard as ResourceCard } from "@/components/catalog/product-card";
 import { AccountMenu, AccountMenuFallback } from "@/components/site/account-menu";
 import { Logo } from "@/components/site/logo";
@@ -236,6 +237,7 @@ async function Home({ searchParams }: { searchParams: PageProps<"/home">["search
             <HomeFilters filter={filter} taxonomy={taxonomy} />
           </HomeDiscovery>
           <MobileCategories filter={filter} />
+          <BundlePromo className="mb-5" />
           <Suspense fallback={<Skeleton className="h-80 w-full" />}><ForYourClass filter={filter} taxonomy={taxonomy} viewer={viewer} /></Suspense>
           <MobileExplore />
           <div className="teacher-home-extras">

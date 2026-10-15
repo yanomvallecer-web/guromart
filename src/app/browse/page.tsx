@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { SearchX, X } from "lucide-react";
 import { FilterSheet } from "@/components/catalog/filter-sheet";
+import { BundlePromo } from "@/components/catalog/bundle-promo";
 import { ProductGrid, ProductGridSkeleton } from "@/components/catalog/product-card";
 import { SortMenu } from "@/components/catalog/sort-menu";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -36,6 +37,7 @@ const SORT_LABEL: Record<string, string> = {
 export default function BrowsePage({ searchParams }: PageProps<"/browse">) {
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-4 sm:px-6 sm:py-8">
+      <BundlePromo className="mb-5" />
       <Suspense fallback={<BrowseSkeleton />}>
         <Browse searchParams={searchParams} />
       </Suspense>

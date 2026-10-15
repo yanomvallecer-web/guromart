@@ -25,6 +25,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { ProductGrid, ProductGridSkeleton } from "@/components/catalog/product-card";
+import { BundlePromo } from "@/components/catalog/bundle-promo";
 import { SearchForm } from "@/components/site/search-form";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -89,6 +90,7 @@ export default function HomePage() {
       </section>
 
       <div className="mx-auto flex max-w-[1200px] flex-col gap-12 px-4 py-8 sm:gap-16 sm:px-6 sm:py-12">
+        <BundlePromo />
         <Suspense fallback={<ProductGridSkeleton />}>
           <Resources />
         </Suspense>
