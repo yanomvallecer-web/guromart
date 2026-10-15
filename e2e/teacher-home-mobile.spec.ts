@@ -12,7 +12,7 @@ test("teacher phone home shows branding and products first, with working filters
   await expect(page.getByRole("heading", { name: "Find your next lesson, ready to teach" })).not.toBeVisible();
   await expect(page.getByRole("search")).toHaveCount(1);
   await expect(page.getByRole("navigation", { name: "Resource categories" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Resource categories" }).getByRole("link", { name: "Presentations" })).toHaveAttribute("href", /type=presentation/);
+  await expect(page.getByRole("navigation", { name: "Resource categories" }).getByRole("link", { name: "Presentations" })).toHaveAttribute("href", /\/browse\?.*category=presentation/);
   await expect(page.getByRole("navigation", { name: "Resource categories" }).getByRole("link", { name: "Free resources" })).toHaveAttribute("href", /price=free/);
 
   const toggle = page.getByRole("button", { name: "Show lesson filters" });
@@ -21,6 +21,24 @@ test("teacher phone home shows branding and products first, with working filters
   await expect(page.getByRole("navigation", { name: "Filters for your class" })).toBeVisible();
   await page.getByRole("button", { name: "Hide lesson filters" }).click();
   await expect(page.getByRole("navigation", { name: "Filters for your class" })).not.toBeVisible();
+
+  // Every additional shortcut can scroll into view and opens real filtered results.
+  const shortcuts = [
+    { label: "Worksheets", category: "worksheet", filter: "Worksheets" },
+    { label: "Daily lesson logs", category: "daily-lesson-log", filter: "Daily Lesson Logs" },
+    { label: "Assessments", category: "assessment", filter: "Assessments" },
+  ];
+  for (const shortcut of shortcuts) {
+    const rail = page.getByRole("navigation", { name: "Resource categories" });
+    await expect.poll(() => rail.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);
+    const link = rail.getByRole("link", { name: shortcut.label, exact: true });
+    await link.scrollIntoViewIfNeeded();
+    expect(await rail.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
+    await link.click();
+    await expect(page).toHaveURL(new RegExp(`/browse\\?.*category=${shortcut.category}`));
+    await expect(page.getByRole("link", { name: `Remove filter: ${shortcut.filter}`, exact: true })).toBeVisible();
+    await page.goto("/?grade=any&subject=any");
+  }
 
   // Search retains the real browse route; a card's bookmark writes to the real saved library.
   await page.getByRole("searchbox", { name: "Search teaching resources" }).fill(title);
