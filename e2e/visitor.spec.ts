@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
 
-test("phone preview only allows same-origin iframe documents", async ({ request }) => {
+test("phone preview permits only same-origin framing", async ({ request }) => {
   for (const site of [undefined, "cross-site", "same-site"]) {
     const response = await request.get("/browse?all=1", { headers: {
       ...(site ? { "sec-fetch-site": site } : {}), "sec-fetch-dest": "iframe",
     } });
-    expect(response.headers()["x-frame-options"]).toBe("DENY");
+    expect(response.headers()["x-frame-options"]).toBe("SAMEORIGIN");
+    expect(response.headers()["content-security-policy"]).toBe("frame-ancestors 'self'");
   }
   const sameOrigin = await request.get("/browse?all=1", {headers: {"sec-fetch-site":"same-origin", "sec-fetch-dest":"iframe"}});
   expect(sameOrigin.headers()["x-frame-options"]).toBe("SAMEORIGIN");

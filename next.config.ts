@@ -2,7 +2,8 @@ import type { NextConfig } from "next";
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
 ];
@@ -25,19 +26,6 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
-      // The live phone viewer may frame this origin's own pages. Other origins,
-      // ordinary page visits and browsers without Fetch Metadata keep DENY.
-      {
-        source: "/:path*",
-        has: [
-          { type: "header", key: "sec-fetch-site", value: "same-origin" },
-          { type: "header", key: "sec-fetch-dest", value: "iframe" },
-        ],
-        headers: [
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
-          { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
-        ],
-      },
       // Keep the viewer itself top-level; do not allow nested preview frames.
       { source: "/app-preview.html", headers: [
         { key: "X-Frame-Options", value: "DENY" },
