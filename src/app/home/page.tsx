@@ -137,32 +137,32 @@ async function Sidebar() {
       href={i.href}
       aria-current={i.current ? "page" : undefined}
       className={cn(
-        "flex min-h-11 items-center gap-3 rounded-[10px] px-3 text-[15px] font-semibold",
-        i.current ? "bg-primary-soft text-primary" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
+        "flex min-h-11 items-center gap-3 rounded-[10px] px-3 text-[13px] leading-5",
+        i.current ? "bg-primary-soft font-bold text-primary" : "font-[550] text-muted-foreground hover:bg-surface-muted hover:text-foreground",
       )}
     >
       <i.icon className="size-5 shrink-0" aria-hidden />
-      <span className="flex-1">{i.label}</span>
+      <span className="flex-1 whitespace-nowrap">{i.label}</span>
       {i.badge ? <span className="rounded-full bg-accent px-2 text-xs font-bold text-foreground">{i.badge}</span> : null}
     </Link>
   );
   return (
-    <aside className="sticky top-0 flex h-dvh flex-col gap-6 overflow-y-auto px-5 py-6">
+    <aside className="sticky top-0 flex h-dvh flex-col gap-6 overflow-y-auto px-5 py-6 font-sans">
       <div className="px-2">
         <Logo />
       </div>
       <nav aria-label="Your GuroMart" className="flex flex-1 flex-col gap-5">
         {groups.map((g) => (
           <div key={g.label} className="flex flex-col gap-1">
-            <p className="px-3 pb-1 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{g.label}</p>
+            <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">{g.label}</p>
             {g.items.map(link)}
           </div>
         ))}
         <div className="mt-auto flex flex-col gap-1">
-          <p className="px-3 pb-1 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Others</p>
+          <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Others</p>
           {others.map(link)}
           <form action={signOut}>
-            <button type="submit" className="flex min-h-11 w-full items-center gap-3 rounded-[10px] px-3 text-[15px] font-semibold text-muted-foreground hover:bg-surface-muted hover:text-foreground">
+            <button type="submit" className="flex min-h-11 w-full items-center gap-3 rounded-[10px] px-3 text-[13px] font-[550] leading-5 text-muted-foreground hover:bg-surface-muted hover:text-foreground">
               <LogOut className="size-5 shrink-0" aria-hidden /> Log out
             </button>
           </form>
