@@ -7,16 +7,19 @@ import {
   BookOpen,
   Bell,
   CalendarDays,
+  ClipboardCheck,
   ChevronDown,
   Download,
   FilePlus2,
   FileText,
+  FilePenLine,
   House,
   Layers,
   LayoutGrid,
   LogOut,
   type LucideIcon,
   MessageCircle,
+  NotebookPen,
   Receipt,
   Presentation,
   Settings,
@@ -310,8 +313,16 @@ function MobileCategories({ filter }: { filter: Filter }) {
     { label: "Lesson plans", type: "lesson-plan", icon: FileText, tone: "plans" },
     { label: "Printables", type: "printable", icon: CalendarDays, tone: "prints" },
     { label: "Free resources", type: null, icon: Download, tone: "free" },
+    { label: "Worksheets", type: "worksheet", icon: FilePenLine, tone: "worksheets" },
+    { label: "Daily lesson logs", type: "daily-lesson-log", icon: NotebookPen, tone: "logs" },
+    { label: "Assessments", type: "assessment", icon: ClipboardCheck, tone: "assessments" },
   ];
-  return <nav className="teacher-categories" aria-label="Resource categories">{categories.map(c => <Link key={c.label} href={homeHref(filter, { type: c.type, free: c.type === null })} aria-current={(c.type === null ? filter.free : filter.type === c.type && !filter.free) ? "true" : undefined}><span className={`teacher-category-circle teacher-category-${c.tone}`}><c.icon aria-hidden /></span>{c.label}</Link>)}</nav>;
+  return <>
+    <nav className="teacher-categories" aria-label="Resource categories" aria-describedby="resource-categories-hint" tabIndex={0}>
+      {categories.map(c => <Link key={c.label} href={browseHref({ ...filter, type: c.type, free: c.type === null })}><span className={`teacher-category-circle teacher-category-${c.tone}`}><c.icon aria-hidden /></span>{c.label}</Link>)}
+    </nav>
+    <p id="resource-categories-hint" className="teacher-category-hint">Swipe for more <ArrowRight aria-hidden /></p>
+  </>;
 }
 
 /** Popular resources for the teacher's grade and subject, with the filters shown as chips they can remove. */
