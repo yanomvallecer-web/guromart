@@ -43,14 +43,14 @@ export function BuyButton({
       ) : (
         <div className={offerBuyNow ? "grid grid-cols-2 gap-2" : "flex"}>
           {inCart ? (
-            <Link href="/cart" className={buttonVariants({ variant: "outline", size: "lg", className: "w-full px-3" })}>
+            <Link href="/cart" className={buttonVariants({ variant: "outline", size: "lg", className: "min-w-0 w-full px-3 text-sm md:text-base" })}>
               <ShoppingCart aria-hidden /> In your cart
             </Link>
           ) : (
             <Button
               size="lg"
               variant={offerBuyNow ? "outline" : "primary"}
-              className="w-full px-3"
+              className="min-w-0 w-full px-3 text-sm md:text-base"
               disabled={pending}
               onClick={() => run("cart", () => addToCart(productId, path))}
             >
@@ -58,7 +58,7 @@ export function BuyButton({
             </Button>
           )}
           {offerBuyNow ? (
-            <Button size="lg" className="w-full px-3" disabled={pending} onClick={() => run("buy", () => buyNow(productId, path))}>
+            <Button size="lg" className="min-w-0 w-full px-3 text-sm md:text-base" disabled={pending} onClick={() => run("buy", () => buyNow(productId, path))}>
               {pending && running === "buy" ? "Opening…" : "Buy now"}
             </Button>
           ) : null}

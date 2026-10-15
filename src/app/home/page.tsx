@@ -31,9 +31,12 @@ import {
 } from "lucide-react";
 import { signOut } from "@/app/auth/actions";
 import { FollowButton } from "@/components/catalog/follow-button";
+import { BundleCard } from "@/components/catalog/bundle-card";
 import { ProductCard as ResourceCard } from "@/components/catalog/product-card";
 import { AccountMenu, AccountMenuFallback } from "@/components/site/account-menu";
 import { Logo } from "@/components/site/logo";
+import { TeacherPhoneHeader } from "@/components/site/teacher-phone-header";
+import { ResourceCategoryLink } from "@/components/site/resource-category-link";
 import { MenuDetails } from "@/components/site/menu-details";
 import { HomeDiscovery } from "@/components/catalog/home-discovery";
 import { SaveButton } from "@/components/catalog/save-button";
@@ -47,6 +50,7 @@ import { getPeriodCoverage } from "@/lib/account/home";
 import { getTeachingPreferences } from "@/lib/account/preferences";
 import { type Viewer, requireViewer } from "@/lib/auth/dal";
 import { shopSummary } from "@/lib/catalog/labels";
+import { getLiveBundleCards } from "@/lib/catalog/bundles";
 import { browseProducts, countProducts, getCatalogFacets, getFeaturedStorefronts, getShelf, getTaxonomy } from "@/lib/catalog/queries";
 import type { BrowseParams } from "@/lib/catalog/search-params";
 import { getCartCount, getLibrary, getLibraryDetails } from "@/lib/commerce/cart";
@@ -78,9 +82,12 @@ export default function TeacherHomePage({ searchParams }: PageProps<"/home">) {
           <Sidebar />
         </Suspense>
       </div>
-      <Suspense fallback={<HomeSkeleton />}>
-        <Home searchParams={searchParams} />
-      </Suspense>
+      <div className="min-w-0">
+        <TeacherPhoneHeader greeting={<PhoneGreeting />} initial={<PhoneInitial />} />
+        <Suspense fallback={<HomeSkeleton />}>
+          <Home searchParams={searchParams} />
+        </Suspense>
+      </div>
     </div>
   );
 }
@@ -93,6 +100,16 @@ function HomeSkeleton() {
       <Skeleton className="h-72 w-full" />
     </div>
   );
+}
+
+async function PhoneGreeting() {
+  const viewer = await requireViewer("/");
+  return `${greeting()}, ${firstName(viewer.displayName)}`;
+}
+
+async function PhoneInitial() {
+  const viewer = await requireViewer("/");
+  return viewer.displayName.slice(0, 1).toUpperCase();
 }
 
 /* ------------------------------------------------------------------------ */
@@ -212,10 +229,6 @@ async function Home({ searchParams }: { searchParams: PageProps<"/home">["search
         <Link href="/notifications" aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"} className="relative flex size-11 items-center justify-center rounded-full border border-border hover:border-primary"><Bell className="size-5" aria-hidden />{unread ? <span aria-hidden className="absolute right-2.5 top-2.5 size-2.5 rounded-full border-2 border-surface bg-danger" /> : null}</Link>
         <Suspense fallback={<AccountMenuFallback />}><AccountMenu /></Suspense>
       </header>
-      <header className="teacher-phone-header">
-        <div><Logo showWordmark /><h1>{hello}</h1></div>
-        <Link href="/account" aria-label="Your account" className="teacher-avatar">{viewer.displayName.slice(0, 1).toUpperCase()}</Link>
-      </header>
       <div className="teacher-home-content">
         <div className="teacher-home-main">
           <Suspense fallback={<Skeleton className="hidden h-44 w-full rounded-[18px] md:block" />}><Hero filter={filter} /></Suspense>
@@ -224,6 +237,7 @@ async function Home({ searchParams }: { searchParams: PageProps<"/home">["search
           </HomeDiscovery>
           <MobileCategories filter={filter} />
           <Suspense fallback={<Skeleton className="h-80 w-full" />}><ForYourClass filter={filter} taxonomy={taxonomy} viewer={viewer} /></Suspense>
+          <MobileExplore />
           <div className="teacher-home-extras">
             <Suspense fallback={<Skeleton className="h-60" />}><SchoolYearPlan teach={{ grade: prefs?.grade?.code ?? null, subject: prefs?.subject?.code ?? null, free: false }} calendars={calendars} chosen={filter.plan ?? null} filter={filter} /></Suspense>
             <Suspense fallback={null}><ShopCard viewer={viewer} /></Suspense>
@@ -311,6 +325,7 @@ function MobileCategories({ filter }: { filter: Filter }) {
   const categories = [
     { label: "Presentations", type: "presentation", icon: Presentation, tone: "slides" },
     { label: "Lesson plans", type: "lesson-plan", icon: FileText, tone: "plans" },
+    { label: "Lesson bundles", type: "bundle", icon: Layers, tone: "bundles" },
     { label: "Printables", type: "printable", icon: CalendarDays, tone: "prints" },
     { label: "Free resources", type: null, icon: Download, tone: "free" },
     { label: "Worksheets", type: "worksheet", icon: FilePenLine, tone: "worksheets" },
@@ -319,10 +334,32 @@ function MobileCategories({ filter }: { filter: Filter }) {
   ];
   return <>
     <nav className="teacher-categories" aria-label="Resource categories" aria-describedby="resource-categories-hint" tabIndex={0}>
-      {categories.map(c => <Link key={c.label} href={browseHref({ ...filter, type: c.type, free: c.type === null })}><span className={`teacher-category-circle teacher-category-${c.tone}`}><c.icon aria-hidden /></span>{c.label}</Link>)}
+      {categories.map(c => <ResourceCategoryLink key={c.label} label={c.label} href={c.type === "bundle" ? "/bundles" : browseHref({ ...filter, type: c.type, free: c.type === null })}><span className={`teacher-category-circle teacher-category-${c.tone}`}><c.icon aria-hidden /></span>{c.label}</ResourceCategoryLink>)}
     </nav>
     <p id="resource-categories-hint" className="teacher-category-hint">Swipe for more <ArrowRight aria-hidden /></p>
   </>;
+}
+
+/** Give phone shoppers a next step after the eight featured resources. */
+function MobileExplore() {
+  return (
+    <section aria-labelledby="mobile-bundles-h" className="teacher-mobile-explore">
+      <div className="teacher-bundle-promo">
+        <span className="teacher-bundle-icon"><Layers aria-hidden /></span>
+        <h2 id="mobile-bundles-h">Lesson bundles</h2>
+        <p>Ready-to-teach resources, together in one collection.</p>
+        <Suspense fallback={null}><HomeBundleCards /></Suspense>
+        <Link href="/bundles" className={cn(buttonVariants(), "w-full")}>Explore bundles <ArrowRight className="size-4" aria-hidden /></Link>
+      </div>
+      <Link href="/browse?all=1" className={cn(buttonVariants({ variant: "outline" }), "w-full")}>Browse all resources <ArrowRight className="size-4" aria-hidden /></Link>
+    </section>
+  );
+}
+
+async function HomeBundleCards() {
+  const bundles = await getLiveBundleCards({ limit: 2 });
+  if (!bundles.length) return <p className="teacher-bundle-note">New bundles appear here as teachers publish them.</p>;
+  return <ul className="teacher-bundle-grid">{bundles.map(bundle => <li key={bundle.id}><BundleCard bundle={bundle} /></li>)}</ul>;
 }
 
 /** Popular resources for the teacher's grade and subject, with the filters shown as chips they can remove. */
