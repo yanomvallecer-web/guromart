@@ -84,9 +84,16 @@ test("teacher phone home shows branding and products first, with working filters
   await expect(page.getByRole("navigation", { name: "Resource categories" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Resource categories" }).getByRole("link", { name: "Presentations" })).toHaveAttribute("href", /\/browse\?.*category=presentation/);
   await expect(page.getByRole("navigation", { name: "Resource categories" }).getByRole("link", { name: "Free resources" })).toHaveAttribute("href", /price=free/);
-  const explore = page.getByRole("region", { name: "Lesson bundles", exact: true });
-  await expect(explore.getByRole("link", { name: "Explore bundles", exact: true })).toHaveAttribute("href", "/bundles");
-  await expect(explore.getByRole("link", { name: "Browse all resources", exact: true })).toHaveAttribute("href", "/browse?all=1");
+  await expect(page.getByRole("region", { name: "Lesson bundles", exact: true })).toHaveCount(0);
+  const shops = page.getByRole("region", { name: "Teacher shops", exact: true });
+  const visitShop = shops.getByRole("link", { name: "Visit shop", exact: true });
+  await expect(visitShop.first()).toBeVisible();
+  await expect(visitShop.first()).toHaveAttribute("href", /^\/shop\/[a-z0-9-]+$/);
+  await expect(page.getByRole("link", { name: "Browse all resources", exact: true })).toHaveAttribute("href", "/browse?all=1");
+  await visitShop.first().click();
+  await expect(page).toHaveURL(/\/shop\//);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await page.goto("/?grade=any&subject=any");
 
   const toggle = page.getByRole("button", { name: "Show lesson filters" });
   await expect(toggle).toHaveAttribute("aria-expanded", "false");

@@ -31,7 +31,6 @@ import {
 } from "lucide-react";
 import { signOut } from "@/app/auth/actions";
 import { FollowButton } from "@/components/catalog/follow-button";
-import { BundleCard } from "@/components/catalog/bundle-card";
 import { BundlePromo } from "@/components/catalog/bundle-promo";
 import { ProductCard as ResourceCard } from "@/components/catalog/product-card";
 import { AccountMenu, AccountMenuFallback } from "@/components/site/account-menu";
@@ -51,7 +50,6 @@ import { getPeriodCoverage } from "@/lib/account/home";
 import { getTeachingPreferences } from "@/lib/account/preferences";
 import { type Viewer, requireViewer } from "@/lib/auth/dal";
 import { shopSummary } from "@/lib/catalog/labels";
-import { getLiveBundleCards } from "@/lib/catalog/bundles";
 import { browseProducts, countProducts, getCatalogFacets, getFeaturedStorefronts, getShelf, getTaxonomy } from "@/lib/catalog/queries";
 import type { BrowseParams } from "@/lib/catalog/search-params";
 import { getCartCount, getLibrary, getLibraryDetails } from "@/lib/commerce/cart";
@@ -239,12 +237,14 @@ async function Home({ searchParams }: { searchParams: PageProps<"/home">["search
           <MobileCategories filter={filter} />
           <BundlePromo className="mb-5" />
           <Suspense fallback={<Skeleton className="h-80 w-full" />}><ForYourClass filter={filter} taxonomy={taxonomy} viewer={viewer} /></Suspense>
-          <MobileExplore />
           <div className="teacher-home-extras">
             <Suspense fallback={<Skeleton className="h-60" />}><SchoolYearPlan teach={{ grade: prefs?.grade?.code ?? null, subject: prefs?.subject?.code ?? null, free: false }} calendars={calendars} chosen={filter.plan ?? null} filter={filter} /></Suspense>
             <Suspense fallback={null}><ShopCard viewer={viewer} /></Suspense>
           </div>
-          <div className="teacher-home-shops"><Suspense fallback={null}><Shops /></Suspense></div>
+          <div className="teacher-home-shops">
+            <Suspense fallback={<Skeleton className="h-44 rounded-2xl" />}><Shops /></Suspense>
+            <Link href="/browse?all=1" className={cn(buttonVariants({ variant: "outline" }), "teacher-mobile-browse")}>Browse all resources <ArrowRight className="size-4" aria-hidden /></Link>
+          </div>
         </div>
         <aside className="teacher-home-rail" aria-label="Your teaching library"><Suspense fallback={<Skeleton className="h-64" />}><PickUp /></Suspense></aside>
       </div>
@@ -340,28 +340,6 @@ function MobileCategories({ filter }: { filter: Filter }) {
     </nav>
     <p id="resource-categories-hint" className="teacher-category-hint">Swipe for more <ArrowRight aria-hidden /></p>
   </>;
-}
-
-/** Give phone shoppers a next step after the eight featured resources. */
-function MobileExplore() {
-  return (
-    <section aria-labelledby="mobile-bundles-h" className="teacher-mobile-explore">
-      <div className="teacher-bundle-promo">
-        <span className="teacher-bundle-icon"><Layers aria-hidden /></span>
-        <h2 id="mobile-bundles-h">Lesson bundles</h2>
-        <p>Ready-to-teach resources, together in one collection.</p>
-        <Suspense fallback={null}><HomeBundleCards /></Suspense>
-        <Link href="/bundles" className={cn(buttonVariants(), "w-full")}>Explore bundles <ArrowRight className="size-4" aria-hidden /></Link>
-      </div>
-      <Link href="/browse?all=1" className={cn(buttonVariants({ variant: "outline" }), "w-full")}>Browse all resources <ArrowRight className="size-4" aria-hidden /></Link>
-    </section>
-  );
-}
-
-async function HomeBundleCards() {
-  const bundles = await getLiveBundleCards({ limit: 2 });
-  if (!bundles.length) return <p className="teacher-bundle-note">New bundles appear here as teachers publish them.</p>;
-  return <ul className="teacher-bundle-grid">{bundles.map(bundle => <li key={bundle.id}><BundleCard bundle={bundle} /></li>)}</ul>;
 }
 
 /** Popular resources for the teacher's grade and subject, with the filters shown as chips they can remove. */
@@ -527,35 +505,33 @@ async function Shops() {
   const followers = new Map(counts);
   const following = new Set((follows.data ?? []).map((f) => f.storefront_id as string));
   const mine = new Set((own.data ?? []).map((r) => r.id as string));
-  const tones = ["bg-success", "bg-violet-600", "bg-orange-600", "bg-primary"];
   return (
-    <section aria-labelledby="shops-h" className="order-6 flex min-w-0 flex-col gap-4">
-      <div className="flex items-end justify-between gap-4">
-        <h2 id="shops-h" className="font-display text-2xl font-extrabold">Teacher shops you might like</h2>
-        <Link href="/browse" className="flex min-h-11 shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:underline">
-          Browse all <ArrowRight className="size-4" aria-hidden />
-        </Link>
+    <section aria-labelledby="shops-h" className="teacher-shops-section flex min-w-0 flex-col gap-4">
+      <div>
+        <h2 id="shops-h" className="font-display text-2xl font-extrabold">Teacher shops</h2>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Explore resources made by fellow teachers.</p>
       </div>
-      <ul className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0">
-        {live.map((s, i) => {
+      <ul className="teacher-shop-grid grid gap-3 sm:grid-cols-2">
+        {live.map((s) => {
           const id = idBySlug.get(s.slug);
           const n = id ? (followers.get(id) ?? 0) : 0;
           return (
-            <li key={s.slug} className="flex w-[270px] shrink-0 snap-start flex-col gap-3 rounded-[16px] border border-border bg-surface p-4 sm:w-auto">
-              <Link href={`/shop/${s.slug}`} className="group flex items-center gap-3">
+            <li key={s.slug} className="flex min-w-0 flex-col gap-3 rounded-[16px] border border-border bg-surface p-4">
+              <Link href={`/shop/${s.slug}`} className="group flex min-w-0 items-center gap-3">
                 {s.logo_path ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={publicObjectUrl("storefront-media", s.logo_path)} alt="" className="size-12 shrink-0 rounded-[12px] object-cover" />
                 ) : (
-                  <span aria-hidden className={cn("flex size-12 shrink-0 items-center justify-center rounded-[12px] font-display text-xl font-extrabold text-white", tones[i % tones.length])}>
+                  <span aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-[12px] bg-primary-soft font-display text-xl font-extrabold text-primary">
                     {initial(s.name)}
                   </span>
                 )}
                 <span className="flex min-w-0 flex-col">
-                  <span className="truncate font-bold group-hover:text-primary">{s.name}</span>
-                  <span className="truncate text-sm text-muted-foreground">{shopSummary(facets.shops[s.slug])}</span>
+                  <span className="break-words font-bold group-hover:text-primary">{s.name}</span>
+                  <span className="text-xs leading-relaxed text-muted-foreground">{shopSummary(facets.shops[s.slug])}</span>
                 </span>
               </Link>
+              <Link href={`/shop/${s.slug}`} className={cn(buttonVariants({ variant: "outline" }), "w-full")}>Visit shop <ArrowRight className="size-4" aria-hidden /></Link>
               {id && !mine.has(id) ? (
                 <FollowButton storefrontId={id} path="/" initiallyFollowing={following.has(id)} followers={n} />
               ) : (
