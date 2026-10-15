@@ -1,0 +1,12 @@
+/* Scoped to the signed-out landing page; cached routes may keep this stylesheet loaded. */
+[data-guest-home] { min-width: 0; }
+[data-guest-home] .guest-hero-title { overflow-wrap: break-word; text-wrap: balance; }
+[data-guest-home] .guest-facet-card { min-height: 76px; }
+[data-guest-home] .guest-facet-label { max-width: 100%; }
+@media (max-width: 767px) {
+  [data-guest-home] .guest-resource-grid h3 { font-size: 14px; line-height: 1.45; }
+  [data-guest-home] .guest-resource-grid h3 + p { font-size: 12px; line-height: 1.5; }
+  [data-guest-home] .guest-resource-grid p { line-height: 1.5; }
+  [data-guest-home] .guest-resource-grid .text-sm { font-size: 12px; }
+  [data-guest-home] .guest-resource-grid .text-xs { font-size: 11px; }
+}
