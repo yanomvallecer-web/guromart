@@ -1,10 +1,10 @@
 // GuroMart service worker. It only shows an offline page when a page can't load;
 // nothing else is cached, so prices, carts and libraries are always fresh.
-const CACHE = "guromart-offline-v1";
+const CACHE = "guromart-offline-v2";
 const OFFLINE_URL = "/offline.html";
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll([OFFLINE_URL, "/icons/icon-192.png"])));
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll([OFFLINE_URL, "/icons/icon-192-teal.png"])));
   self.skipWaiting();
 });
 
