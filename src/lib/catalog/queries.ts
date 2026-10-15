@@ -127,7 +127,7 @@ export async function getShelf(shelf: HomeShelf, limit = 8): Promise<ProductCard
   return (data as unknown as CardRow[]).map(toCard);
 }
 
-export type FeaturedStore = { slug: string; name: string; tagline: string | null };
+export type FeaturedStore = { slug: string; name: string; tagline: string | null; logo_path: string | null };
 
 export type Facet = { code: string; name: string; count: number };
 export type ShopFacet = { count: number; subjects: string[]; grades: string[] };
@@ -221,7 +221,7 @@ export async function getFeaturedStorefronts(limit = 6): Promise<FeaturedStore[]
   cacheTag("storefronts");
   const { data, error } = await createPublicClient()
     .from("storefronts")
-    .select("slug, name, tagline")
+    .select("slug, name, tagline, logo_path")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw new Error(`Could not load shops: ${error.message}`);
