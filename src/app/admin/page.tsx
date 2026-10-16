@@ -46,8 +46,8 @@ async function Overview() {
   ]);
 
   const tiles = [
-    { label: "Accounts", value: users.count },
-    { label: "Active sellers", value: sellers.count },
+    { label: "Accounts", value: users.count, href: "/admin/accounts" },
+    { label: "Active sellers", value: sellers.count, href: "/admin/accounts?show=sellers" },
     { label: "Sellers setting up", value: onboarding.count },
     { label: "Live resources", value: published.count },
     { label: "Resources waiting for review", value: pending.count, href: "/admin/listings" },
