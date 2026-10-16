@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { BookOpen, Bookmark, Download, FileText } from "lucide-react";
 import { ProductGrid } from "@/components/catalog/product-card";
+import { BundlePromo } from "@/components/catalog/bundle-promo";
 import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge, Card, EmptyState } from "@/components/ui/card";
@@ -23,6 +24,7 @@ const CODE = /^[a-z0-9-]{1,60}$/;
 export default function LibraryPage({ searchParams }: PageProps<"/library">) {
   return (
     <PageShell title="My library" description="Resources you own. Download them as often as you need for your classes.">
+      <BundlePromo />
       <Suspense fallback={<PanelSkeleton />}>
         <Library searchParams={searchParams} />
       </Suspense>

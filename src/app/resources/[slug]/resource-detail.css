@@ -1,0 +1,4 @@
+/* Reserve room for the phone's two-row purchase bar, including the safe area. */
+@media (max-width: 767px) {
+  body:has([data-resource-detail]:not([style*="display: none"])) { --bottom-bar: 7rem; }
+}

@@ -8,9 +8,10 @@ import { SiteHeader } from "@/components/site/site-header";
 import { TabBar } from "@/components/site/tab-bar";
 import "./globals.css";
 
-// Both fonts (SIL Open Font License) are kept in the repo, so builds never depend on downloading them from Google Fonts.
-const body = localFont({ src: "./fonts/plus-jakarta-sans-latin.woff2", weight: "200 800", variable: "--font-body", display: "swap" });
-const display = localFont({ src: "./fonts/bricolage-grotesque-latin.woff2", weight: "600 800", variable: "--font-display-face", display: "swap" });
+// The approved prototype pairs DM Sans body text with Manrope headings.
+// Both variable fonts and their SIL Open Font Licenses are bundled locally.
+const body = localFont({ src: "./fonts/dm-sans-latin.woff2", weight: "100 1000", variable: "--font-body", display: "swap" });
+const display = localFont({ src: "./fonts/manrope-latin.woff2", weight: "200 800", variable: "--font-display-face", display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
   appleWebApp: { title: "GuroMart", capable: true },
 };
 
-export const viewport: Viewport = { themeColor: "#1a56a8" };
+export const viewport: Viewport = { themeColor: "#17675f" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

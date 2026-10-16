@@ -215,7 +215,7 @@ test("a seller bundles resources at one lower price and the buyer gets every res
 
   // Bundles are a category: the home chip and the browse filter both lead to the bundles page.
   await page.goto("/");
-  await page.getByRole("link", { name: "Lesson bundles", exact: true }).click();
+  await page.getByRole("main").getByRole("link", { name: "Lesson bundles", exact: true }).click();
   await page.waitForURL("**/bundles");
   await expect(page.getByRole("heading", { name: "Lesson bundles", level: 1 })).toBeVisible();
   await expect(page.locator(`[data-testid="bundle-card"][href="${bundlePath}"]`).filter({ visible: true })).toBeVisible();

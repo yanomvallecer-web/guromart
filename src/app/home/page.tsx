@@ -7,32 +7,41 @@ import {
   BookOpen,
   Bell,
   CalendarDays,
+  ClipboardCheck,
   ChevronDown,
   Download,
   FilePlus2,
   FileText,
+  FilePenLine,
   House,
   Layers,
   LayoutGrid,
   LogOut,
   type LucideIcon,
   MessageCircle,
+  NotebookPen,
   Receipt,
+  Presentation,
   Settings,
   ShieldCheck,
   ShoppingCart,
-  SlidersHorizontal,
   Store,
   Wallet,
   X,
 } from "lucide-react";
 import { signOut } from "@/app/auth/actions";
 import { FollowButton } from "@/components/catalog/follow-button";
+import { BundlePromo } from "@/components/catalog/bundle-promo";
 import { ProductCard as ResourceCard } from "@/components/catalog/product-card";
 import { AccountMenu, AccountMenuFallback } from "@/components/site/account-menu";
 import { Logo } from "@/components/site/logo";
+import { TeacherPhoneHeader } from "@/components/site/teacher-phone-header";
+import { ResourceCategoryLink } from "@/components/site/resource-category-link";
 import { MenuDetails } from "@/components/site/menu-details";
-import { SearchForm } from "@/components/site/search-form";
+import { HomeDiscovery } from "@/components/catalog/home-discovery";
+import { SaveButton } from "@/components/catalog/save-button";
+import { displayTitle } from "@/lib/catalog/labels";
+import "./teacher-home.css";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/card";
 import { firstName, greeting } from "@/lib/account/greeting";
@@ -66,15 +75,18 @@ type Raw = Awaited<PageProps<"/home">["searchParams"]>;
 export default function TeacherHomePage({ searchParams }: PageProps<"/home">) {
   return (
     // data-app-shell: on wide screens this page brings its own side menu and top bar, so the site header and floating Ask GuroMart button step aside.
-    <div data-app-shell className="xl:grid xl:min-h-dvh xl:grid-cols-[248px_minmax(0,1fr)]">
+    <div data-app-shell data-teacher-home className="xl:min-h-dvh">
       <div className="hidden border-r border-border bg-surface xl:block">
         <Suspense>
           <Sidebar />
         </Suspense>
       </div>
-      <Suspense fallback={<HomeSkeleton />}>
-        <Home searchParams={searchParams} />
-      </Suspense>
+      <div className="min-w-0">
+        <TeacherPhoneHeader greeting={<PhoneGreeting />} initial={<PhoneInitial />} />
+        <Suspense fallback={<HomeSkeleton />}>
+          <Home searchParams={searchParams} />
+        </Suspense>
+      </div>
     </div>
   );
 }
@@ -87,6 +99,16 @@ function HomeSkeleton() {
       <Skeleton className="h-72 w-full" />
     </div>
   );
+}
+
+async function PhoneGreeting() {
+  const viewer = await requireViewer("/");
+  return `${greeting()}, ${firstName(viewer.displayName)}`;
+}
+
+async function PhoneInitial() {
+  const viewer = await requireViewer("/");
+  return viewer.displayName.slice(0, 1).toUpperCase();
 }
 
 /* ------------------------------------------------------------------------ */
@@ -134,32 +156,32 @@ async function Sidebar() {
       href={i.href}
       aria-current={i.current ? "page" : undefined}
       className={cn(
-        "flex min-h-11 items-center gap-3 rounded-[10px] px-3 text-[15px] font-semibold",
-        i.current ? "bg-primary-soft text-primary" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
+        "flex min-h-11 items-center gap-3 rounded-[10px] px-3 text-[13px] leading-5",
+        i.current ? "bg-primary-soft font-bold text-primary" : "font-[550] text-muted-foreground hover:bg-surface-muted hover:text-foreground",
       )}
     >
       <i.icon className="size-5 shrink-0" aria-hidden />
-      <span className="flex-1">{i.label}</span>
+      <span className="flex-1 whitespace-nowrap">{i.label}</span>
       {i.badge ? <span className="rounded-full bg-accent px-2 text-xs font-bold text-foreground">{i.badge}</span> : null}
     </Link>
   );
   return (
-    <aside className="sticky top-0 flex h-dvh flex-col gap-6 overflow-y-auto px-5 py-6">
+    <aside className="sticky top-0 flex h-dvh flex-col gap-6 overflow-y-auto px-5 py-6 font-sans">
       <div className="px-2">
         <Logo />
       </div>
       <nav aria-label="Your GuroMart" className="flex flex-1 flex-col gap-5">
         {groups.map((g) => (
           <div key={g.label} className="flex flex-col gap-1">
-            <p className="px-3 pb-1 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{g.label}</p>
+            <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">{g.label}</p>
             {g.items.map(link)}
           </div>
         ))}
         <div className="mt-auto flex flex-col gap-1">
-          <p className="px-3 pb-1 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Others</p>
+          <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Others</p>
           {others.map(link)}
           <form action={signOut}>
-            <button type="submit" className="flex min-h-11 w-full items-center gap-3 rounded-[10px] px-3 text-[15px] font-semibold text-muted-foreground hover:bg-surface-muted hover:text-foreground">
+            <button type="submit" className="flex min-h-11 w-full items-center gap-3 rounded-[10px] px-3 text-[13px] font-[550] leading-5 text-muted-foreground hover:bg-surface-muted hover:text-foreground">
               <LogOut className="size-5 shrink-0" aria-hidden /> Log out
             </button>
           </form>
@@ -200,53 +222,32 @@ async function Home({ searchParams }: { searchParams: PageProps<"/home">["search
   const unread = await getUnreadCount(viewer.id);
   return (
     <div className="min-w-0">
-      {/* Wide screens: the dashboard's own top bar, in place of the site header. */}
-      <header className="hidden items-center gap-4 border-b border-border bg-surface px-8 py-5 xl:flex">
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate font-display text-[28px] font-extrabold leading-tight">{hello}</h1>
-          <Teaching prefs={prefs} />
-        </div>
-        <Link href="/help" className="flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold hover:border-primary">
-          <MessageCircle className="size-4" aria-hidden /> Ask GuroMart
-        </Link>
-        <Link href="/notifications" aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"} className="relative flex size-11 items-center justify-center rounded-full border border-border hover:border-primary">
-          <Bell className="size-5" aria-hidden />
-          {unread ? <span aria-hidden className="absolute right-2.5 top-2.5 size-2.5 rounded-full border-2 border-surface bg-danger" /> : null}
-        </Link>
-        <Suspense fallback={<AccountMenuFallback />}>
-          <AccountMenu />
-        </Suspense>
+      <header className="teacher-desktop-header hidden items-center gap-4 border-b border-border bg-surface px-7 py-4 xl:flex">
+        <div className="min-w-0 flex-1"><h1 className="truncate font-display font-extrabold leading-tight">{hello}</h1><Teaching prefs={prefs} /></div>
+        <Link href="/help" className="flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold hover:border-primary"><MessageCircle className="size-4" aria-hidden /> Ask GuroMart</Link>
+        <Link href="/notifications" aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"} className="relative flex size-11 items-center justify-center rounded-full border border-border hover:border-primary"><Bell className="size-5" aria-hidden />{unread ? <span aria-hidden className="absolute right-2.5 top-2.5 size-2.5 rounded-full border-2 border-surface bg-danger" /> : null}</Link>
+        <Suspense fallback={<AccountMenuFallback />}><AccountMenu /></Suspense>
       </header>
-
-    {/* Phones get one column in a set order; large screens put the planning cards in a right column. */}
-    <div className="mx-auto flex min-w-0 max-w-[1400px] flex-col gap-6 px-4 pb-10 pt-6 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-8 xl:px-8">
-      <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-8">
-        <div className="order-1 xl:hidden">
-          <p role="heading" aria-level={1} className="font-display text-[28px] font-extrabold leading-tight sm:text-[32px]">{hello}</p>
-          <Teaching prefs={prefs} />
+      <div className="teacher-home-content">
+        <div className="teacher-home-main">
+          <Suspense fallback={<Skeleton className="hidden h-44 w-full rounded-[18px] md:block" />}><Hero filter={filter} /></Suspense>
+          <HomeDiscovery key={homeHref(filter, {})} filters={Object.fromEntries(Object.entries({ grade: filter.grade, subject: filter.subject, category: filter.type, price: filter.free ? "free" : null }).filter((entry): entry is [string, string] => Boolean(entry[1])))}>
+            <HomeFilters filter={filter} taxonomy={taxonomy} />
+          </HomeDiscovery>
+          <MobileCategories filter={filter} />
+          <BundlePromo className="mb-5" />
+          <Suspense fallback={<Skeleton className="h-80 w-full" />}><ForYourClass filter={filter} taxonomy={taxonomy} viewer={viewer} /></Suspense>
+          <div className="teacher-home-extras">
+            <Suspense fallback={<Skeleton className="h-60" />}><SchoolYearPlan teach={{ grade: prefs?.grade?.code ?? null, subject: prefs?.subject?.code ?? null, free: false }} calendars={calendars} chosen={filter.plan ?? null} filter={filter} /></Suspense>
+            <Suspense fallback={null}><ShopCard viewer={viewer} /></Suspense>
+          </div>
+          <div className="teacher-home-shops">
+            <Suspense fallback={<Skeleton className="h-44 rounded-2xl" />}><Shops /></Suspense>
+            <Link href="/shops" className={cn(buttonVariants({ variant: "outline" }), "teacher-mobile-browse")}>Browse other shops <ArrowRight className="size-4" aria-hidden /></Link>
+          </div>
         </div>
-        <Suspense fallback={<Skeleton className="order-2 h-52 w-full rounded-[20px]" />}>
-          <Hero filter={filter} />
-        </Suspense>
-        <Suspense fallback={<Skeleton className="order-4 h-80 w-full" />}>
-          <ForYourClass filter={filter} taxonomy={taxonomy} />
-        </Suspense>
-        <Suspense fallback={null}>
-          <Shops />
-        </Suspense>
+        <aside className="teacher-home-rail" aria-label="Your teaching library"><Suspense fallback={<Skeleton className="h-64" />}><PickUp /></Suspense></aside>
       </div>
-      <div className="contents lg:sticky lg:top-24 lg:flex lg:flex-col lg:gap-6">
-        <Suspense fallback={<Skeleton className="order-3 h-64 w-full" />}>
-          <SchoolYearPlan teach={{ grade: prefs?.grade?.code ?? null, subject: prefs?.subject?.code ?? null, free: false }} calendars={calendars} chosen={filter.plan ?? null} filter={filter} />
-        </Suspense>
-        <Suspense fallback={<Skeleton className="order-5 h-64 w-full" />}>
-          <PickUp />
-        </Suspense>
-        <Suspense fallback={null}>
-          <ShopCard viewer={viewer} />
-        </Suspense>
-      </div>
-    </div>
     </div>
   );
 }
@@ -306,86 +307,55 @@ function homeHref(f: Filter, change: Partial<Filter>) {
   return `/?${qs}`;
 }
 
-/** A warm welcome card leading to filtered browsing, with three real covers peeking in on wide screens. */
+/** A compact introduction on desktop; phones begin directly with discovery. */
 async function Hero({ filter }: { filter: Filter }) {
   const forClass = (await browseProducts(browseFor(filter))).items;
-  const covers = [...forClass, ...(await getShelf("popular", 12))]
-    .filter((p, i, all) => p.preview_path && all.findIndex((q) => q.id === p.id) === i)
-    .slice(0, 3);
-  return (
-    <section aria-label="Find lessons" className="relative order-2 overflow-hidden rounded-[20px] bg-gradient-to-br from-accent-soft via-[#fbe7b0] to-[#f8dc93] p-5 sm:p-8">
-      <div className="relative z-10 flex max-w-[420px] flex-col gap-3">
-        <h2 className="font-display text-[26px] font-extrabold leading-[1.08] sm:text-4xl">
-          Find your next lesson,{" "}
-          <span className="relative whitespace-nowrap">
-            <span aria-hidden className="absolute inset-x-[-3px] bottom-1 h-[0.32em] rounded-sm bg-white/80" />
-            <span className="relative">ready to teach</span>
-          </span>
-        </h2>
-        <p className="text-[15px] text-foreground/75">DLLs, lesson plans, slides and worksheets made by Filipino teachers.</p>
-        {/* Wide screens hide the site header, so search lives here; narrower ones keep it in the header. */}
-        <div className="mt-1 hidden gap-2 xl:flex">
-          <SearchForm size="lg" className="flex-1 border-0 shadow-lg shadow-foreground/5" placeholder='Try "Grade 5 Science Quarter 2"' />
-          <Link
-            href={browseHref(filter)}
-            aria-label="More filters"
-            title="More filters"
-            className="flex size-14 shrink-0 items-center justify-center rounded-[12px] bg-foreground text-white hover:bg-foreground/90"
-          >
-            <SlidersHorizontal className="size-5" aria-hidden />
-          </Link>
-        </div>
-        <div className="mt-1 flex flex-wrap gap-2 xl:hidden">
-          <Link href={browseHref(filter)} className={buttonVariants()}>
-            <SlidersHorizontal aria-hidden /> Browse with filters
-          </Link>
-          <Link href={browseHref({ ...filter, free: true })} className={cn(buttonVariants({ variant: "outline" }), "bg-surface")}>
-            Free resources
-          </Link>
-        </div>
-      </div>
-      {covers.length === 3 ? (
-        <div aria-hidden className="pointer-events-none absolute -bottom-8 right-6 hidden items-end min-[1400px]:flex">
-          {covers.map((p, i) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={p.id}
-              src={publicObjectUrl("product-previews", p.preview_path!)}
-              alt=""
-              className={cn(
-                "rounded-[10px] bg-surface object-cover object-top shadow-xl ring-1 ring-black/5",
-                i === 1 ? "z-10 h-40 w-28 -translate-y-3" : "h-32 w-24",
-                i === 0 && "translate-x-4 -rotate-6",
-                i === 2 && "-translate-x-4 rotate-6",
-              )}
-            />
-          ))}
-        </div>
-      ) : null}
-      <span className="absolute right-5 top-5 z-10 hidden items-center gap-1.5 rounded-full bg-foreground px-3 py-1.5 text-xs font-semibold text-white lg:flex">
-        <ShieldCheck className="size-4 text-accent" aria-hidden /> Every resource checked by GuroMart
-      </span>
+  const covers = [...forClass, ...(await getShelf("popular", 12))].filter((p, i, all) => p.preview_path && all.findIndex((q) => q.id === p.id) === i).slice(0, 3);
+  return <>
+    <section aria-label="Find lessons" className="teacher-hero">
+      <div className="teacher-hero-copy"><p className="teacher-hero-eyebrow">PARA SA MGA GURO, GAWA NG MGA GURO</p><h2>Find your next lesson,<br /><span>ready to teach</span></h2><p>DLLs, lesson plans, slides and worksheets made by Filipino teachers.</p></div>
+      {covers.length === 3 ? <div aria-hidden className="teacher-hero-covers">{covers.map(p => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img key={p.id} src={publicObjectUrl("product-previews", p.preview_path!)} alt="" />
+      ))}</div> : null}
     </section>
-  );
+    <p className="teacher-trust"><ShieldCheck aria-hidden /> Every resource checked by GuroMart</p>
+  </>;
+}
+
+function MobileCategories({ filter }: { filter: Filter }) {
+  const categories = [
+    { label: "Presentations", type: "presentation", icon: Presentation, tone: "slides" },
+    { label: "Lesson plans", type: "lesson-plan", icon: FileText, tone: "plans" },
+    { label: "Lesson bundles", type: "bundle", icon: Layers, tone: "bundles" },
+    { label: "Printables", type: "printable", icon: CalendarDays, tone: "prints" },
+    { label: "Free resources", type: null, icon: Download, tone: "free" },
+    { label: "Worksheets", type: "worksheet", icon: FilePenLine, tone: "worksheets" },
+    { label: "Daily lesson logs", type: "daily-lesson-log", icon: NotebookPen, tone: "logs" },
+    { label: "Assessments", type: "assessment", icon: ClipboardCheck, tone: "assessments" },
+  ];
+  return <>
+    <nav className="teacher-categories" aria-label="Resource categories" aria-describedby="resource-categories-hint" tabIndex={0}>
+      {categories.map(c => <ResourceCategoryLink key={c.label} label={c.label} href={c.type === "bundle" ? "/bundles" : browseHref({ ...filter, type: c.type, free: c.type === null })}><span className={`teacher-category-circle teacher-category-${c.tone}`}><c.icon aria-hidden /></span>{c.label}</ResourceCategoryLink>)}
+    </nav>
+    <p id="resource-categories-hint" className="teacher-category-hint">Swipe for more <ArrowRight aria-hidden /></p>
+  </>;
 }
 
 /** Popular resources for the teacher's grade and subject, with the filters shown as chips they can remove. */
-async function ForYourClass({ filter, taxonomy }: { filter: Filter; taxonomy: Awaited<ReturnType<typeof getTaxonomy>> }) {
+async function ForYourClass({ filter, taxonomy, viewer }: { filter: Filter; taxonomy: Awaited<ReturnType<typeof getTaxonomy>>; viewer: Viewer }) {
   const { items, total } = await browseProducts(browseFor(filter));
   const name = (list: { code: string; name: string }[], code: string | null) => list.find((i) => i.code === code)?.name ?? null;
   const grade = name(taxonomy.grades, filter.grade);
   const subject = name(taxonomy.subjects, filter.subject);
-  const type = name(taxonomy.categories, filter.type ?? null);
-  const filtering = Boolean(filter.grade || filter.subject || filter.free || filter.type);
-  const shown = items.slice(0, 10);
-
-  const chip = "flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-sm font-semibold";
-  const on = cn(chip, "bg-primary text-white hover:bg-primary-hover");
-  const off = cn(chip, "border border-border bg-surface text-foreground hover:border-primary");
+  const shown = items.slice(0, 8);
+  const supabase = await createClient();
+  const { data: wishlist } = shown.length ? await supabase.from("wishlists").select("product_id").eq("user_id", viewer.id).in("product_id", shown.map(p => p.id)) : { data: [] };
+  const saved = new Set((wishlist ?? []).map(p => p.product_id));
 
   return (
-    <section aria-labelledby="class-h" className="order-4 flex min-w-0 flex-col gap-4">
-      <div className="flex items-end justify-between gap-4">
+    <section aria-labelledby="class-h" className="teacher-resources">
+      <div className="teacher-resource-heading flex items-end justify-between gap-4">
         <div>
           <h2 id="class-h" className="font-display text-2xl font-extrabold">{grade || subject ? "For your class" : "Popular with teachers"}</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
@@ -397,8 +367,42 @@ async function ForYourClass({ filter, taxonomy }: { filter: Filter; taxonomy: Aw
         </Link>
       </div>
 
-      {/* Phones swipe the chips; the dropdowns need room to open, so wider screens wrap instead. */}
-      <nav aria-label="Filters for your class" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:overflow-visible sm:px-0">
+
+
+      {shown.length ? (
+        <ul className="teacher-resource-grid">
+          {shown.map((p) => (
+            <li key={p.id} className="min-w-0">
+              <ResourceCard product={p} />
+              <div className="teacher-save"><SaveButton compact resourceTitle={displayTitle(p)} productId={p.id} path="/" initiallySaved={saved.has(p.id)} /></div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="rounded-[16px] border border-dashed border-border bg-surface p-6 text-center">
+          <p className="font-semibold">No resources for this class yet.</p>
+          <p className="mt-1 text-sm text-muted-foreground">New ones appear as teachers publish them.</p>
+          <Link href={homeHref(filter, { grade: null, subject: null, free: false, type: null })} className={cn(buttonVariants({ variant: "outline" }), "mt-4")}>
+            Show everything popular
+          </Link>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function HomeFilters({ filter, taxonomy }: { filter: Filter; taxonomy: Awaited<ReturnType<typeof getTaxonomy>> }) {
+  const name = (list: { code: string; name: string }[], code: string | null) => list.find((i) => i.code === code)?.name ?? null;
+  const grade = name(taxonomy.grades, filter.grade);
+  const subject = name(taxonomy.subjects, filter.subject);
+  const type = name(taxonomy.categories, filter.type ?? null);
+  const filtering = Boolean(filter.grade || filter.subject || filter.free || filter.type);
+
+  const chip = "flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-sm font-semibold";
+  const on = cn(chip, "bg-primary text-white hover:bg-primary-hover");
+  const off = cn(chip, "border border-border bg-surface text-foreground hover:border-primary");
+
+  return (<nav aria-label="Filters for your class" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:overflow-visible sm:px-0">
         <ul className="flex items-center gap-2 sm:flex-wrap">
           {grade ? (
             <li>
@@ -407,8 +411,11 @@ async function ForYourClass({ filter, taxonomy }: { filter: Filter; taxonomy: Aw
               </Link>
             </li>
           ) : (
-            <li className="hidden sm:block">
-              <Pick label="Grade" chip={off} options={taxonomy.grades.map((o) => ({ name: o.name, href: homeHref(filter, { grade: o.code }) }))} />
+            <li>
+              <Pick label="Grade" chip={off} options={[
+                { name: "All grade levels", href: homeHref(filter, { grade: null }) },
+                ...taxonomy.grades.map((o) => ({ name: o.name, href: homeHref(filter, { grade: o.code }) })),
+              ]} />
             </li>
           )}
           {subject ? (
@@ -418,7 +425,7 @@ async function ForYourClass({ filter, taxonomy }: { filter: Filter; taxonomy: Aw
               </Link>
             </li>
           ) : (
-            <li className="hidden sm:block">
+            <li>
               <Pick label="Subject" chip={off} options={taxonomy.subjects.map((o) => ({ name: o.name, href: homeHref(filter, { subject: o.code }) }))} />
             </li>
           )}
@@ -429,15 +436,10 @@ async function ForYourClass({ filter, taxonomy }: { filter: Filter; taxonomy: Aw
               </Link>
             </li>
           ) : (
-            <li className="hidden sm:block">
+            <li>
               <Pick label="Type" chip={off} options={taxonomy.categories.map((o) => ({ name: o.name, href: homeHref(filter, { type: o.code }) }))} />
             </li>
           )}
-          <li className="sm:hidden">
-            <Link href={browseHref(filter)} className={off}>
-              <SlidersHorizontal className="size-4" aria-hidden /> More filters
-            </Link>
-          </li>
           <li>
             <Link
               href={homeHref(filter, { free: !filter.free })}
@@ -455,34 +457,7 @@ async function ForYourClass({ filter, taxonomy }: { filter: Filter; taxonomy: Aw
             </li>
           ) : null}
         </ul>
-      </nav>
-
-      {shown.length ? (
-        // A swipeable row on phones; from tablets up, full rows only (6, 8 or 10 cards by width).
-        <ul
-          className={cn(
-            "-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-x-4 sm:gap-y-7 sm:overflow-visible sm:px-0",
-            "sm:[&>li:nth-child(n+7)]:hidden xl:grid-cols-4 xl:[&>li:nth-child(n+7)]:block xl:[&>li:nth-child(n+9)]:hidden",
-            "min-[1440px]:grid-cols-5 min-[1440px]:[&>li:nth-child(n+9)]:block",
-          )}
-        >
-          {shown.map((p) => (
-            <li key={p.id} className="w-[160px] shrink-0 snap-start sm:w-auto sm:min-w-0">
-              <ResourceCard product={p} />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="rounded-[16px] border border-dashed border-border bg-surface p-6 text-center">
-          <p className="font-semibold">No resources for this class yet.</p>
-          <p className="mt-1 text-sm text-muted-foreground">New ones appear as teachers publish them.</p>
-          <Link href={homeHref(filter, { grade: null, subject: null, free: false, type: null })} className={cn(buttonVariants({ variant: "outline" }), "mt-4")}>
-            Show everything popular
-          </Link>
-        </div>
-      )}
-    </section>
-  );
+      </nav>);
 }
 
 /** A filter chip that opens a short list of choices; each choice is a plain link, so it works without JavaScript. */
@@ -530,35 +505,33 @@ async function Shops() {
   const followers = new Map(counts);
   const following = new Set((follows.data ?? []).map((f) => f.storefront_id as string));
   const mine = new Set((own.data ?? []).map((r) => r.id as string));
-  const tones = ["bg-success", "bg-violet-600", "bg-orange-600", "bg-primary"];
   return (
-    <section aria-labelledby="shops-h" className="order-6 flex min-w-0 flex-col gap-4">
-      <div className="flex items-end justify-between gap-4">
-        <h2 id="shops-h" className="font-display text-2xl font-extrabold">Teacher shops you might like</h2>
-        <Link href="/browse" className="flex min-h-11 shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:underline">
-          Browse all <ArrowRight className="size-4" aria-hidden />
-        </Link>
+    <section aria-labelledby="shops-h" className="teacher-shops-section flex min-w-0 flex-col gap-4">
+      <div>
+        <h2 id="shops-h" className="font-display text-2xl font-extrabold">Teacher shops</h2>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Explore resources made by fellow teachers.</p>
       </div>
-      <ul className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0">
-        {live.map((s, i) => {
+      <ul className="teacher-shop-grid grid gap-3 sm:grid-cols-2">
+        {live.map((s) => {
           const id = idBySlug.get(s.slug);
           const n = id ? (followers.get(id) ?? 0) : 0;
           return (
-            <li key={s.slug} className="flex w-[270px] shrink-0 snap-start flex-col gap-3 rounded-[16px] border border-border bg-surface p-4 sm:w-auto">
-              <Link href={`/shop/${s.slug}`} className="group flex items-center gap-3">
+            <li key={s.slug} className="flex min-w-0 flex-col gap-3 rounded-[16px] border border-border bg-surface p-4">
+              <Link href={`/shop/${s.slug}`} className="group flex min-w-0 items-center gap-3">
                 {s.logo_path ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={publicObjectUrl("storefront-media", s.logo_path)} alt="" className="size-12 shrink-0 rounded-[12px] object-cover" />
                 ) : (
-                  <span aria-hidden className={cn("flex size-12 shrink-0 items-center justify-center rounded-[12px] font-display text-xl font-extrabold text-white", tones[i % tones.length])}>
+                  <span aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-[12px] bg-primary-soft font-display text-xl font-extrabold text-primary">
                     {initial(s.name)}
                   </span>
                 )}
                 <span className="flex min-w-0 flex-col">
-                  <span className="truncate font-bold group-hover:text-primary">{s.name}</span>
-                  <span className="truncate text-sm text-muted-foreground">{shopSummary(facets.shops[s.slug])}</span>
+                  <span className="break-words font-bold group-hover:text-primary">{s.name}</span>
+                  <span className="text-xs leading-relaxed text-muted-foreground">{shopSummary(facets.shops[s.slug])}</span>
                 </span>
               </Link>
+              <Link href={`/shop/${s.slug}`} className={cn(buttonVariants({ variant: "outline" }), "w-full")}>Visit shop <ArrowRight className="size-4" aria-hidden /></Link>
               {id && !mine.has(id) ? (
                 <FollowButton storefrontId={id} path="/" initiallyFollowing={following.has(id)} followers={n} />
               ) : (
@@ -635,7 +608,7 @@ async function SchoolYearPlan({
 
   return (
     <section aria-labelledby="plan-h" className={cn(panel, "order-3")}>
-      <div className="relative overflow-hidden rounded-[14px] bg-gradient-to-br from-primary to-[#2f6fc4] p-4 text-white">
+      <div className="relative overflow-hidden rounded-[14px] bg-gradient-to-br from-primary to-primary-hover p-4 text-white">
         <div aria-hidden className="pointer-events-none absolute -right-10 -top-12 size-36 rounded-full bg-white/10" />
         <p className="relative text-xs font-bold uppercase tracking-[0.08em] text-white/80">Your {unit} plan</p>
         <div className="relative mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">

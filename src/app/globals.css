@@ -1,25 +1,25 @@
 @import "tailwindcss";
 
-/* GuroMart design tokens. Educational blue on warm neutrals, one warm accent. */
+/* GuroMart design tokens: deep teal, warm paper and a restrained marigold accent. */
 :root {
-  --background: #f6f5f1;
+  --background: #f7f5ef;
   --surface: #ffffff;
   --surface-muted: #faf9f6;
-  --foreground: #15233f;
-  --muted-foreground: #4d576a;
+  --foreground: #213c36;
+  --muted-foreground: #596b63;
   --border: #e3e1d9;
   --input: #c9c6bb;
-  --primary: #1a56a8;
-  --primary-hover: #154a92;
+  --primary: #17675f;
+  --primary-hover: #10554e;
   --primary-foreground: #ffffff;
-  --primary-soft: #e6eef9;
-  --accent: #f4b400;
-  --accent-soft: #fdf1cc;
+  --primary-soft: #e7efea;
+  --accent: #e9b44c;
+  --accent-soft: #f6edda;
   --success: #1d7a46;
   --success-soft: #e3f3e9;
   --danger: #b42318;
   --danger-soft: #fdecea;
-  --ring: #1a56a8;
+  --ring: #17675f;
   --radius: 12px;
   /* Height of the phone tab bar and the resource page's buy bar (same slot). */
   --bottom-bar: 4rem;
@@ -87,6 +87,12 @@
   }
   to {
     transform: none;
+  }
+}
+
+@layer base {
+  h1, h2, h3 {
+    font-family: var(--font-display);
   }
 }
 

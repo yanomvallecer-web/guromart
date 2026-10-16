@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="theme-color" content="#17675f" />
+  <title>GuroMart · Live Android preview</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <style>
+    * { box-sizing: border-box; }
+    :root { color-scheme: light; font-family: system-ui, sans-serif; color: #213c36; background: #f7f5ef; }
+    body { margin: 0; min-height: 100dvh; }
+    .toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; max-width: 1120px; margin: auto; padding: 18px 24px; }
+    .identity { display: flex; align-items: center; gap: 10px; }
+    .identity img { width: 36px; height: 36px; border-radius: 9px; }
+    h1 { margin: 0; font-size: 17px; line-height: 1.4; }
+    .identity p { margin: 2px 0 0; font-size: 12px; color: #596b63; }
+    .controls { display: flex; gap: 8px; }
+    button, .open { display: inline-flex; justify-content: center; align-items: center; min-height: 44px; padding: 0 15px; border: 1px solid #d7ddd7; border-radius: 12px; background: #fff; color: #17675f; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; text-decoration: none; }
+    button:hover, .open:hover { border-color: #17675f; background: #e7efea; }
+    :focus-visible { outline: 3px solid #17675f; outline-offset: 3px; }
+    .stage { display: grid; place-items: center; position: relative; height: calc(100dvh - 125px); min-height: 340px; overflow: hidden; background: radial-gradient(ellipse at center, #e4ede6 0%, #f7f5ef 70%); }
+    .device-space { position: relative; width: 417px; height: 925px; flex-shrink: 0; }
+    .device { position: absolute; left: 0; top: 0; width: 417px; height: 925px; padding: 9px; border: 3px solid #444b47; border-radius: 45px; background: #171b19; box-shadow: 0 24px 60px #213c3626, inset 0 0 0 1px #858c85; transform-origin: top left; }
+    .glass { width: 393px; height: 901px; overflow: hidden; border-radius: 33px; background: #fff; }
+    .status-bar { position: relative; height: 30px; display: flex; justify-content: space-between; align-items: center; padding: 0 21px; color: #213c36; font-size: 12px; font-weight: 650; }
+    .camera { position: absolute; top: 7px; left: calc(50% - 6px); width: 12px; height: 12px; background: #171b19; border: 3px solid #303632; border-radius: 50%; }
+    .status-icons { display: flex; align-items: center; gap: 5px; }
+    .status-icons svg { width: 15px; height: 15px; }
+    iframe { display: block; width: 393px; height: 851px; border: 0; background: #fff; }
+    .gesture-bar { height: 20px; display: grid; place-items: center; background: #fff; }
+    .gesture-bar::before { content: ""; width: 96px; height: 4px; border-radius: 4px; background: #213c36; }
+    .caption { margin: 0; padding: 8px 16px 14px; text-align: center; color: #596b63; font-size: 12px; line-height: 1.6; }
+    .live-dot { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: #1d7a46; }
+    @media (max-width: 520px) { .toolbar { justify-content: center; padding: 12px 16px; }.identity { width: 100%; justify-content: center; }.stage { height: calc(100dvh - 180px); } }
+  </style>
+</head>
+<body>
+  <header class="toolbar">
+    <div class="identity">
+      <img src="/icons/icon-192-teal.png" alt="" />
+      <div><h1>GuroMart app preview</h1><p>Live Android layout · 393 × 851</p></div>
+    </div>
+    <nav class="controls" aria-label="Preview controls">
+      <button type="button" id="home">Home</button>
+      <button type="button" id="reload">Reload</button>
+      <a class="open" id="open" href="/?app=android" target="_blank" rel="noopener">Open full app ↗</a>
+    </nav>
+  </header>
+  <main class="stage" id="stage" aria-label="Android phone preview">
+    <div class="device-space" id="space">
+      <div class="device" id="device">
+        <div class="glass">
+          <div class="status-bar" aria-hidden="true">
+            <span id="clock"></span><span class="camera"></span>
+            <span class="status-icons">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 14h3v4H2zm5-4h3v8H7zm5-4h3v12h-3zm5-4h3v16h-3z" /></svg>
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 7q8-6 16 0M5 10q5-4 10 0M8 13q2-2 4 0"/><circle cx="10" cy="16" r=".7" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <iframe id="app" src="/?app=android" title="Live GuroMart Android app"></iframe>
+          <div class="gesture-bar" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <p class="caption"><span class="live-dot" aria-hidden="true"></span><span id="status" role="status">Loading live app…</span> · Scroll and tap inside the phone.</p>
+  <script src="/app-preview.js"></script>
+</body>
+</html>
