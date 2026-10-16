@@ -118,10 +118,12 @@ test("an admin lists accounts, filters to sellers and searches by email", async 
   await expect(table.getByRole("row", { name: new RegExp(staffEmail) })).toContainText("Admin");
 
   await page.getByRole("link", { name: /^Sellers \(\d+\)$/ }).click();
+  await expect(page).toHaveURL(/show=sellers/);
   await expect(table.getByRole("row", { name: new RegExp(sellerEmail) })).toBeVisible();
   await expect(table.getByRole("row", { name: new RegExp(buyerEmail) })).toHaveCount(0);
 
   await page.getByRole("link", { name: /^Everyone \(\d+\)$/ }).click();
+  await expect(page).toHaveURL(/\/admin\/accounts$/);
   await page.getByLabel("Search accounts").fill(buyerEmail);
   await page.getByRole("button", { name: "Find" }).click();
   await expect(table.getByRole("row")).toHaveCount(2);
