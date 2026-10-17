@@ -81,8 +81,8 @@ test("a teacher opens a shop and a staff-published listing appears in search", a
   // Grant admin and check the overview counts the shop and the audit trail.
   await serviceRest("user_roles", { method: "POST", body: JSON.stringify({ user_id: userId, role: "admin" }) });
   await page.goto("/admin");
-  await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
-  await expect(page.getByText("seller.onboarding_started").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Admin", exact: true })).toBeVisible();
+  await expect(page.getByTestId("admin-activity").getByText("Someone started setting up a shop").first()).toBeVisible();
 });
 
 test("an admin lists accounts, filters to sellers and searches by email", async ({ page, browser }) => {
@@ -109,7 +109,7 @@ test("an admin lists accounts, filters to sellers and searches by email", async 
   await signIn(page, staffEmail, "/account");
   await serviceRest("user_roles", { method: "POST", body: JSON.stringify({ user_id: await userIdFor(staffEmail), role: "admin" }) });
   await page.goto("/admin");
-  await page.getByRole("link", { name: "Accounts", exact: true }).click();
+  await page.getByRole("link", { name: "Accounts Everyone who signed up" }).click();
   await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();
   const table = page.getByTestId("accounts-table");
   await expect(table.getByRole("row", { name: new RegExp(buyerEmail) })).toContainText("No");
