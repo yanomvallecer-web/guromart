@@ -595,6 +595,25 @@ describe("ranked search", () => {
     expect(rows.map((r) => r.title)).toEqual(["Fractions worksheet"]);
   });
 
+  it("matches words from tags as well as text, and calls trimesters terms", async () => {
+    const s = await createSeller("s@example.test", "shop-one");
+    const id = async (table: string, code: string) => (await q<{ id: number }>(admin, `select id from public.${table} where code = $1`, [code])).rows[0].id;
+    const item = await publish(s.storefrontId, "item-t", "Fractions worksheet", {
+      subject_id: await id("subjects", "mathematics"),
+      academic_period_id: await id("academic_periods", "trimester-1"),
+    });
+    await q(admin, "insert into public.product_grade_levels (product_id, grade_level_id) values ($1, $2)", [item.id, await id("grade_levels", "grade-5")]);
+    await publish(s.storefrontId, "item-o", "Fractions quiz");
+
+    const names = await q<{ name: string }>(admin, "select name from public.academic_periods where code like 'trimester-%' order by code");
+    expect(names.rows.map((r) => r.name)).toEqual(["Term 1", "Term 2", "Term 3"]);
+    expect((await search("grade 5 term 1 fractions")).rows.map((r) => r.title)).toEqual(["Fractions worksheet"]);
+    expect((await search("mathematics")).rows.map((r) => r.title)).toEqual(["Fractions worksheet"]);
+    expect((await search("trimester")).rows.map((r) => r.title)).toEqual(["Fractions worksheet"]);
+    expect((await search("worksheets")).rows.map((r) => r.title).sort()).toEqual(["Fractions quiz", "Fractions worksheet"]);
+    expect((await search("fractions", "relevance", ", p_period => 'trimester-1'")).rows.map((r) => r.title)).toEqual(["Fractions worksheet"]);
+  });
+
   it("applies filters and only returns live listings", async () => {
     const s = await createSeller("s@example.test", "shop-one");
     const other = await createSeller("o@example.test", "shop-two", "suspended");
