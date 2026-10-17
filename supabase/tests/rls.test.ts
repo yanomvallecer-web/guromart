@@ -614,6 +614,19 @@ describe("ranked search", () => {
     expect((await search("fractions", "relevance", ", p_period => 'trimester-1'")).rows.map((r) => r.title)).toEqual(["Fractions worksheet"]);
   });
 
+  it("lists Simplified Activity Sheets and finds them by SAS", async () => {
+    const s = await createSeller("s@example.test", "shop-one");
+    const sas = (await q<{ id: number }>(admin, "select id from public.product_categories where code = 'simplified-activity-sheet'")).rows[0].id;
+    await publish(s.storefrontId, "item-sas", "Fractions practice", { category_id: sas });
+    await publish(s.storefrontId, "item-other", "Fractions quiz");
+
+    const types = await q<{ code: string }>(admin, "select code from public.product_categories order by sort_order");
+    expect(types.rows.map((r) => r.code).slice(3, 6)).toEqual(["activity-sheet", "simplified-activity-sheet", "presentation"]);
+    expect((await search("sas")).rows.map((r) => r.title)).toEqual(["Fractions practice"]);
+    expect((await search("simplified activity sheet")).rows.map((r) => r.title)).toEqual(["Fractions practice"]);
+    expect((await search(null, "newest", ", p_category => 'simplified-activity-sheet'")).rows.map((r) => r.title)).toEqual(["Fractions practice"]);
+  });
+
   it("applies filters and only returns live listings", async () => {
     const s = await createSeller("s@example.test", "shop-one");
     const other = await createSeller("o@example.test", "shop-two", "suspended");

@@ -5,6 +5,7 @@ describe("shortTypeLabel", () => {
   it("uses the names teachers use, and falls back to the category name", () => {
     expect(shortTypeLabel("daily-lesson-log", "Daily Lesson Logs")).toBe("DLL");
     expect(shortTypeLabel("presentation", "PowerPoint Presentations")).toBe("PPT");
+    expect(shortTypeLabel("simplified-activity-sheet", "Simplified Activity Sheets (SAS)")).toBe("SAS");
     expect(shortTypeLabel("something-new", "Something New")).toBe("Something New");
     expect(shortTypeLabel(null, null)).toBeNull();
   });
