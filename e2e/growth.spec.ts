@@ -222,6 +222,13 @@ test("a seller bundles resources at one lower price and the buyer gets every res
   await page.goto("/browse?category=bundle");
   await page.waitForURL("**/bundles");
 
+  // Search finds the bundle by its name and by what is inside it.
+  for (const words of ["heat vs temperature", "thermal energy transfer"]) {
+    await page.goto(`/browse?q=${encodeURIComponent(words)}`);
+    const found = page.getByTestId("bundle-results").filter({ visible: true });
+    await expect(found.locator(`[data-testid="bundle-card"][href="${bundlePath}"]`)).toBeVisible();
+  }
+
   // Each resource page points to the bundle.
   await page.goto(`/resources/${a.slug}`);
   await expect(page.getByTestId("bundle-links").getByRole("link", { name: "Heat vs. Temperature" })).toHaveAttribute("href", bundlePath);

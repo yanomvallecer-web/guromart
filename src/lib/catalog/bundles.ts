@@ -85,6 +85,27 @@ type BundleCardRow = {
   }[];
 };
 
+const CARD_SELECT = `id, slug, title, topic, price_centavos, storefronts(slug, name),
+       bundle_items(sort_order, products(price_centavos, product_previews(storage_path, sort_order)))`;
+
+function toBundleCard(b: BundleCardRow): BundleCard {
+  const items = [...b.bundle_items].sort((x, y) => x.sort_order - y.sort_order).flatMap((i) => (i.products ? [i.products] : []));
+  return {
+    id: b.id,
+    slug: b.slug,
+    title: b.title,
+    topic: b.topic,
+    price_centavos: b.price_centavos,
+    storefront: b.storefronts,
+    item_count: items.length,
+    separate_centavos: items.reduce((s, i) => s + i.price_centavos, 0),
+    cover_paths: items
+      .map((i) => [...i.product_previews].sort((x, y) => x.sort_order - y.sort_order)[0]?.storage_path)
+      .filter((p): p is string => Boolean(p))
+      .slice(0, 4),
+  };
+}
+
 /**
  * Live bundles as cards, newest first, optionally one shop's only. Read
  * anonymously, so only live bundles and live resources count.
@@ -93,31 +114,28 @@ export async function getLiveBundleCards({ limit = 4, storefrontId }: { limit?: 
   "use cache";
   cacheLife("minutes");
   cacheTag("products", "bundles");
-  let query = createPublicClient()
-    .from("bundles")
-    .select(
-      `id, slug, title, topic, price_centavos, storefronts(slug, name),
-       bundle_items(sort_order, products(price_centavos, product_previews(storage_path, sort_order)))`,
-    )
-    .eq("status", "published");
+  let query = createPublicClient().from("bundles").select(CARD_SELECT).eq("status", "published");
   if (storefrontId) query = query.eq("storefront_id", storefrontId);
   const { data, error } = await query.order("created_at", { ascending: false }).limit(limit);
   if (error) throw new Error(`Could not load bundles: ${error.message}`);
-  return (data as unknown as BundleCardRow[]).map((b) => {
-    const items = [...b.bundle_items].sort((x, y) => x.sort_order - y.sort_order).flatMap((i) => (i.products ? [i.products] : []));
-    return {
-      id: b.id,
-      slug: b.slug,
-      title: b.title,
-      topic: b.topic,
-      price_centavos: b.price_centavos,
-      storefront: b.storefronts,
-      item_count: items.length,
-      separate_centavos: items.reduce((s, i) => s + i.price_centavos, 0),
-      cover_paths: items
-        .map((i) => [...i.product_previews].sort((x, y) => x.sort_order - y.sort_order)[0]?.storage_path)
-        .filter((p): p is string => Boolean(p))
-        .slice(0, 4),
-    };
-  });
+  return (data as unknown as BundleCardRow[]).map(toBundleCard);
+}
+
+/**
+ * Live bundles matching search words, by their own title, topic and
+ * description or by a resource inside them; title matches first.
+ */
+export async function searchBundleCards(q: string, { shop, limit = 6 }: { shop?: string; limit?: number } = {}): Promise<BundleCard[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("products", "bundles");
+  const db = createPublicClient();
+  const { data: ids, error } = await db.rpc("search_bundle_ids", { p_q: q, p_shop: shop ?? null, p_limit: limit });
+  if (error) throw new Error(`Bundle search failed: ${error.message}`);
+  const order = (ids ?? []) as string[];
+  if (!order.length) return [];
+  const { data, error: cardError } = await db.from("bundles").select(CARD_SELECT).in("id", order);
+  if (cardError) throw new Error(`Bundle search failed: ${cardError.message}`);
+  const byId = new Map((data as unknown as BundleCardRow[]).map((b) => [b.id, toBundleCard(b)]));
+  return order.map((id) => byId.get(id)).filter((b): b is BundleCard => Boolean(b));
 }

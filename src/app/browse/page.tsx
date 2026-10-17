@@ -11,6 +11,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/card";
 import { ChipGroup, ChoiceChip } from "@/components/ui/chip";
 import { Label, NativeSelect } from "@/components/ui/form";
+import { searchBundleCards } from "@/lib/catalog/bundles";
 import { shortGradeLabel } from "@/lib/catalog/labels";
 import { type Taxonomy, browseProducts, getTaxonomy } from "@/lib/catalog/queries";
 import { getTeachingPreferences } from "@/lib/account/preferences";
@@ -98,7 +99,14 @@ async function Browse({ searchParams }: { searchParams: PageProps<"/browse">["se
     if (prefs.subject) params.subject = prefs.subject.code;
     params.all = "1";
   }
-  const [taxonomy, result] = await Promise.all([getTaxonomy(), browseProducts(params)]);
+  // Bundles show above the first page of search results. Filters such as
+  // grade or price describe single resources, so they leave bundles out.
+  const findBundles = Boolean(params.q) && (params.page ?? 1) === 1 && activeFilters(params).every((f) => f.key === "shop");
+  const [taxonomy, result, bundles] = await Promise.all([
+    getTaxonomy(),
+    browseProducts(params),
+    findBundles ? searchBundleCards(params.q!, { shop: params.shop }) : Promise.resolve([]),
+  ]);
   const sort = effectiveSort(params);
   const active = activeFilters(params);
   const clearHref = params.q ? `/browse?q=${encodeURIComponent(params.q)}&all=1` : "/browse?all=1";
@@ -236,7 +244,16 @@ async function Browse({ searchParams }: { searchParams: PageProps<"/browse">["se
             <SortMenu current={SORT_LABEL[sort]} options={sortOptions} />
           </div>
         </div>
-        {result.items.length === 0 ? (
+        {bundles.length ? (
+          <section aria-labelledby="bundle-results-h" className="flex flex-col gap-3" data-testid="bundle-results">
+            <h2 id="bundle-results-h" className="font-display text-lg font-bold">
+              {bundles.length === 1 ? "1 bundle" : `${bundles.length} bundles`} for &ldquo;{params.q}&rdquo;
+            </h2>
+            <ProductGrid products={[]} bundles={bundles} className="lg:grid-cols-3" />
+            {result.items.length ? <h2 className="mt-2 font-display text-lg font-bold">Single resources</h2> : null}
+          </section>
+        ) : null}
+        {result.items.length === 0 && bundles.length ? null : result.items.length === 0 ? (
           <EmptyState icon={<SearchX />} title="No resources match yet">
             Try fewer filters or a different word. New resources are added as teacher shops publish them.
           </EmptyState>

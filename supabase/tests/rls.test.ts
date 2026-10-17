@@ -1057,6 +1057,18 @@ describe("lesson bundles", () => {
     await expectError(user(buyer), "select * from public.create_order_for_bundle($1)", [bundle.id], /already in your library/);
     await expectError(user(s.userId), "select * from public.create_order_for_bundle($1)", [bundle.id], /your own resource/);
   });
+
+  it("finds live bundles by their name or by a resource inside them", async () => {
+    const { s, a, b, bundle } = await setup();
+    const find = async (words: string) =>
+      (await q<{ id: string }>(anon, "select x as id from public.search_bundle_ids($1) x", [words])).rows.map((r) => r.id);
+    for (const p of [a, b]) await q(user(s.userId), "insert into public.bundle_items (bundle_id, product_id) values ($1, $2)", [bundle.id, p.id]);
+    expect(await find("temperature")).toEqual([]);
+    await q(user(s.userId), "update public.bundles set status = 'published' where id = $1", [bundle.id]);
+    expect(await find("temperature")).toEqual([bundle.id]);
+    expect(await find("slides")).toEqual([bundle.id]);
+    expect(await find("fractions")).toEqual([]);
+  });
 });
 
 describe("review replies and moderation", () => {
