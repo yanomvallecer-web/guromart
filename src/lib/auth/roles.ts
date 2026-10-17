@@ -25,6 +25,8 @@ export function canAccess(roles: readonly Role[], area: Area): boolean {
 /** Only allow same-site relative paths as post-login redirects. */
 export function safeNextPath(value: unknown, fallback = "/"): string {
   if (typeof value !== "string") return fallback;
+  // Browsers drop tabs and newlines from URLs, so "/\t/evil.example" would become "//evil.example".
+  if (/[\u0000-\u001f\u007f]/.test(value)) return fallback;
   if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return fallback;
   return value;
 }

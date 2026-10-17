@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBytes, formatPrice, slugify } from "./format";
+import { formatAmount, formatBytes, formatPrice, slugify } from "./format";
 
 describe("formatPrice", () => {
   it("formats centavos as pesos", () => {
@@ -13,6 +13,15 @@ describe("formatPrice", () => {
   it("rejects fractional or negative amounts", () => {
     expect(() => formatPrice(-1)).toThrow();
     expect(() => formatPrice(10.5)).toThrow();
+  });
+});
+
+describe("formatAmount", () => {
+  it("formats balances, including zero and money owed", () => {
+    expect(formatAmount(0)).toBe("₱0.00");
+    expect(formatAmount(840050)).toBe("₱8,400.50");
+    expect(formatAmount(-2500)).toBe("-₱25.00");
+    expect(() => formatAmount(1.5)).toThrow();
   });
 });
 

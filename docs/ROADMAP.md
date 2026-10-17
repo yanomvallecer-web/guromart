@@ -11,7 +11,7 @@
 | Database schema and migrations for the full MVP | Done | `supabase/tests/rls.test.ts` |
 | Row-level security, guard triggers, audit log | Done | `supabase/tests/rls.test.ts` |
 | Email code sign-in and sign-up, session refresh, sign-out | Done | `e2e/accounts.spec.ts` |
-| Google sign-in | Built, needs provider credentials | Not tested (needs Google OAuth client) |
+| Facebook and Google sign-in | Built, needs provider credentials | Buttons and redirect tested locally; provider round trip not tested (needs a Meta app and Google OAuth client) |
 | Role-based access on the server (buyer, seller, publisher, admin) | Done | `src/lib/auth/roles.test.ts`, `e2e/accounts.spec.ts` |
 | Design system tokens and components | Done | Visual check on desktop and mobile |
 | Homepage from real data with empty states | Done | `e2e/visitor.spec.ts` |
@@ -47,9 +47,30 @@
 | Cart: paid, live resources only; no buying your own or something you already own; at most 50; totals from current server prices | Done | `supabase/tests/rls.test.ts`, `e2e/library.spec.ts` |
 | Free "get" flow: adds a free resource to the library (granted by the database, never for paid resources) | Done | `supabase/tests/rls.test.ts`, `e2e/library.spec.ts` |
 | My Library and downloads: the database checks ownership and logs each download, then the server signs a one-minute link to the private file; 60 downloads an hour per teacher; archived resources stay downloadable; revoked access is blocked | Done | `supabase/tests/rls.test.ts`, `e2e/library.spec.ts` |
-| PayMongo Checkout Sessions (sandbox), verified and idempotent webhooks | Not started | |
-| Orders, receipts, payment failure handling | Not started | |
-| Seller earnings ledger, balances, commission breakdown | Not started | |
+| Orders from the cart with price and commission snapshots (Starter 30%, Pro 15%, or a negotiated rate) | Done | `supabase/tests/rls.test.ts` |
+| PayMongo Checkout Sessions (test keys only; live keys refused) | Done against a local stand-in; needs a run with real PayMongo test keys | `src/lib/payments/paymongo.test.ts`, `e2e/checkout.spec.ts` |
+| Webhook: signature checked on the raw body, each event applied once, amount and mode must match, then access, seller ledger credit (7-day hold), sales count, cart cleanup and notifications in one transaction; duplicate purchases flagged for refund | Done | `src/lib/payments/paymongo.test.ts`, `supabase/tests/rls.test.ts`, `e2e/checkout.spec.ts` |
+| Order history and receipts; order page waits for confirmation and never unlocks on the redirect alone | Done | `e2e/checkout.spec.ts` |
+| Expiring abandoned orders, failed-payment messages: unpaid orders expire 25 hours after checkout (a platform setting, never under PayMongo's 24-hour checkout window), checked when the buyer opens their orders or starts a checkout, plus an hourly sweep where pg_cron is installed; a payment confirmed after expiry still unlocks the resources and credits the seller (audited as a late payment); declined attempts (`payment.failed`) and expired or cancelled orders are explained on the order page with a way back to the cart | Done against a local stand-in; the `payment.failed` payload needs a run with real PayMongo test keys | `src/lib/payments/paymongo.test.ts`, `supabase/tests/rls.test.ts`, `e2e/checkout.spec.ts` |
+| Seller earnings view (`/seller/earnings`): on hold, available and lifetime earnings from the ledger, recent sales with price, GuroMart fee and the seller's share, the days held money becomes available, honest empty state; sellers see only their own | Done | `supabase/tests/rls.test.ts`, `src/lib/format.test.ts`, `e2e/checkout.spec.ts` |
+
+## Phone UX pass (branch `ux-phone-fixes`)
+
+Fixes from the UX design review, for teachers on budget Android phones over mobile data. Checked at a 390px screen.
+
+| Item | Status | Tested by |
+| --- | --- | --- |
+| Browse: results first, Filters button opening a bottom sheet (tap chips for grade, subject, type and price; quarter, curriculum, language and file type under "More filters"), apply button with the real result count from the same search, removable filter chips, one-line sort menu, two portrait cards per row from 360px with the type on the thumbnail; desktop keeps the sidebar; filters stay in the URL and work before JavaScript loads | Done | `e2e/phone.spec.ts`, `src/lib/catalog/*.test.ts` |
+| Resource page: type, title, shop, rating and downloads (only when real), swipeable previews, price and the one action in a bar fixed to the bottom of phones, "GCash · Maya · Card", quick facts tiles from filled-in fields only, Share (Web Share API, copy-link fallback) | Done | `e2e/phone.spec.ts`, `e2e/library.spec.ts` |
+| Sign-in: "Email me a sign-in code", six code boxes (paste and one-time-code autofill, submit on the last digit, single field before JavaScript), Open Gmail, Spam/Promotions help, resend after a countdown through the same rate-limited action, use a different email; a form posted before JavaScript loads now shows its answer | Done | `e2e/phone.spec.ts`, every e2e sign-in |
+| One-row phone header (logo and search) and bottom tab bar (Home, Browse, Library, Cart, Account) with current tab, 44px targets, cart badge, sign-in redirects; seller and admin links under Account; hidden on resource pages, whose buy bar takes its place | Done | `e2e/phone.spec.ts` |
+| Homepage: empty shelves hidden; under 8 live resources, one launch message with Browse and "Sell on GuroMart"; grades in one swipeable row | Done | `e2e/visitor.spec.ts`; launch state checked by hand with the catalog emptied locally |
+| "Tell us what you need" request form | Not built | Needs a table, RLS and a review flow first |
+| Buy now: one resource straight to PayMongo without charging the rest of the cart (`create_order_for_product`, same checks as the cart); hidden until its SQL is run | Done; needs `guromart-setup/ux-buy-now.sql` on the hosted database | `supabase/tests/rls.test.ts`, `e2e/phone.spec.ts` |
+| Cart total and Pay button in a sticky bar above the tab bar on phones | Done | `e2e/phone.spec.ts` |
+| My Library: grade and quarter filters from what the teacher owns, thumbnails | Done | `e2e/phone.spec.ts` |
+| Seller listing form in steps (file, details, price) with progress, chips for grades and subject, same server validation, Save draft on every step; dashboard shows the real shop link with Copy | Done | `e2e/listings.spec.ts`, `e2e/phone.spec.ts` |
+| Automatic PDF preview images | Not started (P2) | |
 
 ## Phase 4: Marketplace operations
 
@@ -70,6 +91,7 @@
 | Supabase project (Singapore region) | Any hosted environment | Free tier is fine for staging |
 | Production email sender (SMTP, e.g. Resend or Amazon SES) | Sign-in codes at scale | Supabase's built-in sender is for testing only |
 | Google OAuth client | Google sign-in | Optional |
+| Meta (Facebook) app | Facebook sign-in | Optional |
 | PayMongo account and business verification | Live payments | Test keys are enough for Phase 3 development |
 | Confirmation of PayMongo payout capabilities | Automating seller payouts | Until then payouts are recorded and sent manually |
 | Malware scanning service | Approving uploaded files | Until chosen, files stay quarantined for manual review |

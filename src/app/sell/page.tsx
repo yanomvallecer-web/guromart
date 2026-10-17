@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { PageShell, PanelSkeleton } from "@/components/layout/page-shell";
+import { BundlePromo } from "@/components/catalog/bundle-promo";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getViewer } from "@/lib/auth/dal";
@@ -14,6 +15,7 @@ export const metadata: Metadata = { title: "Sell on GuroMart" };
 export default function SellPage() {
   return (
     <PageShell title="Sell on GuroMart" description="Open a shop for the lesson plans, worksheets and slides you already make.">
+      <BundlePromo />
       <Suspense fallback={<PanelSkeleton />}>
         <Plans />
       </Suspense>
@@ -29,18 +31,28 @@ async function Plans() {
   return (
     <section aria-labelledby="plans-h" className="flex flex-col gap-3">
       <h2 id="plans-h" className="font-display text-xl font-bold">How you get paid</h2>
-      <div className="grid gap-4 md:grid-cols-2">
+      {plans.proBps < plans.starterBps ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="p-5">
+            <p className="font-semibold">Starter · free</p>
+            <p className="mt-1 font-display text-3xl font-bold">You keep {100 - plans.starterBps / 100}%</p>
+            <p className="mt-2 text-sm text-muted-foreground">GuroMart&apos;s share covers payment fees, hosting and buyer support.</p>
+          </Card>
+          <Card className="p-5">
+            <p className="font-semibold">Pro</p>
+            <p className="mt-1 font-display text-3xl font-bold">You keep {100 - plans.proBps / 100}%</p>
+            <p className="mt-2 text-sm text-muted-foreground">For active sellers. Pro sign-up opens with payments.</p>
+          </Card>
+        </div>
+      ) : (
         <Card className="p-5">
-          <p className="font-semibold">Starter · free</p>
-          <p className="mt-1 font-display text-3xl font-bold">You keep {100 - plans.starterBps / 100}%</p>
-          <p className="mt-2 text-sm text-muted-foreground">GuroMart&apos;s share covers payment fees, hosting and buyer support.</p>
+          <p className="font-semibold">Free to sell</p>
+          <p className="mt-1 font-display text-3xl font-bold">You keep {100 - plans.starterBps / 100}% of every sale</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            GuroMart keeps {plans.starterBps / 100}%, which covers payment fees, hosting and buyer support. No monthly fee.
+          </p>
         </Card>
-        <Card className="p-5">
-          <p className="font-semibold">Pro</p>
-          <p className="mt-1 font-display text-3xl font-bold">You keep {100 - plans.proBps / 100}%</p>
-          <p className="mt-2 text-sm text-muted-foreground">For active sellers. Pro sign-up opens with payments.</p>
-        </Card>
-      </div>
+      )}
       <p className="text-sm text-muted-foreground">
         Payouts go to GCash, Maya or your bank once your balance reaches ₱{plans.minPayoutCentavos / 100}. New earnings are held {plans.holdDays} days to cover refunds.
       </p>

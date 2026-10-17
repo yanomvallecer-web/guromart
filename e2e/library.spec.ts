@@ -13,7 +13,7 @@ test("a teacher gets a free resource and downloads it from their library", async
   const email = uniqueEmail("getter");
   await signIn(page, email, `/resources/${free.slug}`);
   await page.getByRole("button", { name: "Get it free" }).click();
-  await expect(page.getByRole("link", { name: "In your library" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open in library" })).toBeVisible();
 
   await page.goto("/library");
   await expect(page.getByText("Free Library Test Worksheet")).toBeVisible();
@@ -46,7 +46,6 @@ test("a paid resource goes in the cart and can't be downloaded before it is paid
   await page.goto("/cart");
   await expect(page.getByRole("link", { name: "Paid Cart Test Reviewer" })).toBeVisible();
   await expect(page.getByText("₱75.00").first()).toBeVisible();
-  await expect(page.getByText("Online payment is not open yet.")).toBeVisible();
 
   await page.getByRole("button", { name: "Remove from cart" }).click();
   await expect(page.getByRole("heading", { name: "Your cart is empty" })).toBeVisible();

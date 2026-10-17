@@ -11,6 +11,7 @@ export async function CartLink() {
   return (
     <Link
       href="/cart"
+      data-web-checkout
       aria-label={count ? `Cart, ${count} ${count === 1 ? "resource" : "resources"}` : "Cart"}
       className="relative flex size-11 items-center justify-center rounded-[10px] hover:bg-surface-muted"
     >

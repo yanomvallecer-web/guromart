@@ -7,6 +7,15 @@ export function formatPrice(centavos: number): string {
   return php.format(centavos / 100);
 }
 
+/**
+ * Formats a balance or ledger amount in centavos, e.g. 0 -> "₱0.00",
+ * -2500 -> "-₱25.00". Unlike formatPrice, zero is a sum, not "Free".
+ */
+export function formatAmount(centavos: number): string {
+  if (!Number.isInteger(centavos)) throw new RangeError(`Invalid amount: ${centavos}`);
+  return `${centavos < 0 ? "-" : ""}${php.format(Math.abs(centavos) / 100)}`;
+}
+
 /** Turns a shop or product name into a URL slug. */
 export function slugify(input: string, maxLength = 50): string {
   return input

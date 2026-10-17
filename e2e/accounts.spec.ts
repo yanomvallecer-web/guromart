@@ -81,6 +81,51 @@ test("a teacher opens a shop and a staff-published listing appears in search", a
   // Grant admin and check the overview counts the shop and the audit trail.
   await serviceRest("user_roles", { method: "POST", body: JSON.stringify({ user_id: userId, role: "admin" }) });
   await page.goto("/admin");
-  await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
-  await expect(page.getByText("seller.onboarding_started").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Admin", exact: true })).toBeVisible();
+  await expect(page.getByTestId("admin-activity").getByText("Someone started setting up a shop").first()).toBeVisible();
+});
+
+test("an admin lists accounts, filters to sellers and searches by email", async ({ page, browser }) => {
+  const buyerEmail = uniqueEmail("listed-buyer");
+  const buyer = await browser.newPage();
+  await signIn(buyer, buyerEmail, "/account");
+  // Buyers can't open the list.
+  await buyer.goto("/admin/accounts");
+  await expect(buyer.getByRole("heading", { name: "You don't have access to this page" })).toBeVisible();
+  await buyer.close();
+
+  const sellerEmail = uniqueEmail("listed-seller");
+  const seller = await browser.newPage();
+  await signIn(seller, sellerEmail, "/sell");
+  await seller.getByText("Teacher", { exact: true }).click();
+  await seller.getByLabel("Shop name").fill("Listed Lessons");
+  await seller.getByLabel("Shop address").fill(`listed-${Date.now()}`);
+  await seller.getByRole("checkbox").check();
+  await seller.getByRole("button", { name: "Open my shop" }).click();
+  await seller.waitForURL("**/seller");
+  await seller.close();
+
+  const staffEmail = uniqueEmail("accounts-admin");
+  await signIn(page, staffEmail, "/account");
+  await serviceRest("user_roles", { method: "POST", body: JSON.stringify({ user_id: await userIdFor(staffEmail), role: "admin" }) });
+  await page.goto("/admin");
+  await page.getByRole("link", { name: "Accounts Everyone who signed up" }).click();
+  await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();
+  const table = page.getByTestId("accounts-table");
+  await expect(table.getByRole("row", { name: new RegExp(buyerEmail) })).toContainText("No");
+  await expect(table.getByRole("row", { name: new RegExp(sellerEmail) })).toContainText("Setting up");
+  await expect(table.getByRole("row", { name: new RegExp(sellerEmail) })).toContainText("Listed Lessons (not public)");
+  await expect(table.getByRole("row", { name: new RegExp(staffEmail) })).toContainText("Admin");
+
+  await page.getByRole("link", { name: /^Sellers \(\d+\)$/ }).click();
+  await expect(page).toHaveURL(/show=sellers/);
+  await expect(table.getByRole("row", { name: new RegExp(sellerEmail) })).toBeVisible();
+  await expect(table.getByRole("row", { name: new RegExp(buyerEmail) })).toHaveCount(0);
+
+  await page.getByRole("link", { name: /^Everyone \(\d+\)$/ }).click();
+  await expect(page).toHaveURL(/\/admin\/accounts$/);
+  await page.getByLabel("Search accounts").fill(buyerEmail);
+  await page.getByRole("button", { name: "Find" }).click();
+  await expect(table.getByRole("row")).toHaveCount(2);
+  await expect(table.getByRole("row", { name: new RegExp(buyerEmail) })).toBeVisible();
 });

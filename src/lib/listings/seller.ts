@@ -83,16 +83,29 @@ export async function getOwnListing(storefrontId: string, id: string): Promise<E
   };
 }
 
-export type ListingSummary = { id: string; title: string; status: string; price_centavos: number; updated_at: string; slug: string };
+export type ListingSummary = {
+  id: string;
+  title: string;
+  topic: string | null;
+  status: string;
+  price_centavos: number;
+  updated_at: string;
+  slug: string;
+  /** The first preview image, the same one teachers see on the card. */
+  preview_path: string | null;
+};
 
 export async function listOwnListings(storefrontId: string): Promise<ListingSummary[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("products")
-    .select("id, slug, title, status, price_centavos, updated_at")
+    .select("id, slug, title, topic, status, price_centavos, updated_at, product_previews(storage_path, sort_order)")
     .eq("storefront_id", storefrontId)
     .neq("status", "archived")
     .order("updated_at", { ascending: false });
   if (error) throw new Error(`Could not load your resources: ${error.message}`);
-  return data;
+  return data.map(({ product_previews, ...row }) => ({
+    ...row,
+    preview_path: [...(product_previews ?? [])].sort((a, b) => a.sort_order - b.sort_order)[0]?.storage_path ?? null,
+  }));
 }

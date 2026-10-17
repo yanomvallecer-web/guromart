@@ -9,7 +9,14 @@ export function SiteFooter() {
         </p>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
           <Link href="/browse" className="hover:text-foreground">Browse</Link>
+          <Link href="/bundles" className="font-semibold text-primary hover:underline">Lesson bundles</Link>
           <Link href="/sell" className="hover:text-foreground">Sell on GuroMart</Link>
+          <Link href="/terms" className="hover:text-foreground">Terms</Link>
+          <Link href="/refunds" className="hover:text-foreground">Refunds</Link>
+          <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
+          <Link href="/data-deletion" className="hover:text-foreground">Delete your data</Link>
+          <Link href="/help" className="hover:text-foreground">Ask GuroMart</Link>
+          <Link href="/contact" className="hover:text-foreground">Contact</Link>
         </nav>
       </div>
       <p className="mx-auto max-w-[1200px] px-4 pb-8 text-xs text-muted-foreground sm:px-6">

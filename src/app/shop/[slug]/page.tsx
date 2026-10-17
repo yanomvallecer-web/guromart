@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { BookOpen } from "lucide-react";
+import { FollowControl } from "@/components/catalog/follow-control";
 import { ProductGrid } from "@/components/catalog/product-card";
-import { EmptyState } from "@/components/ui/card";
+import { BundlePromo } from "@/components/catalog/bundle-promo";
+import { EmptyState, Skeleton } from "@/components/ui/card";
+import { getLiveBundleCards } from "@/lib/catalog/bundles";
 import { browseProducts } from "@/lib/catalog/queries";
 import { getStorefront } from "@/lib/catalog/storefront";
 import { publicObjectUrl } from "@/lib/storage";
@@ -16,6 +19,7 @@ export async function generateMetadata({ params }: PageProps<"/shop/[slug]">): P
 export default function ShopPage({ params }: PageProps<"/shop/[slug]">) {
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6">
+      <BundlePromo className="mb-5" />
       <Suspense fallback={<div className="h-96 animate-pulse rounded-[12px] bg-border/50" />}>
         <Shop params={params} />
       </Suspense>
@@ -26,7 +30,7 @@ export default function ShopPage({ params }: PageProps<"/shop/[slug]">) {
 async function Shop({ params }: { params: PageProps<"/shop/[slug]">["params"] }) {
   const store = await getStorefront((await params).slug);
   if (!store) notFound();
-  const products = await browseProducts({ shop: store.slug, sort: "newest" });
+  const [products, bundles] = await Promise.all([browseProducts({ shop: store.slug, sort: "newest" }), getLiveBundleCards({ storefrontId: store.id, limit: 24 })]);
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-4">
@@ -52,10 +56,14 @@ async function Shop({ params }: { params: PageProps<"/shop/[slug]">["params"] })
             {store.tagline ? <p className="mt-1 text-lg text-muted-foreground">{store.tagline}</p> : null}
           </div>
         </div>
+        <Suspense fallback={<Skeleton className="h-11 w-32" />}>
+          <FollowControl storefrontId={store.id} path={`/shop/${store.slug}`} />
+        </Suspense>
         {store.description ? <p className="max-w-2xl whitespace-pre-line">{store.description}</p> : null}
       </header>
-      {products.items.length ? (
-        <ProductGrid products={products.items} />
+      {/* The shop's bundles lead its resources, as cards with their pictures. */}
+      {products.items.length || bundles.length ? (
+        <ProductGrid products={products.items} bundles={bundles} />
       ) : (
         <EmptyState icon={<BookOpen />} title="No resources yet">This shop hasn&apos;t published anything yet.</EmptyState>
       )}

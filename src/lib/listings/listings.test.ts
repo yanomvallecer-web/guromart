@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listingFromForm, pesosToCentavos, reviewProblems } from "./schema";
+import { completeness, listingFromForm, pesosToCentavos, reviewProblems } from "./schema";
 import { checkUpload, cleanFileName, matchesSignature, objectPath } from "./uploads";
 
 describe("pesosToCentavos", () => {
@@ -37,13 +37,19 @@ describe("listingFromForm", () => {
     expect(listingFromForm(form({ ...base, price: "20" })).success).toBe(false);
     expect(listingFromForm(form({ ...base, price: "0" })).data?.price).toBe(0);
   });
+  it("drops the lesson fields for types that aren't one lesson", () => {
+    const lessonFields = { summary: "One line", curriculum: "matatag", period_detail: "Week 3", topic: "Name tags", learning_competency: "M4NS" };
+    const r = listingFromForm(form({ ...base, ...lessonFields, category: "classroom-decor" }));
+    expect(r.data).toMatchObject({ summary: null, curriculum: null, period_detail: null, topic: null, learning_competency: null });
+    expect(listingFromForm(form({ ...base, ...lessonFields })).data?.topic).toBe("Name tags");
+  });
   it("rejects hostile codes", () => {
     expect(listingFromForm(form({ ...base, category: "x'; drop" })).success).toBe(false);
   });
 });
 
 describe("reviewProblems", () => {
-  const ready = { title: "Fractions", description: "x".repeat(60), category_id: 1, subject_id: 2, grade_count: 1, file_count: 1, preview_count: 1, copyright_declared: true };
+  const ready = { title: "Fractions", topic: "Adding fractions", description: "x".repeat(60), category_id: 1, subject_id: 2, grade_count: 1, file_count: 1, preview_count: 2, copyright_declared: true };
   it("is empty when everything is there", () => {
     expect(reviewProblems(ready)).toEqual([]);
   });
@@ -52,6 +58,46 @@ describe("reviewProblems", () => {
       "Upload at least one file.",
       "Confirm you own the rights to sell this resource.",
     ]);
+  });
+  it("doesn't need a topic for printables, games, decor, planners and forms", () => {
+    for (const code of ["printable", "educational-game", "classroom-decor", "planner"]) {
+      expect(reviewProblems({ ...ready, topic: null, category_code: code })).toEqual([]);
+    }
+    expect(reviewProblems({ ...ready, topic: null, category_code: "worksheet" })).toHaveLength(1);
+  });
+  it("needs a lesson topic and a cover plus an inside page", () => {
+    expect(reviewProblems({ ...ready, topic: " ", preview_count: 1 })).toEqual([
+      'Add the lesson topic, for example "Heat vs. Temperature". It\'s the title teachers see first.',
+      "Add at least 2 preview images: the cover and a page from inside, so teachers can see what they get.",
+    ]);
+  });
+});
+
+describe("completeness", () => {
+  it("marks required and recommended items from the listing's own fields", () => {
+    const items = completeness({
+      title: "Fractions", topic: "Adding fractions", description: "x".repeat(60), category_id: 1, subject_id: 2, grade_count: 1,
+      file_count: 1, preview_count: 2, copyright_declared: true, summary: null, learning_competency: "M4NS-IIa", page_count: 7,
+      curriculum_id: null, academic_period_id: 2, language_code: null,
+    });
+    expect(items.filter((i) => i.required).every((i) => i.done)).toBe(true);
+    expect(items.filter((i) => !i.done).map((i) => i.label)).toEqual([
+      "Language",
+      "4 or more previews, including an activity and the assessment",
+      "Short summary",
+    ]);
+  });
+});
+
+describe("completeness for types that aren't one lesson", () => {
+  it("leaves out the topic, competency, quarter and summary", () => {
+    const labels = completeness({
+      title: "Name tags", topic: null, description: "x".repeat(60), category_id: 1, subject_id: 2, grade_count: 1,
+      file_count: 1, preview_count: 2, copyright_declared: true, summary: null, learning_competency: null, page_count: null,
+      curriculum_id: null, academic_period_id: null, language_code: null, category_code: "classroom-decor",
+    }).map((i) => i.label);
+    for (const gone of ["Lesson topic", "Learning competency (MELC or code)", "Quarter or curriculum", "Short summary"]) expect(labels).not.toContain(gone);
+    expect(labels).toContain("Language");
   });
 });
 

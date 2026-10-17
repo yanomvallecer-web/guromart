@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { browseHref, effectiveSort, parseBrowseParams, priceRange } from "./search-params";
+import { activeFilters, browseHref, effectiveSort, parseBrowseParams, priceRange } from "./search-params";
 
 describe("parseBrowseParams", () => {
   it("keeps valid filters", () => {
@@ -51,5 +51,15 @@ describe("browseHref", () => {
     expect(browseHref({ q: "math", grade: "grade-1", page: 3 }, { subject: "science" })).toBe("/browse?q=math&grade=grade-1&subject=science");
     expect(browseHref({ grade: "grade-1" }, { grade: null })).toBe("/browse");
     expect(browseHref({ grade: "grade-1" }, { page: 2 })).toBe("/browse?grade=grade-1&page=2");
+  });
+});
+
+describe("activeFilters", () => {
+  it("lists only real filters, not the search words, sort or page", () => {
+    expect(activeFilters({ q: "dll", sort: "newest", page: 2, grade: "grade-4", price: "free" })).toEqual([
+      { key: "grade", value: "grade-4" },
+      { key: "price", value: "free" },
+    ]);
+    expect(activeFilters({})).toEqual([]);
   });
 });

@@ -1,26 +1,28 @@
 @import "tailwindcss";
 
-/* GuroMart design tokens. Educational blue on warm neutrals, one warm accent. */
+/* GuroMart design tokens: deep teal, warm paper and a restrained marigold accent. */
 :root {
-  --background: #f6f5f1;
+  --background: #f7f5ef;
   --surface: #ffffff;
   --surface-muted: #faf9f6;
-  --foreground: #15233f;
-  --muted-foreground: #4d576a;
+  --foreground: #213c36;
+  --muted-foreground: #596b63;
   --border: #e3e1d9;
   --input: #c9c6bb;
-  --primary: #1a56a8;
-  --primary-hover: #154a92;
+  --primary: #17675f;
+  --primary-hover: #10554e;
   --primary-foreground: #ffffff;
-  --primary-soft: #e6eef9;
-  --accent: #f4b400;
-  --accent-soft: #fdf1cc;
+  --primary-soft: #e7efea;
+  --accent: #e9b44c;
+  --accent-soft: #f6edda;
   --success: #1d7a46;
   --success-soft: #e3f3e9;
   --danger: #b42318;
   --danger-soft: #fdecea;
-  --ring: #1a56a8;
+  --ring: #17675f;
   --radius: 12px;
+  /* Height of the phone tab bar and the resource page's buy bar (same slot). */
+  --bottom-bar: 4rem;
 }
 
 @theme inline {
@@ -46,6 +48,52 @@
   --radius-md: calc(var(--radius) - 4px);
   --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-display-face), var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --animate-sheet-up: sheet-up 200ms ease-out;
+}
+
+/* The homepage's wall of covers drifts upward; the list is doubled so the loop is seamless. */
+@keyframes cover-drift {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+.cover-drift {
+  animation: cover-drift 60s linear infinite;
+}
+
+.cover-drift-slow {
+  animation: cover-drift 80s linear infinite;
+}
+
+.cover-wall:hover .cover-drift,
+.cover-wall:hover .cover-drift-slow {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cover-drift,
+  .cover-drift-slow {
+    animation: none;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@layer base {
+  h1, h2, h3 {
+    font-family: var(--font-display);
+  }
 }
 
 body {
@@ -58,4 +106,19 @@ body {
 :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+/* A page with a second bar stacked above the phone tab bar (the cart's total and Pay
+   button) gets room for both, so neither covers the end of the page. */
+@media (width < 48rem) {
+  html:not([data-app="android"]) body:has([data-stacked-bar]) {
+    padding-bottom: calc(2 * var(--bottom-bar) + env(safe-area-inset-bottom));
+  }
+}
+
+/* Inside the Android app, paid checkout is hidden and app-only notes show instead
+   (see components/site/android-app.tsx for why). */
+html[data-app="android"] [data-web-checkout],
+html:not([data-app="android"]) [data-app-only] {
+  display: none !important;
 }
